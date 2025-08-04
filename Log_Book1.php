@@ -22,13 +22,13 @@
             </div>
             <ul class="nav-menu" id="nav-menu">
                 <li><a href="home.html">Home</a></li>
-                <li><a href="Log_Book1.php" class="active">Log Book</a></li>
+                <li><a href="Log_Book1" class="active">Log Book</a></li>
                 <li><a href="Studyresources.html">Study Resources</a></li>
                 <li><a href="About.html">About US</a></li>
             </ul>
         </div>
     </nav>
-    <form action="logboo.php" method="post">
+    <form action="" method="post">
     <h1>Log Book</h1>
     <input type="submit" name="logout" value="logout" 
     style="float: top; margin-right: 20px; margin-top:0px; background-color: red; color: white; border: none; border-radius: 4px; cursor: pointer;">
@@ -490,4 +490,5 @@
         });
     </script>
 </body>
+
 </html>
