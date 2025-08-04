@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resources</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        function showAlert(message) {
+            alert(message);
+        }
+    </script>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="home.html">Digital Lab Portal</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="home.html">Home</a></li>
+                <li><a href="Log_Book1.php">Log Book</a></li>
+                <li><a href="Studyresources.html" class="active">Study Resources</a></li>
+                <li><a href="About.html">About US</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>📚 Study Resources</h1>
+            <p>Upload, download, and manage your academic materials with ease</p>
+        </div>
+
+        <div class="sections-grid">
+            <div class="section-card">
+                <div class="upload-icon">📤</div>
+                <h2>Upload PDF</h2>
+                <form action="upload.php" method="post" enctype="multipart/form-data" target="uploadFrame" onsubmit="setTimeout(() => showAlert('File uploaded successfully!'), 500);">
+                    <div class="form-group">
+                        <input type="file" name="fileToUpload" id="fileToUpload" accept="application/pdf" class="form-control">
+                    </div>
+                    <button type="submit" name="submit" class="btn">Upload PDF</button>
+                </form>
+            </div>
+
+            <div class="section-card">
+                <div class="download-icon">📥</div>
+                <h2>Download PDF</h2>
+                <form action="download.php" method="post">
+                    <div class="form-group">
+                        <input type="text" name="search" id="filename" placeholder="Enter the filename" class="form-control">
+                    </div>
+                    <button type="submit" class="btn">Search and Download PDF</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="file-list-container">
+            <h2>📋 Available Files</h2>
+            <iframe src="file_list.php" name="uploadFrame" title="Available files list" class="file-iframe"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const hamburger = document.getElementById('hamburger');
+        const navMenu = document.getElementById('nav-menu');
+
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+
+        // Close menu when clicking on a link
+        document.querySelectorAll('.nav-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About US</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="home.html">Digital Lab Portal</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="home.html">Home</a></li>
+                <li><a href="Log_Book1.php">Log Book</a></li>
+                <li><a href="Studyresources.html">Study Resources</a></li>
+                <li><a href="About.html" class="active">About US</a></li>
+            </ul>
+        </div>
+    </nav>
+    <table border="" cellpadding="50" class="about-table">
+        <tr>
+            <td>
+                <div class="about-content">
+                    <h1>About Us</h1>
+                    <p>Thank you for visiting our website. This is a "Log Book Management System" developed for 
+                       storing students academic scores and details digitally. This website was created as a mini project and then later implemented 
+                       because of its functionality and usage.</p>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <script>
+        const hamburger = document.getElementById('hamburger');
+        const navMenu = document.getElementById('nav-menu');
+
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+
+        // Close menu when clicking on a link
+        document.querySelectorAll('.nav-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+            });
+        });
+    </script>
+</body>
+</html>

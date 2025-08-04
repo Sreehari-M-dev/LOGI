@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Lab Portal - College Name</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="home.html">Digital Lab Portal</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="home.html" class="active">Home</a></li>
+                <li><a href="Log_Book1.php">Log Book</a></li>
+                <li><a href="Studyresources.html">Study Resources</a></li>
+                <li><a href="About.html">About US</a></li>
+            </ul>
+        </div>
+    </nav>
+    
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <img src="c-logo.png"  id="hero-image" alt="College Background" srcset="">
+            <h1>Welcome to Digital Lab Portal</h1>
+            <p>Streamline your laboratory work with our comprehensive digital management system</p>
+            <a href="login.php" class="btn btn-primary">Access Lab Book</a>
+        </div>
+    </section>
+
+    <!-- Quick Links Section -->
+    <section class="quick-links">
+        <div class="links-container">
+            <div class="link-card">
+                <h3>Lab Records</h3>
+                <p>Maintain and access your lab records digitally</p>
+                <a href="Log_Book1.php" class="btn btn-primary">View Records</a>
+            </div>
+            <div class="link-card">
+                <h3>Study Resources</h3>
+                <p>Access course materials and study guides</p>
+                <a href="Studyresources.html" class="btn btn-primary">Browse Resources</a>
+            </div>
+            <div class="link-card">
+                <h3>Support</h3>
+                <p>Get help with your lab work and technical issues</p>
+                <a href="About.html" class="btn btn-primary">Get Help</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="home.html">Home</a></li>
+                    <li><a href="Log_Book1.php">Lab Book</a></li>
+                    <li><a href="Studyresources.html">Resources</a></li>
+                    <li><a href="About.html">About Us</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Contact Us</h3>
+                <ul>
+                    <li>Email: info@college.edu</li>
+                    <li>Phone: (555) 123-4567</li>
+                    <li>Address: College Campus, City, State ZIP</li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Help & Support</h3>
+                <ul>
+                    <li><a href="#">FAQ</a></li>
+                    <li><a href="#">Technical Support</a></li>
+                    <li><a href="#">Student Guide</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Digital Lab Portal. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const hamburger = document.getElementById('hamburger');
+        const navMenu = document.getElementById('nav-menu');
+
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        });
+
+        // Close menu when clicking on a link
+        document.querySelectorAll('.nav-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+            });
+        });
+    </script>
+</body>
+
+</html>
