@@ -840,11 +840,9 @@ input[type="submit"]:hover {
     background-color: #45a049;
 }
 
-h1,
-h2,
-h3 {
+h1,h2,h3 {
     text-align: center;
-    color: #f9fbf9;
+    color: #000000;
 }
 
 #addrow,
