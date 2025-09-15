@@ -24,19 +24,19 @@ body {
 ::-webkit-scrollbar-track {
     background: linear-gradient(135deg, #f1f1f1 0%, #e6e6e6 100%);
     border-radius: 10px;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
 }
 
 ::-webkit-scrollbar-thumb {
     background: linear-gradient(135deg, #36ba86 0%, #2c9871 100%);
     border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(135deg, #2c9871 0%, #228660 100%);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
     transform: scale(1.05);
 }
 
@@ -67,7 +67,7 @@ html {
 .nav-menu::-webkit-scrollbar-thumb {
     background: linear-gradient(135deg, #36ba86 0%, #2c9871 100%);
     border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .container::-webkit-scrollbar-track,
@@ -80,7 +80,7 @@ html {
 /* Modern Navbar Styles */
 .navbar {
     background: linear-gradient(135deg, #36ba86 0%, #2c9871 100%);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -136,13 +136,13 @@ html {
     color: #36ba86;
     background-color: white;
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
 .nav-menu .active {
     background: linear-gradient(135deg, #4CAF50, #45a049);
     border-radius: 25px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     transform: translateY(-2px);
 }
 
@@ -212,6 +212,7 @@ html {
     0% {
         transform: rotate(0deg);
     }
+
     100% {
         transform: rotate(360deg);
     }
@@ -231,6 +232,7 @@ html {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -261,6 +263,7 @@ html {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 0.9;
     }
@@ -499,7 +502,8 @@ html {
     font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
 }
 
-#btstud, #btfac {
+#btstud,
+#btfac {
     margin-left: 43%;
     margin-right: 40%;
     margin-top: 5%;
@@ -514,7 +518,8 @@ html {
     width: 200px;
 }
 
-#btstud:hover, #btfac:hover {
+#btstud:hover,
+#btfac:hover {
     background-color: rgb(54, 186, 134);
     color: aqua;
     text-align: center;
@@ -553,7 +558,7 @@ img {
     font-size: 3rem;
     font-weight: 700;
     margin-bottom: 10px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .page-header p {
@@ -574,14 +579,14 @@ img {
     -webkit-backdrop-filter: blur(10px);
     border-radius: 20px;
     padding: 30px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .section-card:hover {
     transform: translateY(-10px);
-    box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
 }
 
 .section-card h2 {
@@ -656,8 +661,8 @@ img {
     -webkit-backdrop-filter: blur(10px);
     border-radius: 20px;
     padding: 30px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .file-list-container h2 {
@@ -688,7 +693,8 @@ img {
     background-color: #f8f9fa;
 }
 
-.upload-icon, .download-icon {
+.upload-icon,
+.download-icon {
     font-size: 3rem;
     color: #36ba86;
     margin-bottom: 15px;
@@ -708,7 +714,7 @@ img {
 }
 
 input[type="number"] {
-    letter-spacing: 1.5mm; 
+    letter-spacing: 1.5mm;
     width: 50px;
     height: 30px;
     text-align: right;
@@ -735,16 +741,18 @@ input {
     width: auto;
 }
 
-#no td, td {
+#no td,
+td {
     text-align: center;
 }
 
 #exp {
-    width: 350px; 
+    width: 350px;
     height: 30px;
 }
 
-#last, #t2last {
+#last,
+#t2last {
     width: 99.4%;
 }
 
@@ -768,7 +776,8 @@ table {
     text-align: center;
 }
 
-th, td {
+th,
+td {
     padding: 10px;
     text-align: center;
     border: 1px solid #609b76;
@@ -801,7 +810,8 @@ td input[type="date"] {
     text-transform: uppercase;
 }
 
-input[type="text"], input[type="date"] {
+input[type="text"],
+input[type="date"] {
     width: 100%;
     padding: 8px;
     box-sizing: border-box;
@@ -830,18 +840,21 @@ input[type="submit"]:hover {
     background-color: #45a049;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
     text-align: center;
     color: #f9fbf9;
 }
 
-#addrow, #delrow {
+#addrow,
+#delrow {
     background-color: #4CAF50;
     color: black;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    border-radius: 8px; 
+    border-radius: 8px;
     box-sizing: border-box;
     border: 1px solid black;
 }
@@ -853,39 +866,48 @@ h1, h2, h3 {
 /* About Page Styles */
 .about-content h1 {
     text-align: center;
-    color: white;
+    color: rgb(6, 6, 6);
     margin: 40px 0 20px 0;
     font-size: 3rem;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+.aboutbox {
+    margin-left: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+
+}
+
 .about-content p {
     text-align: center;
     font-size: 20px;
-    color: white;
+    color: rgb(7, 7, 7);
     text-align: justify;
     font-size: 30px;
     padding-left: 30%;
     padding-right: 34%;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(225, 220, 220, 0.1);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-radius: 15px;
     padding: 30px;
     margin: 20px auto;
     max-width: 800px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
 }
 
 .about-table {
     margin-left: 20px;
     margin-right: 20px;
     margin-top: 100px;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(246, 244, 244, 0.95);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-radius: 20px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
     padding: 30px;
 }
 
@@ -895,6 +917,7 @@ h1, h2, h3 {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -998,7 +1021,8 @@ h1, h2, h3 {
         font-size: 14px;
     }
 
-    td, th {
+    td,
+    th {
         padding: 5px;
     }
 
@@ -1035,7 +1059,8 @@ h1, h2, h3 {
         font-size: 30px;
     }
 
-    #btstud, #btfac {
+    #btstud,
+    #btfac {
         margin-left: 26%;
         margin-right: 40px;
         font-size: 20px;
