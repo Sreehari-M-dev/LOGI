@@ -575,8 +575,8 @@ img {
 
 .section-card {
     background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
@@ -657,8 +657,8 @@ img {
 
 .file-list-container {
     background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
@@ -888,8 +888,8 @@ h1,h2,h3 {
     padding-left: 30%;
     padding-right: 34%;
     background: rgba(225, 220, 220, 0.1);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     border-radius: 15px;
     padding: 30px;
     margin: 20px auto;
@@ -902,8 +902,8 @@ h1,h2,h3 {
     margin-right: 20px;
     margin-top: 100px;
     background: rgba(246, 244, 244, 0.95);
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     border-radius: 20px;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
     padding: 30px;
