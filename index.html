@@ -34,7 +34,7 @@
     <section class="hero">
         <div class="hero-content">
             <img src="c-logo.png"  id="hero-image" alt="College Background" srcset="">
-            <h1 style="color: white;">Welcome to Digital Lab Portal</h1>
+            <h1>Welcome to Digital Lab Portal</h1>
             <p>Streamline your laboratory work with our comprehensive digital management system</p>
             <a href="login.php" class="btn btn-primary">Access Lab Book</a>
         </div>
@@ -95,23 +95,7 @@
         </div>
     </footer>
 
-    <script>
-        const hamburger = document.getElementById('hamburger');
-        const navMenu = document.getElementById('nav-menu');
-
-        hamburger.addEventListener('click', () => {
-            hamburger.classList.toggle('active');
-            navMenu.classList.toggle('active');
-        });
-
-        // Close menu when clicking on a link
-        document.querySelectorAll('.nav-menu a').forEach(link => {
-            link.addEventListener('click', () => {
-                hamburger.classList.remove('active');
-                navMenu.classList.remove('active');
-            });
-        });
-    </script>
+    <script src="scripts.js"></script>
 </body>
 
 </html>
