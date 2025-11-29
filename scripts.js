@@ -56,6 +56,52 @@ function delRow(event) {
     }
 }
 
+// Google Drive Integration Functions
+function openUploadDrive() {
+    // Replace 'YOUR_DRIVE_FOLDER_ID' with your actual Google Drive folder ID
+    // To get the folder ID: Right-click your Google Drive folder > Share > Copy link
+    // The folder ID is the string after /folders/ in the URL
+    const uploadUrl = 'https://drive.google.com/drive/folders/1TGPb5K_dP2F4glOm_564wU-hi-t1x7M0';
+    
+    // Open Google Drive upload folder in new tab
+    window.open(uploadUrl, '_blank', 'noopener,noreferrer');
+    
+    // Show instruction alert
+    setTimeout(() => {
+        alert('📤 Upload Instructions:\n\n1. You will be redirected to Google Drive\n2. Only authorized users can upload files\n3. Drag & drop files or click "New" > "File upload"\n4. Files will be immediately available for download');
+    }, 100);
+}
+
+function openDownloadDrive() {
+    // Replace 'YOUR_DRIVE_FOLDER_ID' with your actual Google Drive folder ID
+    const downloadUrl = 'https://drive.google.com/drive/folders/1TGPb5K_dP2F4glOm_564wU-hi-t1x7M0';
+    
+    // Open Google Drive download folder in new tab
+    window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    
+    // Show instruction alert
+    setTimeout(() => {
+        alert('📥 Download Instructions:\n\n1. Browse all available files in Google Drive\n2. Click on any file to preview\n3. Right-click and select "Download" to save locally\n4. Use search box to find specific files');
+    }, 100);
+}
+
+function openHelpGuide() {
+    alert('📚 Help Guide:\n\n📤 UPLOADING:\n• Only authorized emails can upload\n• Supported: PDF, DOC, PPT, TXT, images\n• Files appear instantly after upload\n\n📥 DOWNLOADING:\n• Open to all users\n• Preview files before downloading\n• Right-click to download\n• Use search to find files quickly\n\n🔧 ISSUES:\n• Contact admin if upload is restricted\n• Clear browser cache if files don\'t appear\n• Try different browser if problems persist');
+}
+
+function contactSupport() {
+    alert('📞 Contact Support:\n\n📧 Email: support@college.edu\n📱 Phone: (555) 123-4567\n🕒 Hours: Mon-Fri 9AM-5PM\n\n🔧 For Technical Issues:\n• Google Drive access problems\n• Upload permission requests\n• File organization questions\n• Account-related queries\n\nResponse time: Within 24 hours');
+}
+
+// About Page Functions
+function contactUs() {
+    alert('📞 Contact Information:\n\n📧 Email: info@digitallabportal.edu\n📱 Phone: (555) 123-4567\n🏢 Office: Digital Innovation Center\n🕒 Hours: Monday - Friday, 9:00 AM - 5:00 PM\n\n💬 We\'d love to hear from you! Whether you have questions about our platform, need technical support, or want to discuss implementation at your institution, our team is here to help.\n\nResponse Time: Within 24 hours for general inquiries, within 4 hours for urgent technical support.');
+}
+
+function learnMore() {
+    alert('📚 Learn More About Our Platform:\n\n🎯 CORE FEATURES:\n• Digital lab book management\n• Secure student record keeping\n• Real-time progress tracking\n• Cloud-based file storage\n• Advanced analytics & reporting\n\n🔧 TECHNICAL SPECIFICATIONS:\n• Web-based platform (no installation required)\n• Mobile-responsive design\n• Google Drive integration\n• Role-based access control\n• SSL encryption for data security\n\n🏫 INSTITUTIONAL BENEFITS:\n• Reduced paper waste\n• Streamlined workflows\n• Improved data accuracy\n• Enhanced collaboration\n• Cost-effective solution\n\n📊 SUCCESS METRICS:\n• 95% user satisfaction rate\n• 60% reduction in administrative time\n• 40% improvement in data accuracy\n\nWant a detailed demo? Contact us to schedule a presentation!');
+}
+
 // Initialize all functionality when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize hamburger menu on all pages
@@ -63,4 +109,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add any other page-specific initializations here
     console.log('Digital Lab Portal scripts loaded successfully');
+    
+    // Show setup reminder for Google Drive integration
+    if (window.location.pathname.includes('Studyresources.html')) {
+        console.log('📋 Admin Setup Reminder: Update Google Drive folder IDs in scripts.js');
+    }
 });

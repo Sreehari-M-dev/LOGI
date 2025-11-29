@@ -6,11 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resources</title>
     <link rel="stylesheet" href="styles.css">
-    <script>
-        function showAlert(message) {
-            alert(message);
-        }
-    </script>
 </head>
 
 <body>
@@ -36,36 +31,136 @@
     <div class="container">
         <div class="page-header">
             <h1>📚 Study Resources</h1>
-            <p>Upload, download, and manage your academic materials with ease</p>
+            <p>Access and share academic materials through Google Drive integration</p>
         </div>
 
-        <div class="sections-grid">
-            <div class="section-card">
-                <div class="upload-icon">📤</div>
-                <h2>Upload PDF</h2>
-                <form action="upload.php" method="post" enctype="multipart/form-data" target="uploadFrame" onsubmit="setTimeout(() => showAlert('File uploaded successfully!'), 500);">
-                    <div class="form-group">
-                        <input type="file" name="fileToUpload" id="fileToUpload" accept="application/pdf" class="form-control">
-                    </div>
-                    <button type="submit" name="submit" class="btn">Upload PDF</button>
-                </form>
+        <!-- Google Drive Integration Info -->
+        <div class="section-card info-card">
+            <div class="info-header">
+                <div class="drive-logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M6.24 20.424L1.424 12H5.424L8.824 17.724L6.24 20.424Z" fill="#0F9D58"/>
+                        <path d="M14.4 12H9.6L6.24 20.424L8.824 17.724L14.4 12Z" fill="#F4B400"/>
+                        <path d="M14.4 12L8.824 17.724L12.424 17.724L18 12L14.4 12Z" fill="#4285F4"/>
+                    </svg>
+                </div>
+                <h2>Google Drive Integration</h2>
             </div>
+            <p>All study materials are securely stored and shared through our integrated Google Drive system for easy access and collaboration.</p>
+        </div>
 
-            <div class="section-card">
-                <div class="download-icon">📥</div>
-                <h2>Download PDF</h2>
-                <form action="download.php" method="post">
-                    <div class="form-group">
-                        <input type="text" name="search" id="filename" placeholder="Enter the filename" class="form-control">
-                    </div>
-                    <button type="submit" class="btn">Search and Download PDF</button>
-                </form>
+        <!-- Features Grid -->
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">🔐</div>
+                <h3>Secure Upload</h3>
+                <p>Only authorized emails can upload files</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📂</div>
+                <h3>Public Download</h3>
+                <p>Anyone can browse and download materials</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">☁️</div>
+                <h3>Cloud Storage</h3>
+                <p>Files safely stored in Google Drive</p>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🔄</div>
+                <h3>Real-time Access</h3>
+                <p>Always get the latest versions</p>
             </div>
         </div>
 
-        <div class="file-list-container">
-            <h2>📋 Available Files</h2>
-            <iframe src="file_list.php" name="uploadFrame" title="Available files list" class="file-iframe"></iframe>
+        <!-- Main Action Buttons -->
+        <div class="actions-container">
+            <div class="action-card upload-card">
+                <div class="action-header">
+                    <div class="action-icon upload-icon">📤</div>
+                    <h3>Upload Documents</h3>
+                </div>
+                <p>Share study materials, assignments, and resources with your classmates through Google Drive.</p>
+                <div class="action-note">
+                    <strong>Restricted Access:</strong> Only authorized faculty and designated students can upload files.
+                </div>
+                <button onclick="openUploadDrive()" class="btn btn-upload">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                        <path d="M4.5 6a.5.5 0 0 0-1 0v8a.5.5 0 0 0 1 0V6z"/>
+                    </svg>
+                    Upload to Google Drive
+                </button>
+            </div>
+
+            <div class="action-card download-card">
+                <div class="action-header">
+                    <div class="action-icon download-icon">📥</div>
+                    <h3>Browse & Download</h3>
+                </div>
+                <p>Access lecture notes, lab manuals, assignments, and other study materials from the shared folder.</p>
+                <div class="action-note">
+                    <strong>Open Access:</strong> All files available for viewing and downloading by everyone.
+                </div>
+                <button onclick="openDownloadDrive()" class="btn btn-download">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                        <path d="M11.5 10a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5h7z"/>
+                    </svg>
+                    Browse Google Drive
+                </button>
+            </div>
+        </div>
+
+        <!-- Instructions Section -->
+        <div class="section-card instructions-card">
+            <h2>📋 How to Use the System</h2>
+            <div class="instructions-grid">
+                <div class="instruction-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>For Uploading Files</h4>
+                        <p>Click "Upload to Google Drive" button. You'll be redirected to the shared Google Drive folder where authorized users can add new files.</p>
+                    </div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>For Downloading Files</h4>
+                        <p>Click "Browse Google Drive" to access all shared files. You can view, download, and even preview documents directly in your browser.</p>
+                    </div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>File Organization</h4>
+                        <p>Files are organized by subjects and categories. Use Google Drive's search and filter options to quickly find what you need.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Access Links -->
+        <div class="quick-links-section">
+            <h3>🔗 Quick Access</h3>
+            <div class="quick-links-grid">
+                <a href="#" onclick="openUploadDrive()" class="quick-link">
+                    <span class="link-icon">📤</span>
+                    <span>Upload Files</span>
+                </a>
+                <a href="#" onclick="openDownloadDrive()" class="quick-link">
+                    <span class="link-icon">📥</span>
+                    <span>Download Files</span>
+                </a>
+                <a href="#" onclick="openHelpGuide()" class="quick-link">
+                    <span class="link-icon">❓</span>
+                    <span>Help Guide</span>
+                </a>
+                <a href="#" onclick="contactSupport()" class="quick-link">
+                    <span class="link-icon">📞</span>
+                    <span>Support</span>
+                </a>
+            </div>
         </div>
     </div>
 
