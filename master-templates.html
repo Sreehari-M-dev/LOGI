@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Templates - LOGI</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        .btn-edit {
+            background: #4CAF50;
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .btn-edit:hover {
+            background: #45a049;
+        }
+        .btn-delete {
+            background: #f44336;
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .btn-delete:hover {
+            background: #da190b;
+        }
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .template-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9f9f9;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .template-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .template-header {
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .template-header h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .template-info {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .template-info strong {
+            color: #333;
+        }
+        .template-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+        .stat-item .number {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 18px;
+        }
+        .stat-item .label {
+            font-size: 11px;
+            color: #999;
+            margin-top: 3px;
+        }
+        .template-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .template-actions button {
+            flex: 1;
+        }
+        .no-templates {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .no-templates p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            overflow-y: auto;
+        }
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            width: 90%;
+            max-width: 900px;
+            border-radius: 10px;
+            position: relative;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 30px;
+            cursor: pointer;
+            color: #999;
+        }
+        .modal-close:hover {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            animation: slideIn 0.3s ease-out;
+            z-index: 3000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .notification.success { background: #4CAF50; }
+        .notification.error { background: #f44336; }
+        .notification.info { background: #2196F3; }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+        .experiments-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+        .add-btn {
+            background: #667eea;
+            color: white;
+            padding: 8px 15px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .exp-item {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 3px solid #667eea;
+        }
+        .remove-btn {
+            background: #f44336;
+            color: white;
+            padding: 4px 10px;
+            font-size: 11px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .remove-btn:hover {
+            background: #da190b;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="index.html">Digital Lab Portal</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="Log_Book1.html">Log Book</a></li>
+                <li><a href="logbook-viewer.html">View Logbooks</a></li>
+                <li><a href="Studyresources.html">Study Resources</a></li>
+                <li><a href="About.html">About US</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>📚 Master Templates</h1>
+        <p class="subtitle">View and manage master templates created by you</p>
+        
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="showCreateModal()">➕ Create New Template</button>
+            <button class="btn btn-secondary" onclick="goHome()">← Back to Home</button>
+        </div>
+
+        <div id="templatesContainer" class="templates-grid">
+            <div class="loading">Loading templates...</div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Template Modal -->
+    <div id="templateModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h2 id="modalTitle">Create New Master Template</h2>
+            
+            <form id="templateForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Subject Name *</label>
+                        <input type="text" id="subject" placeholder="e.g., Digital Logic Design" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Subject Code *</label>
+                        <input type="text" id="code" placeholder="e.g., CS201" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Department *</label>
+                        <input type="text" id="department" placeholder="e.g., Computer Science" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Semester *</label>
+                        <input type="number" id="semester" placeholder="e.g., 4" min="1" max="8" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Batch *</label>
+                    <input type="text" id="batch" placeholder="e.g., 2023-2024" required>
+                </div>
+
+                <!-- Experiments Section -->
+                <div class="experiments-section">
+                    <h3>Experiments</h3>
+                    <div id="experimentsContainer"></div>
+                    <button type="button" class="btn add-btn" onclick="addExperiment()">+ Add Experiment</button>
+                </div>
+
+                <!-- Lab Exams Section -->
+                <div class="experiments-section">
+                    <h3>Lab Exams</h3>
+                    <div id="examsContainer"></div>
+                    <button type="button" class="btn add-btn" onclick="addExam()">+ Add Exam</button>
+                </div>
+
+                <div style="margin-top: 30px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3005/api/logbook';
+        let templates = [];
+        let currentEditingId = null;
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('token');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        // Load templates on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTemplates();
+        });
+
+        async function loadTemplates() {
+            try {
+                const response = await fetch(`${API_URL}/teacher/templates`, {
+                    headers: getAuthHeaders()
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    templates = data.data;
+                    displayTemplates();
+                } else {
+                    showNotification('Failed to load templates', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading templates:', error);
+                showNotification('Error loading templates', 'error');
+            }
+        }
+
+        function displayTemplates() {
+            const container = document.getElementById('templatesContainer');
+
+            if (templates.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1/-1;">
+                        <div class="no-templates">
+                            <p>📭 No templates created yet</p>
+                            <button class="btn btn-primary" onclick="showCreateModal()">Create Your First Template</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = templates.map(template => `
+                <div class="template-card">
+                    <div class="template-header">
+                        <h3>${template.subject}</h3>
+                        <p style="color: #999; font-size: 12px;">${template.code}</p>
+                    </div>
+                    
+                    <div class="template-info">
+                        <p><strong>Department:</strong> ${template.department}</p>
+                        <p><strong>Semester:</strong> ${template.semester}</p>
+                        <p><strong>Batch:</strong> ${template.batch}</p>
+                        <p><strong>Created:</strong> ${new Date(template.createdAt).toLocaleDateString()}</p>
+                    </div>
+
+                    <div class="template-stats">
+                        <div class="stat-item">
+                            <div class="number">${template.experiments ? template.experiments.length : 0}</div>
+                            <div class="label">Experiments</div>
+                        </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="number">${template.labExams ? template.labExams.length : 0}</div>
+                            <div class="label">Exams</div>
+                        </div>
+                    </div>
+
+                    <div class="template-actions">
+                        <button class="btn btn-edit" onclick="editTemplate('${template._id}')">✏️ Edit</button>
+                        <button class="btn btn-delete" onclick="deleteTemplate('${template._id}', '${template.subject}')">🗑️ Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showCreateModal() {
+            currentEditingId = null;
+            document.getElementById('modalTitle').textContent = 'Create New Master Template';
+            document.getElementById('templateForm').reset();
+            document.getElementById('experimentsContainer').innerHTML = '';
+            document.getElementById('examsContainer').innerHTML = '';
+            addExperiment();
+            addExam();
+            document.getElementById('templateModal').style.display = 'block';
+        }
+
+        function editTemplate(id) {
+            currentEditingId = id;
+            const template = templates.find(t => t._id === id);
+            if (!template) return;
+
+            document.getElementById('modalTitle').textContent = 'Edit Master Template';
+            document.getElementById('subject').value = template.subject;
+            document.getElementById('code').value = template.code || '';
+            document.getElementById('department').value = template.department;
+            document.getElementById('semester').value = template.semester;
+            document.getElementById('batch').value = template.batch;
+
+            // Load experiments
+            const expContainer = document.getElementById('experimentsContainer');
+            expContainer.innerHTML = '';
+            if (template.experiments && template.experiments.length > 0) {
+                template.experiments.forEach((exp, idx) => {
+                    addExperiment(exp);
+                });
+            } else {
+                addExperiment();
+            }
+
+            // Load exams
+            const examContainer = document.getElementById('examsContainer');
+            examContainer.innerHTML = '';
+            if (template.labExams && template.labExams.length > 0) {
+                template.labExams.forEach((exam, idx) => {
+                    addExam(exam);
+                });
+            } else {
+                addExam();
+            }
+
+            document.getElementById('templateModal').style.display = 'block';
+        }
+
+        function addExperiment(exp = null) {
+            const container = document.getElementById('experimentsContainer');
+            const index = container.children.length;
+            const html = `
+                <div class="exp-item" data-index="${index}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Experiment ${index + 1} Name</label>
+                            <input type="text" class="exp-name" placeholder="e.g., Basic Gates" value="${exp ? exp.experimentName : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>CO</label>
+                            <input type="text" class="exp-co" placeholder="e.g., CO1, CO2" value="${exp ? exp.co : ''}">
+                        </div>
+                    </div>
+                    <button type="button" class="remove-btn" onclick="removeExperiment(this)">Remove</button>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        function addExam(exam = null) {
+            const container = document.getElementById('examsContainer');
+            const index = container.children.length;
+            const html = `
+                <div class="exp-item" data-index="${index}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Exam ${index + 1} Name</label>
+                            <input type="text" class="exam-name" placeholder="e.g., Lab Exam 1" value="${exam ? exam.examName : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>CO</label>
+                            <input type="text" class="exam-co" placeholder="e.g., CO1, CO2" value="${exam ? exam.co : ''}">
+                        </div>
+                    </div>
+                    <button type="button" class="remove-btn" onclick="removeExam(this)">Remove</button>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        function removeExperiment(btn) {
+            btn.closest('.exp-item').remove();
+        }
+
+        function removeExam(btn) {
+            btn.closest('.exp-item').remove();
+        }
+
+        function closeModal() {
+            document.getElementById('templateModal').style.display = 'none';
+        }
+
+        document.getElementById('templateForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Collect experiments
+            const experiments = Array.from(document.querySelectorAll('#experimentsContainer .exp-item')).map(item => ({
+                experimentName: item.querySelector('.exp-name').value,
+                co: item.querySelector('.exp-co').value
+            })).filter(exp => exp.experimentName || exp.co);
+
+            // Collect exams
+            const labExams = Array.from(document.querySelectorAll('#examsContainer .exp-item')).map(item => ({
+                examName: item.querySelector('.exam-name').value,
+                co: item.querySelector('.exam-co').value
+            })).filter(exam => exam.examName || exam.co);
+
+            const payload = {
+                subject: document.getElementById('subject').value,
+                code: document.getElementById('code').value,
+                department: document.getElementById('department').value,
+                semester: parseInt(document.getElementById('semester').value),
+                batch: document.getElementById('batch').value,
+                experiments: experiments,
+                labExams: labExams
+            };
+
+            try {
+                let response;
+                if (currentEditingId) {
+                    // Update existing template
+                    response = await fetch(`${API_URL}/master/${currentEditingId}`, {
+                        method: 'PUT',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // Create new template
+                    response = await fetch(`${API_URL}/master/create`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    showNotification(currentEditingId ? 'Template updated successfully' : 'Template created successfully', 'success');
+                    closeModal();
+                    loadTemplates();
+                } else {
+                    showNotification(data.error || 'Failed to save template', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving template:', error);
+                showNotification('Error saving template', 'error');
+            }
+        });
+
+        async function deleteTemplate(id, name) {
+            if (!confirm(`Are you sure you want to delete the template "${name}"?`)) return;
+
+            try {
+                const response = await fetch(`${API_URL}/master/${id}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showNotification('Template deleted successfully', 'success');
+                    loadTemplates();
+                } else {
+                    showNotification(data.error || 'Failed to delete template', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting template:', error);
+                showNotification('Error deleting template', 'error');
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

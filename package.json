@@ -1,0 +1,34 @@
+{
+  "name": "logi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+     "dev": "concurrently \"nodemon logbook-server.js\" \"nodemon auth-server.js\""
+
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "firebase": "^12.2.1",
+    "mongoose": "^8.18.3"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sreehari-M-dev/LOGI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Sreehari-M-dev/LOGI/issues"
+  },
+  "homepage": "https://github.com/Sreehari-M-dev/LOGI#readme"
+}

@@ -112,7 +112,7 @@ html {
 .nav-menu {
     display: flex;
     list-style: none;
-    margin: 0;
+    margin: 0 0 0 auto !important; /* force menu to the right on desktop */
     padding: 0;
 }
 
@@ -1663,6 +1663,31 @@ h1,h2,h3 {
         font-size: 14px;
     }
 
+    /* Logbook tables: allow horizontal scroll on small screens */
+    #t1,
+    #t2,
+    #t3,
+    .experiment-table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        min-width: 50px;
+    }
+
+    #t1 td,
+    #t1 th,
+    #t2 td,
+    #t2 th,
+    #t3 td,
+    #t3 th,
+    .experiment-table td,
+    .experiment-table th {
+        white-space: nowrap;
+        font-size: 12px;
+        padding: 6px;
+    }
+
     td,
     th {
         padding: 5px;
@@ -1770,6 +1795,69 @@ h1,h2,h3 {
 }
 
 @media only screen and (max-width: 600px) {
+    /* Compact mobile layout for main lab work table (#t1) without affecting desktop */
+    #t1 {
+        width: 100%;
+    }
+
+    /* Hide complex header rows on small screens */
+    #t1 tr:nth-child(-n+3) {
+        display: none;
+    }
+
+    /* Reflow each data row into grouped blocks */
+    #t1 tr {
+        display: grid;
+        /* Tighter first-row columns for date / experiment / CO on very small screens */
+        grid-template-columns: 0.8fr 1fr 0.8fr;
+        grid-template-areas:
+            "sl sl sl"
+            "date exp co"
+            "r1 r2 r3"
+            "r4 r5 total"
+            "sig sig sig";
+        gap: 6px;
+        margin-bottom: 10px;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #fafafa;
+    }
+
+    #t1 td {
+        padding: 5px;
+        font-size: 12px;
+        white-space: normal;
+    }
+
+    /* Tighter inputs for date / experiment / CO */
+    #t1 td:nth-child(2) input,
+    #t1 td:nth-child(3) input,
+    #t1 td:nth-child(4) input {
+        font-size: 11px;
+        padding: 5px;
+    }
+
+    #t1 td:nth-child(1) { grid-area: sl; font-weight: 600; }
+    #t1 td:nth-child(2) { grid-area: date; }
+    #t1 td:nth-child(3) { grid-area: exp; }
+    #t1 td:nth-child(4) { grid-area: co; }
+    #t1 td:nth-child(5) { grid-area: r1; }
+    #t1 td:nth-child(6) { grid-area: r2; }
+    #t1 td:nth-child(7) { grid-area: r3; }
+    #t1 td:nth-child(8) { grid-area: r4; }
+    #t1 td:nth-child(9) { grid-area: r5; }
+    #t1 td:nth-child(10) { grid-area: total; font-weight: 600; }
+    #t1 td:nth-child(11) { grid-area: sig; }
+
+    /* Keep inputs full-width within their grid cells */
+    #t1 input,
+    #t1 select,
+    #t1 textarea {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
     .page-header h1 {
         font-size: 1.8rem;
     }

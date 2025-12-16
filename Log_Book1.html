@@ -6,6 +6,102 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Log Book</title> 
     <link rel="stylesheet" href="styles.css">
+    <!-- SweetAlert2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .logbook-actions {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .logbook-actions h3 {
+            color: white;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        .logbook-actions button {
+            margin: 5px;
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .btn-load { 
+            background: linear-gradient(135deg, #2196f3, #1976d2); 
+            color: white; 
+        }
+        .btn-load:hover { 
+            background: linear-gradient(135deg, #1976d2, #1565c0); 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+        }
+        .btn-load-reg { 
+            background: linear-gradient(135deg, #ff9800, #f57c00); 
+            color: white; 
+        }
+        .btn-load-reg:hover { 
+            background: linear-gradient(135deg, #f57c00, #ef6c00); 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+        .btn-view { 
+            background: linear-gradient(135deg, #4caf50, #388e3c); 
+            color: white; 
+        }
+        .btn-view:hover { 
+            background: linear-gradient(135deg, #388e3c, #2e7d32); 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+        /* Enhanced table styling */
+        table {
+            border-collapse: collapse;
+            width: calc(100% - 40px);
+            margin: 30px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 2px solid #b9b4b4 !important;
+        }
+        table td, table th {
+            border: 1px solid #333 !important;
+            padding: 10px;
+        }
+        table[cellspacing] {
+            border-collapse: collapse;
+        }
+        table input[readonly] {
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+            cursor: not-allowed;
+            font-weight: 600;
+            color: #495057;
+        }
+        input[type="submit"] {
+            background: linear-gradient(135deg, #28a745, #218838);
+            color: white;
+            padding: 12px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+        input[type="submit"]:hover {
+            background: linear-gradient(135deg, #218838, #1e7e34);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+        }
+    </style>
 </head>
 
 <body>
@@ -21,27 +117,71 @@
             </div>
             <ul class="nav-menu" id="nav-menu">
                 <li><a href="index.html">Home</a></li>
-                <li><a href="Log_Book1.php" class="active">Log Book</a></li>
+                <li><a href="Log_Book1.html" class="active">Log Book</a></li>
                 <li><a href="Studyresources.html">Study Resources</a></li>
                 <li><a href="About.html">About US</a></li>
             </ul>
         </div>
     </nav>
 
-    <form action="" method="post">
-        <h1>Log Book</h1>
+    <!-- Database Action Buttons -->
+    <div class="logbook-actions">
+        <h3><i class="fas fa-database"></i> Log Book Database Actions</h3>
+        <div id="teacherActions" style="display: none;">
+            <button type="button" class="btn-load" onclick="loadLogBookByRoll()">
+                <i class="fas fa-user"></i> Load by Roll Number
+            </button>
+            <button type="button" class="btn-load-reg" onclick="loadLogBookByRegister()">
+                <i class="fas fa-id-card"></i> Load by Register Number
+            </button>
+            <button type="button" class="btn-view" onclick="viewAllLogBooks()">
+                <i class="fas fa-eye"></i> View All Log Books
+            </button>
+        </div>
+        <div id="studentActions" style="display: none;">
+            <button type="button" class="btn-view" onclick="loadMyLogBooks()">
+                <i class="fas fa-list"></i> My Log Books
+            </button>
+            <button type="button" class="btn-load" onclick="createNewLogBook()">
+                <i class="fas fa-plus"></i> Create New Log Book
+            </button>
+        </div>
+    </div>
+
+    <!-- Student Logbook Selection Panel -->
+    <div id="logbookSelectionPanel" style="display: none; padding: 20px; margin: 20px; background: #f8f9fa; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h3 style="margin-top: 0;"><i class="fas fa-books"></i> Your Log Books</h3>
+        <div id="logbookList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px;"></div>
+        <button type="button" class="btn-load" onclick="createNewLogBook()" style="width: 100%; padding: 15px;">
+            <i class="fas fa-plus"></i> Create New Log Book
+        </button>
+    </div>
+
+    <!-- Student Logbook Form Container - Hidden for Faculty/Admin -->
+    <div id="studentFormContainer" style="display: block;">
+        <form id="logbookForm" onsubmit="return false;">
+            <h1>Log Book</h1>
+            
+            <!-- Permission Indicator -->
+            <div id="permissionIndicator" style="display: none; padding: 15px; margin: 20px 0; border-radius: 8px; font-weight: 600; text-align: center;"></div>
         
         <!-- Student Information -->
         <table cellpadding="10px" class="ftab">
             <tr>
                 <td><label for="name">Name of Student</label></td>
-                <td><input type="text" id="name" name="name"></td>
+                <td><input type="text" id="name" name="name" readonly></td>
             </tr>
             <tr>
                 <td><label for="rollno">Roll No</label></td>
-                <td><input type="number" name="rollno" id="detail1" max="99" min="1"></td>
+                <td><input type="number" name="rollno" id="detail1" max="99" min="1" readonly></td>
                 <td><label for="rgno">Register Number</label></td>
-                <td><input type="number" name="rgno" id="detail" min="0" max="3000000000"></td>
+                <td><input type="number" name="rgno" id="detail" min="0" max="3000000000" readonly></td>
+            </tr>
+            <tr>
+                <td><label for="subject">Subject/Course Name <span style="color: red;">*</span></label></td>
+                <td><input type="text" id="subject" name="subject" required readonly></td>
+                <td><label for="code">Subject Code</label></td>
+                <td><input type="text" id="code" name="code" readonly></td>
             </tr>
         </table>
 
@@ -78,7 +218,7 @@
                 <td><input type="number" name="rubric1-3"></td>
                 <td><input type="number" name="rubric1-4"></td>
                 <td><input type="number" name="rubric1-5"></td>
-                <td><input type="number" name="total1"></td>
+                <td><input type="number" name="total1" readonly></td>
                 <td><input type="checkbox" name="student1"></td>
                 <td><input type="checkbox" name="faculty1"></td>
             </tr>
@@ -92,7 +232,7 @@
                 <td><input type="number" name="rubric2-3"></td>
                 <td><input type="number" name="rubric2-4"></td>
                 <td><input type="number" name="rubric2-5"></td>
-                <td><input type="number" name="total2"></td>
+                <td><input type="number" name="total2" readonly></td>
                 <td><input type="checkbox" name="student2"></td>
                 <td><input type="checkbox" name="faculty2"></td>
             </tr>
@@ -106,7 +246,7 @@
                 <td><input type="number" name="rubric3-3"></td>
                 <td><input type="number" name="rubric3-4"></td>
                 <td><input type="number" name="rubric3-5"></td>
-                <td><input type="number" name="total3"></td>
+                <td><input type="number" name="total3" readonly></td>
                 <td><input type="checkbox" name="student3"></td>
                 <td><input type="checkbox" name="faculty3"></td>
             </tr>
@@ -120,7 +260,7 @@
                 <td><input type="number" name="rubric4-3"></td>
                 <td><input type="number" name="rubric4-4"></td>
                 <td><input type="number" name="rubric4-5"></td>
-                <td><input type="number" name="total4"></td>
+                <td><input type="number" name="total4" readonly></td>
                 <td><input type="checkbox" name="student4"></td>
                 <td><input type="checkbox" name="faculty4"></td>
             </tr>
@@ -134,7 +274,7 @@
                 <td><input type="number" name="rubric5-3"></td>
                 <td><input type="number" name="rubric5-4"></td>
                 <td><input type="number" name="rubric5-5"></td>
-                <td><input type="number" name="total5"></td>
+                <td><input type="number" name="total5" readonly></td>
                 <td><input type="checkbox" name="student5"></td>
                 <td><input type="checkbox" name="faculty5"></td>
             </tr>
@@ -148,7 +288,7 @@
                 <td><input type="number" name="rubric6-3"></td>
                 <td><input type="number" name="rubric6-4"></td>
                 <td><input type="number" name="rubric6-5"></td>
-                <td><input type="number" name="total6"></td>
+                <td><input type="number" name="total6" readonly></td>
                 <td><input type="checkbox" name="student6"></td>
                 <td><input type="checkbox" name="faculty6"></td>
             </tr>
@@ -162,7 +302,7 @@
                 <td><input type="number" name="rubric7-3"></td>
                 <td><input type="number" name="rubric7-4"></td>
                 <td><input type="number" name="rubric7-5"></td>
-                <td><input type="number" name="total7"></td>
+                <td><input type="number" name="total7" readonly></td>
                 <td><input type="checkbox" name="student7"></td>
                 <td><input type="checkbox" name="faculty7"></td>
             </tr>
@@ -206,7 +346,7 @@
                 <td><input type="number" name="t2rubric1-3"></td>
                 <td><input type="number" name="t2rubric1-4"></td>
                 <td><input type="number" name="t2rubric1-5"></td>
-                <td><input type="number" name="t2total1"></td>
+                <td><input type="number" name="t2total1" readonly></td>
                 <td><input type="checkbox" name="t2student1"></td>
                 <td><input type="checkbox" name="t2faculty1"></td>
             </tr>
@@ -246,7 +386,7 @@
                 <td><input type="number" name="t3rubric1-3"></td>
                 <td><input type="number" name="t3rubric1-4"></td>
                 <td><input type="number" name="t3rubric1-5"></td>
-                <td><input type="number" name="t3total1"></td>
+                <td><input type="number" name="t3total1" readonly></td>
                 <td><input type="checkbox" name="t3student1"></td>
                 <td><input type="checkbox" name="t3faculty1"></td>
             </tr>
@@ -260,7 +400,7 @@
                 <td><input type="number" name="t3rubric2-3"></td>
                 <td><input type="number" name="t3rubric2-4"></td>
                 <td><input type="number" name="t3rubric2-5"></td>
-                <td><input type="number" name="t3total2"></td>
+                <td><input type="number" name="t3total2" readonly></td>
                 <td><input type="checkbox" name="t3student2"></td>
                 <td><input type="checkbox" name="t3faculty2"></td>
             </tr>
@@ -274,7 +414,7 @@
                 <td><input type="number" name="t3rubric3-3"></td>
                 <td><input type="number" name="t3rubric3-4"></td>
                 <td><input type="number" name="t3rubric3-5"></td>
-                <td><input type="number" name="t3total3"></td>
+                <td><input type="number" name="t3total3" readonly></td>
                 <td><input type="checkbox" name="t3student3"></td>
                 <td><input type="checkbox" name="t3faculty3"></td>
             </tr>
@@ -320,15 +460,23 @@
                 <tr>
                     <td colspan="2">Total Marks</td>
                     <td>75</td>
-                    <td><input type="text" name="final5"></td>
+                    <td><input type="text" name="final5" readonly style="background: #f0f0f0; font-weight: bold;"></td>
                 </tr>
             </table>
             <br><br>
             <input type="submit" value="Submit" name="submit">
+            <button type="button" onclick="console.log('Test clicked'); alert('Form found: ' + (document.getElementById('logbookForm') ? 'YES' : 'NO'));">🧪 Test</button>
         </center>
-    </form>
+        </form>
+    </div>
 
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
+    <script src="auth.js"></script>
     <script src="scripts.js"></script>
+    <script src="logbook-client.js"></script>
 </body>
 
 </html>

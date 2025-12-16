@@ -37,10 +37,22 @@ function addRow(event) {
         <td><input type="number" name="rubric${rowCount + 1}-3"></td>
         <td><input type="number" name="rubric${rowCount + 1}-4"></td>
         <td><input type="number" name="rubric${rowCount + 1}-5"></td>
-        <td><input type="number" name="total${rowCount + 1}"></td>
+        <td><input type="number" name="total${rowCount + 1}" readonly></td>
         <td><input type="checkbox" name="student${rowCount + 1}"></td>
         <td><input type="checkbox" name="faculty${rowCount + 1}"></td>
     `;
+    
+    // Attach event listeners to new rubric fields for auto-calculation
+    if (typeof attachRubricCalculationListeners === 'function') {
+        // Re-attach listeners for the new row's rubric fields
+        for (let rubric = 1; rubric <= 5; rubric++) {
+            const field = document.querySelector(`[name="rubric${rowCount + 1}-${rubric}"]`);
+            if (field) {
+                field.addEventListener('change', () => calculateRubricTotal('', rowCount + 1));
+                field.addEventListener('input', () => calculateRubricTotal('', rowCount + 1));
+            }
+        }
+    }
 }
 
 function delRow(event) {
@@ -48,11 +60,19 @@ function delRow(event) {
     const table = document.getElementById('t1');
     if (!table) return;
     
-    const rowCount = table.rows.length - 4;
-    if (rowCount > 1) {
-        table.deleteRow(rowCount + 1);
+    // Count the actual data rows (exclude 3 header rows)
+    // Table structure: 3 header rows + 7 default rows + button row = rows.length
+    // To find last data row index: rows.length - 2 (button row is at end, -1 more for 0-indexing)
+    const lastDataRowIndex = table.rows.length - 2;
+    
+    // Count how many data rows exist (should be >= 7)
+    const dataRowCount = table.rows.length - 4; // 3 header rows + 1 button row
+    
+    if (dataRowCount > 7) {
+        // Only allow deletion if we have more than the original 7 rows
+        table.deleteRow(lastDataRowIndex);
     } else {
-        alert("Cannot delete the last row");
+        alert("Cannot delete. Minimum 7 rows required.");
     }
 }
 

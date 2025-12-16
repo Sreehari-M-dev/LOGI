@@ -1,0 +1,80 @@
+# Render Blueprint for LOGI Application
+# This file defines the infrastructure for deploying the LOGI app on Render
+# Documentation: https://render.com/docs/blueprint-spec
+
+services:
+  # Auth Service - Handles authentication and user management
+  - type: web
+    name: logi-auth-service
+    runtime: node
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node auth-server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true  # Render will auto-generate a secure secret
+      - key: MONGODB_URI
+        sync: false  # Set manually in Render dashboard (use MongoDB Atlas URI)
+      - key: AUTH_SERVICE_PORT
+        value: 3002
+      - key: AUTH_SERVICE_URL
+        fromService:
+          type: web
+          name: logi-auth-service
+          property: url  # Auto-populated with this service's URL
+
+  # Logbook Service - Handles logbook CRUD operations
+  - type: web
+    name: logi-logbook-service
+    runtime: node
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node logbook-server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false  # Must match auth-service JWT_SECRET (set manually)
+      - key: MONGODB_URI
+        sync: false  # Set manually in Render dashboard (use MongoDB Atlas URI)
+      - key: LOGBOOK_SERVICE_PORT
+        value: 3005
+      - key: AUTH_SERVICE_URL
+        fromService:
+          type: web
+          name: logi-auth-service
+          property: url  # Points to auth service URL
+
+# DEPLOYMENT INSTRUCTIONS:
+# 
+# 1. Push this file to your GitHub repo root
+# 2. Connect your repo to Render (https://dashboard.render.com/select-repo)
+# 3. Render will auto-detect this file and create both services
+# 4. Set the following env vars manually in Render dashboard for BOTH services:
+#    - MONGODB_URI: Your MongoDB Atlas connection string (e.g., mongodb+srv://user:pass@cluster.mongodb.net/LOGI)
+#    - JWT_SECRET: Same secret for both services (or use auto-generated from auth-service)
+# 5. After deployment, update frontend files with production URLs:
+#    - In HTML files, add before other scripts:
+#      <script>
+#        window.REACT_APP_AUTH_API = 'https://logi-auth-service.onrender.com/api/auth';
+#        window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service.onrender.com/api/logbook';
+#      </script>
+# 
+# MONGODB SETUP:
+# - Create free MongoDB Atlas cluster: https://www.mongodb.com/cloud/atlas/register
+# - Get connection string: mongodb+srv://username:password@cluster.mongodb.net/LOGI
+# - Add this to MONGODB_URI in Render dashboard for both services
+# 
+# NOTES:
+# - Free tier may spin down after inactivity (cold starts)
+# - Both services share same MongoDB database (LOGI)
+# - JWT_SECRET must be identical in both services
+# - Health check endpoints prevent services from sleeping

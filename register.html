@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - LOGI</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .register-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+            animation: slideIn 0.5s ease-out;
+        }
+        input[type="number"] {
+            letter-spacing:0px;
+            height: auto;
+            
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .register-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .register-header h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .register-header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            text-align: center;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-group input::placeholder {
+            color: #999;
+        }
+        
+        .password-toggle {
+            position: relative;
+        }
+        
+        .password-toggle-icon {
+            position: absolute;
+            right: 15px;
+            top: 42px;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.3s ease;
+        }
+        
+        .password-toggle-icon:hover {
+            color: #667eea;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .form-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .form-footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .form-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .additional-fields {
+            display: none;
+        }
+        
+        .additional-fields.show {
+            display: block;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="register-header">
+            <h1><i class="fas fa-user-plus"></i> Register</h1>
+            <p>Create your LOGI account</p>
+        </div>
+        
+        <div id="registerError" class="error-message"></div>
+        
+        <form onsubmit="handleRegister(event)">
+            <div class="form-group">
+                <label for="registerName"><i class="fas fa-user"></i> Full Name</label>
+                <input type="text" id="registerName" name="name" placeholder="Enter your full name" required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label for="registerRole"><i class="fas fa-user-tag"></i> Role</label>
+                <select id="registerRole" name="role" onchange="toggleAdditionalFields()" required>
+                    <option value="">Select your role</option>
+                    <option value="student" selected>Student</option>
+                    <option value="faculty">Faculty</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="registerRgno"><i class="fas fa-id-card"></i> Register Number</label>
+                <input type="number" id="registerRgno" name="rgno" placeholder="Register number" required>
+            </div>
+            
+            <div class="additional-fields show" id="additionalFields">
+                <div class="form-group">
+                    <label for="registerRoll"><i class="fas fa-id-badge"></i> Roll Number</label>
+                    <input type="number" id="registerRoll" name="rollno" placeholder="Roll number" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="registerDept"><i class="fas fa-building"></i> Department</label>
+                        <input type="text" id="registerDept" name="department" placeholder="Department">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="registerSem"><i class="fas fa-calendar"></i> Semester</label>
+                        <input type="number" id="registerSem" name="semester" placeholder="Semester" min="1" max="8">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="registerEmail"><i class="fas fa-envelope"></i> Email (Optional)</label>
+                <input type="email" id="registerEmail" name="email" placeholder="Enter your email (optional)">
+            </div>
+            
+            <div class="form-group password-toggle">
+                <label for="registerPassword"><i class="fas fa-lock"></i> Password</label>
+                <input type="password" id="registerPassword" name="password" placeholder="Create a password (min 6 characters)" required>
+                <span class="password-toggle-icon" onclick="togglePasswordVisibility('registerPassword')">
+                    <i class="fas fa-eye"></i>
+                </span>
+            </div>
+            
+            <div class="form-group password-toggle">
+                <label for="registerConfirmPassword"><i class="fas fa-lock"></i> Confirm Password</label>
+                <input type="password" id="registerConfirmPassword" name="confirmPassword" placeholder="Confirm your password" required>
+                <span class="password-toggle-icon" onclick="togglePasswordVisibility('registerConfirmPassword')">
+                    <i class="fas fa-eye"></i>
+                </span>
+            </div>
+            
+            <div class="loading" id="registerLoading">
+                <span class="spinner"></span> Creating account...
+            </div>
+            
+            <button type="submit" class="submit-btn" id="registerBtn">
+                <i class="fas fa-user-plus"></i> Register
+            </button>
+        </form>
+        
+        <div class="form-footer">
+            Already have an account? <a href="login-page.html">Login here</a>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
+    <script>
+        const AUTH_API = 'http://localhost:3002/api/auth';
+        
+        function togglePasswordVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = event.target.closest('.password-toggle-icon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<i class="fas fa-eye"></i>';
+            }
+        }
+        
+        function toggleAdditionalFields() {
+            const role = document.getElementById('registerRole').value;
+            const fields = document.getElementById('additionalFields');
+            const rollInput = document.getElementById('registerRoll');
+            const rgnoInput = document.getElementById('registerRgno');
+            
+            if (role === 'student') {
+                fields.classList.add('show');
+                rollInput.required = true;
+                rgnoInput.required = true;
+            } else {
+                fields.classList.remove('show');
+                rollInput.required = false;
+                // rgno is always required for login
+                rgnoInput.required = true;
+            }
+        }
+        
+        async function handleRegister(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            const role = document.getElementById('registerRole').value;
+            const rollno = document.getElementById('registerRoll').value;
+            const rgno = document.getElementById('registerRgno').value;
+            const department = document.getElementById('registerDept').value;
+            const semester = document.getElementById('registerSem').value;
+            
+            const errorDiv = document.getElementById('registerError');
+            const loadingDiv = document.getElementById('registerLoading');
+            const submitBtn = document.getElementById('registerBtn');
+            
+            errorDiv.style.display = 'none';
+            
+            // Validation
+            if (password.length < 6) {
+                errorDiv.textContent = 'Password must be at least 6 characters';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                errorDiv.textContent = 'Passwords do not match';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (!rgno) {
+                errorDiv.textContent = 'Register number is required';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            loadingDiv.style.display = 'block';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${AUTH_API}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        email: email || null,
+                        password,
+                        rollno: rollno ? parseInt(rollno) : null,
+                        rgno: parseInt(rgno),
+                        role,
+                        department,
+                        semester: semester ? parseInt(semester) : null
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Store token
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Registration successful. Redirecting...',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.href = 'Log_Book1.html';
+                    });
+                } else {
+                    errorDiv.textContent = result.error;
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error: ' + error.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        }
+        
+        // Check if already logged in
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                window.location.href = 'Log_Book1.html';
+            }
+        });
+    </script>
+</body>
+</html>

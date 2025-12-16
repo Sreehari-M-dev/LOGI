@@ -7,6 +7,7 @@
     <title>Digital Lab Portal - College Name</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -21,7 +22,7 @@
                 <span></span>
                 <span></span>
             </div>
-            <ul class="nav-menu" id="nav-menu">
+            <ul class="nav-menu" id="nav-menu">do 
                 <li><a href="index.html" class="active">Home</a></li>
                 <li><a href="Log_Book1.html">Log Book</a></li>
                 <li><a href="Studyresources.html">Study Resources</a></li>
@@ -36,7 +37,7 @@
             <img src="c-logo.png"  id="hero-image" alt="College Background" srcset="">
             <h1>Welcome to Digital Lab Portal</h1>
             <p>Streamline your laboratory work with our comprehensive digital management system</p>
-            <a href="login.php" class="btn btn-primary">Access Lab Book</a>
+            <a href="login-page.html" class="btn btn-primary">Access Lab Book</a>
         </div>
     </section>
 
@@ -46,7 +47,7 @@
             <div class="link-card">
                 <h3>Lab Records</h3>
                 <p>Maintain and access your lab records digitally</p>
-                <a href="Log_Book1.php" class="btn btn-primary">View Records</a>
+                <a href="Log_Book1.html" class="btn btn-primary">View Records</a>
             </div>
             <div class="link-card">
                 <h3>Study Resources</h3>
@@ -58,6 +59,16 @@
                 <p>Get help with your lab work and technical issues</p>
                 <a href="About.html" class="btn btn-primary">Get Help</a>
             </div>
+            <div class="link-card" id="teacherTemplatesCard" style="display: none;">
+                <h3>Master Templates</h3>
+                <p>Create and manage lab experiment templates</p>
+                <a href="master-templates.html" class="btn btn-primary">Manage Templates</a>
+            </div>
+            <div class="link-card" id="viewLogbooksCard" style="display: none;">
+                <h3>View Logbooks</h3>
+                <p>Review student lab logbooks and progress</p>
+                <a href="logbook-viewer.html" class="btn btn-primary">View All Logbooks</a>
+            </div>
         </div>
     </section>
 
@@ -68,7 +79,7 @@
                 <h3>Quick Links</h3>
                 <ul>
                     <li><a href="index.html">Home</a></li>
-                    <li><a href="Log_Book1.php">Lab Book</a></li>
+                    <li><a href="Log_Book1.html">Lab Book</a></li>
                     <li><a href="Studyresources.html">Resources</a></li>
                     <li><a href="About.html">About Us</a></li>
                 </ul>
@@ -95,7 +106,18 @@
         </div>
     </footer>
 
+    <script src="auth.js"></script>
     <script src="scripts.js"></script>
+    <script>
+        // Show teacher-specific options if user is faculty/admin
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = AuthManager.getUser();
+            if (user && (user.role === 'faculty' || user.role === 'admin')) {
+                document.getElementById('teacherTemplatesCard').style.display = 'block';
+                document.getElementById('viewLogbooksCard').style.display = 'block';
+            }
+        });
+    </script>
 </body>
 
 </html>

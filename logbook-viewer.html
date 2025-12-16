@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Book Viewer - LOGI</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .search-bar input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .search-bar button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .search-bar button:hover {
+            background: #5568d3;
+        }
+        .logbook-list {
+            display: grid;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .logbook-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9f9f9;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .logbook-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .logbook-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+        .student-info {
+            flex: 1;
+        }
+        .student-info h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .student-info p {
+            color: #666;
+            font-size: 14px;
+            margin: 3px 0;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        .actions button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        .btn-view {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-view:hover {
+            background: #45a049;
+        }
+        .btn-delete {
+            background: #f44336;
+            color: white;
+        }
+        .btn-delete:hover {
+            background: #da190b;
+        }
+        .experiment-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .summary-item {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        .summary-item strong {
+            display: block;
+            color: #333;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+        .summary-item span {
+            color: #667eea;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 18px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 18px;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            animation: slideIn 0.3s ease-out;
+            z-index: 1000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        #searchRoll, #searchReg {
+            letter-spacing: normal;
+            height: auto;
+            text-align: center;
+        }
+        .notification.success { background: #4CAF50; }
+        .notification.error { background: #f44336; }
+        .notification.info { background: #2196F3; }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            overflow-y: auto;
+        }
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            width: 90%;
+            max-width: 1200px;
+            border-radius: 10px;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 30px;
+            cursor: pointer;
+            color: #999;
+        }
+        .modal-close:hover {
+            color: #333;
+        }
+        .detail-section {
+            margin: 20px 0;
+        }
+        .detail-section h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .experiment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 13px;
+            table-layout: fixed;
+        }
+        .experiment-table th,
+        .experiment-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            height: 40px;
+        }
+        .experiment-table th {
+            background: #667eea;
+            color: white;
+            height: 45px;
+        }
+        .experiment-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        /* Fixed column widths for consistent layout across all three tables */
+        .experiment-table th:nth-child(1),
+        .experiment-table td:nth-child(1) { width: 6%; }  /* Sl.No */
+        .experiment-table th:nth-child(2),
+        .experiment-table td:nth-child(2) { width: 10%; } /* Date */
+        .experiment-table th:nth-child(3),
+        .experiment-table td:nth-child(3) { width: 22%; } /* Experiment/Project/Exam */
+        .experiment-table th:nth-child(4),
+        .experiment-table td:nth-child(4) { width: 8%; }  /* CO */
+        .experiment-table th:nth-child(5),
+        .experiment-table td:nth-child(5) { width: 7%; }  /* R1 */
+        .experiment-table th:nth-child(6),
+        .experiment-table td:nth-child(6) { width: 7%; }  /* R2 */
+        .experiment-table th:nth-child(7),
+        .experiment-table td:nth-child(7) { width: 7%; }  /* R3 */
+        .experiment-table th:nth-child(8),
+        .experiment-table td:nth-child(8) { width: 7%; }  /* R4 */
+        .experiment-table th:nth-child(9),
+        .experiment-table td:nth-child(9) { width: 7%; }  /* R5 */
+        .experiment-table th:nth-child(10),
+        .experiment-table td:nth-child(10) { width: 8%; } /* Total */
+        .experiment-table th:nth-child(11),
+        .experiment-table td:nth-child(11) { width: 11%; } /* Signatures */
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="index.html">Digital Lab Portal</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="Log_Book1.html">Log Book</a></li>
+                <li><a href="Studyresources.html">Study Resources</a></li>
+                <li><a href="About.html">About US</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>📚 Log Book Viewer</h1>
+        
+        <div class="search-bar">
+            <input type="text" id="searchName" placeholder="Search by Name...">
+            <input type="number" id="searchRoll" placeholder="Search by Roll Number...">
+            <input type="number" id="searchReg" placeholder="Search by Register Number...">
+            <button onclick="searchLogBooks()">🔍 Search</button>
+            <button onclick="loadAllLogBooks()">📋 Show All</button>
+            <button onclick="window.location.href='create-master-logbook.html'">📚 Create Master</button>
+            <button onclick="setViewMode('cards')">🗂️ Card View</button>
+            <button onclick="setViewMode('table')">🧾 Table View</button>
+        </div>
+
+        <div id="logbookList" class="logbook-list">
+            <div class="loading">Loading log books...</div>
+        </div>
+    </div>
+
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3005/api/logbook';
+        let allLogBooks = [];
+        let viewMode = 'cards';
+
+        // Helper function to get auth headers
+        function getAuthHeaders() {
+            const token = localStorage.getItem('token');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        // Load all log books on page load
+        window.addEventListener('DOMContentLoaded', loadAllLogBooks);
+
+        async function loadAllLogBooks() {
+            try {
+                console.log('Fetching from:', `${API_URL}/all`);
+                const response = await fetch(`${API_URL}/all`, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (data.success) {
+                    allLogBooks = data.data;
+                    displayLogBooks(allLogBooks);
+                } else {
+                    showNotification('Failed to load log books: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showNotification('Error: ' + error.message, 'error');
+                document.getElementById('logbookList').innerHTML = 
+                    '<div class="no-data">❌ Failed to connect to server. Check browser console (F12).</div>';
+            }
+        }
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            displayLogBooks(allLogBooks);
+        }
+
+        function displayLogBooks(logbooks) {
+            const container = document.getElementById('logbookList');
+            
+            if (logbooks.length === 0) {
+                container.innerHTML = '<div class="no-data">📭 No log books found</div>';
+                return;
+            }
+
+            if (viewMode === 'table') {
+                container.innerHTML = `
+                    <div style="overflow-x:auto;">
+                        <table class="experiment-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Roll No</th>
+                                    <th>Reg No</th>
+                                    <th>Experiments</th>
+                                    <th>Lab Exams</th>
+                                    <th>Open Project</th>
+                                    <th>Final Total</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${logbooks.map(log => `
+                                    <tr>
+                                        <td>${log.name || ''}</td>
+                                        <td>${log.rollno || ''}</td>
+                                        <td>${log.rgno || ''}</td>
+                                        <td>${log.experiments ? log.experiments.length : 0}</td>
+                                        <td>${log.labExams ? log.labExams.length : 0}</td>
+                                        <td>${log.openEndedProject && log.openEndedProject.projectName ? '✓' : '✗'}</td>
+                                        <td>${log.finalAssessment && log.finalAssessment.totalMarks ? log.finalAssessment.totalMarks : 'N/A'}</td>
+                                        <td>${new Date(log.createdAt).toLocaleString()}</td>
+                                        <td>
+                                            <button class="btn-view" onclick="viewDetails('${log._id}')">View</button>
+                                            <button class="btn-delete" onclick="deleteLogBook('${log._id}', '${log.name}')">Delete</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = logbooks.map(log => `
+                <div class="logbook-card">
+                    <div class="logbook-header">
+                        <div class="student-info">
+                            <h3>👤 ${log.name}</h3>
+                            <p><strong>Roll No:</strong> ${log.rollno} | <strong>Reg No:</strong> ${log.rgno}</p>
+                            <p><strong>Created:</strong> ${new Date(log.createdAt).toLocaleString()}</p>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-view" onclick="viewDetails('${log._id}')">👁️ View Details</button>
+                            <button class="btn-delete" onclick="deleteLogBook('${log._id}', '${log.name}')">🗑️ Delete</button>
+                        </div>
+                    </div>
+                    <div class="experiment-summary">
+                        <div class="summary-item">
+                            <strong>Total Experiments</strong>
+                            <span>${log.experiments ? log.experiments.length : 0}</span>
+                        </div>
+                        <div class="summary-item">
+                            <strong>Lab Exams</strong>
+                            <span>${log.labExams ? log.labExams.length : 0}</span>
+                        </div>
+                        <div class="summary-item">
+                            <strong>Open-Ended Project</strong>
+                            <span>${log.openEndedProject && log.openEndedProject.projectName ? '✓' : '✗'}</span>
+                        </div>
+                        <div class="summary-item">
+                            <strong>Final Assessment</strong>
+                            <span>${log.finalAssessment && log.finalAssessment.totalMarks ? log.finalAssessment.totalMarks : 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function searchLogBooks() {
+            const name = document.getElementById('searchName').value.toLowerCase();
+            const roll = document.getElementById('searchRoll').value;
+            const reg = document.getElementById('searchReg').value;
+
+            const filtered = allLogBooks.filter(log => {
+                const nameMatch = !name || log.name.toLowerCase().includes(name);
+                const rollMatch = !roll || log.rollno.toString() === roll;
+                const regMatch = !reg || log.rgno.toString() === reg;
+                return nameMatch && rollMatch && regMatch;
+            });
+
+            displayLogBooks(filtered);
+        }
+
+        async function viewDetails(id) {
+            const logBook = allLogBooks.find(log => log._id === id);
+            if (!logBook) return;
+
+            const modalContent = document.getElementById('modalContent');
+            modalContent.innerHTML = `
+                <h2>📖 Log Book Details</h2>
+                <div class="detail-section">
+                    <h4>Student Information</h4>
+                    <p><strong>Name:</strong> ${logBook.name}</p>
+                    <p><strong>Roll Number:</strong> ${logBook.rollno}</p>
+                    <p><strong>Register Number:</strong> ${logBook.rgno}</p>
+                </div>
+
+                ${logBook.experiments && logBook.experiments.length > 0 ? `
+                <div class="detail-section">
+                    <h4>Experiments</h4>
+                    <table class="experiment-table">
+                        <thead>
+                            <tr>
+                                <th>Sl.No</th>
+                                <th>Date</th>
+                                <th>Experiment</th>
+                                <th>CO</th>
+                                <th>R1</th>
+                                <th>R2</th>
+                                <th>R3</th>
+                                <th>R4</th>
+                                <th>R5</th>
+                                <th>Total</th>
+                                <th>Signatures</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${logBook.experiments.map(exp => `
+                                <tr>
+                                    <td>${exp.slNo}</td>
+                                    <td>${exp.date || '-'}</td>
+                                    <td>${exp.experimentName || '-'}</td>
+                                    <td>${exp.co || '-'}</td>
+                                    <td>${exp.rubric1 || 0}</td>
+                                    <td>${exp.rubric2 || 0}</td>
+                                    <td>${exp.rubric3 || 0}</td>
+                                    <td>${exp.rubric4 || 0}</td>
+                                    <td>${exp.rubric5 || 0}</td>
+                                    <td>${exp.total || 0}</td>
+                                    <td>S:${exp.studentSignature ? '✓' : '✗'} F:${exp.facultySignature ? '✓' : '✗'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
+
+                ${logBook.openEndedProject && logBook.openEndedProject.projectName ? `
+                <div class="detail-section">
+                    <h4>Open-Ended Project</h4>
+                    <table class="experiment-table">
+                        <thead>
+                            <tr>
+                                <th>Sl.No</th>
+                                <th>Date</th>
+                                <th>Project Name</th>
+                                <th>CO</th>
+                                <th>R1</th>
+                                <th>R2</th>
+                                <th>R3</th>
+                                <th>R4</th>
+                                <th>R5</th>
+                                <th>Total</th>
+                                <th>Signatures</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>${logBook.openEndedProject.date || '-'}</td>
+                                <td>${logBook.openEndedProject.projectName}</td>
+                                <td>${logBook.openEndedProject.co || '-'}</td>
+                                <td>${logBook.openEndedProject.rubric1 || 0}</td>
+                                <td>${logBook.openEndedProject.rubric2 || 0}</td>
+                                <td>${logBook.openEndedProject.rubric3 || 0}</td>
+                                <td>${logBook.openEndedProject.rubric4 || 0}</td>
+                                <td>${logBook.openEndedProject.rubric5 || 0}</td>
+                                <td>${logBook.openEndedProject.total || 0}</td>
+                                <td>S:${logBook.openEndedProject.studentSignature ? '✓' : '✗'} F:${logBook.openEndedProject.facultySignature ? '✓' : '✗'}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
+
+                ${logBook.labExams && logBook.labExams.length > 0 ? `
+                <div class="detail-section">
+                    <h4>Lab Exams</h4>
+                    <table class="experiment-table">
+                        <thead>
+                            <tr>
+                                <th>Sl.No</th>
+                                <th>Date</th>
+                                <th>Exam</th>
+                                <th>CO</th>
+                                <th>R1</th>
+                                <th>R2</th>
+                                <th>R3</th>
+                                <th>R4</th>
+                                <th>R5</th>
+                                <th>Total</th>
+                                <th>Signatures</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${logBook.labExams.map(exam => `
+                                <tr>
+                                    <td>${exam.slNo}</td>
+                                    <td>${exam.date || '-'}</td>
+                                    <td>Exam ${exam.slNo}</td>
+                                    <td>${exam.co || '-'}</td>
+                                    <td>${exam.rubric1 || 0}</td>
+                                    <td>${exam.rubric2 || 0}</td>
+                                    <td>${exam.rubric3 || 0}</td>
+                                    <td>${exam.rubric4 || 0}</td>
+                                    <td>${exam.rubric5 || 0}</td>
+                                    <td>${exam.total || 0}</td>
+                                    <td>S:${exam.studentSignature ? '✓' : '✗'} F:${exam.facultySignature ? '✓' : '✗'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
+
+                ${logBook.finalAssessment ? `
+                <div class="detail-section">
+                    <h4>Final Assessment</h4>
+                    <table class="experiment-table">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Maximum Marks</th>
+                                <th>Marks Awarded</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Attendance</td>
+                                <td>15</td>
+                                <td>${logBook.finalAssessment.attendance || 0}</td>
+                            </tr>
+                            <tr>
+                                <td>Lab Work</td>
+                                <td>37.5</td>
+                                <td>${logBook.finalAssessment.labWork || 0}</td>
+                            </tr>
+                            <tr>
+                                <td>Open Ended Project</td>
+                                <td>7.5</td>
+                                <td>${logBook.finalAssessment.openEndedProject || 0}</td>
+                            </tr>
+                            <tr>
+                                <td>Lab Exam</td>
+                                <td>15</td>
+                                <td>${logBook.finalAssessment.labExam || 0}</td>
+                            </tr>
+                            <tr style="font-weight: bold; background: #f0f0f0;">
+                                <td>Total Marks</td>
+                                <td>75</td>
+                                <td>${logBook.finalAssessment.totalMarks || 0}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
+            `;
+
+            document.getElementById('detailModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+
+        async function deleteLogBook(id, name) {
+            if (!confirm(`Are you sure you want to delete the log book for ${name}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Log book deleted successfully', 'success');
+                    loadAllLogBooks();
+                } else {
+                    showNotification('Failed to delete: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('detailModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+    <script src="scripts.js"></script>
+</body>
+</html>
