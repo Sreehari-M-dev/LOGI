@@ -23,10 +23,7 @@ services:
       - key: AUTH_SERVICE_PORT
         value: 3002
       - key: AUTH_SERVICE_URL
-        fromService:
-          type: web
-          name: logi-auth-service
-          property: url  # Auto-populated with this service's URL
+        sync: false  # Set after first deploy to this service's URL (e.g., https://logi-auth-service.onrender.com)
 
   # Logbook Service - Handles logbook CRUD operations
   - type: web
@@ -48,10 +45,7 @@ services:
       - key: LOGBOOK_SERVICE_PORT
         value: 3005
       - key: AUTH_SERVICE_URL
-        fromService:
-          type: web
-          name: logi-auth-service
-          property: url  # Points to auth service URL
+        sync: false  # Set manually to the auth service URL (e.g., https://logi-auth-service.onrender.com)
 
 # DEPLOYMENT INSTRUCTIONS:
 # 
