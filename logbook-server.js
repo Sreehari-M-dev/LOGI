@@ -6,7 +6,7 @@ const app = express();
 
 const JWT_SECRET = process.env.JWT_SECRET; // Same as auth-server
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LOGI';
-const PORT = process.env.LOGBOOK_SERVICE_PORT || 3005;
+const PORT = process.env.PORT || process.env.LOGBOOK_SERVICE_PORT || 3005;
 
 if (!JWT_SECRET) {
     console.error('JWT_SECRET is not set. Please define it in the environment.');

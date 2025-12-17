@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.AUTH_SERVICE_PORT || 3002;
+const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LOGI';
 const JWT_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
