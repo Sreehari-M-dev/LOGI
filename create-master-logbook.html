@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Master Logbook</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .form-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-grid.full {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .experiment-row {
+            display: grid;
+            grid-template-columns: 80px 1fr 1fr 1fr auto;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            align-items: end;
+        }
+
+        .experiment-row input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .btn-remove-exp {
+            padding: 6px 10px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+
+        .btn-remove-exp:hover {
+            background: #ff3838;
+        }
+
+        .btn-add-exp {
+            padding: 10px 16px;
+            background: #1f77d2;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+
+        .btn-add-exp:hover {
+            background: #1565b8;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 32px;
+            font-size: 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .notification {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideIn 0.3s ease-in-out;
+        }
+
+        .notification.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .notification.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .notification.show {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Create Master Logbook</h1>
+            <p>Define the template for your lab course logbook</p>
+        </div>
+
+        <div class="content">
+            <div id="notification" class="notification"></div>
+
+            <form id="masterLogbookForm">
+                <!-- Basic Information Section -->
+                <div class="form-section">
+                    <div class="section-title">📋 Course Information</div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="subject">Subject Name *</label>
+                            <input type="text" id="subject" name="subject" required placeholder="e.g., Data Structures Lab">
+                        </div>
+                        <div class="form-group">
+                            <label for="code">Course Code *</label>
+                            <input type="text" id="code" name="code" required placeholder="e.g., CS205">
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="department">Department *</label>
+                            <input type="text" id="department" name="department" required placeholder="e.g., Computer Science">
+                        </div>
+                        <div class="form-group">
+                            <label for="semester">Semester *</label>
+                            <select id="semester" name="semester" required>
+                                <option value="">Select Semester</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid full">
+                        <div class="form-group">
+                            <label for="batch">Batch *</label>
+                            <input type="text" id="batch" name="batch" required placeholder="e.g., CSE-A (60 students)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Experiments Section -->
+                <div class="form-section">
+                    <div class="section-title">🧪 Experiments</div>
+                    <div id="experimentsContainer" class="experiments-container">
+                    </div>
+                    <button type="button" class="btn-add-exp" onclick="addExperiment()">+ Add Experiment</button>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="button-group">
+                    <button type="reset" class="btn btn-secondary">Clear Form</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Create Master Logbook</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3005';
+        let experimentCount = 0;
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('token');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+
+        function addExperiment() {
+            const container = document.getElementById('experimentsContainer');
+            const expIndex = experimentCount++;
+            
+            const row = document.createElement('div');
+            row.className = 'experiment-row';
+            row.innerHTML = `
+                <input type="number" name="exp_slno_${expIndex}" placeholder="Sl.No" min="1" style="width: 60px;">
+                <input type="text" name="exp_name_${expIndex}" placeholder="Experiment Name" required>
+                <input type="text" name="exp_co_${expIndex}" placeholder="CO (e.g., CO1)" required>
+                <input type="number" name="exp_marks_${expIndex}" placeholder="Max Marks" min="0" max="100">
+                <button type="button" class="btn-remove-exp" onclick="removeExperiment(this)">Remove</button>
+            `;
+            
+            container.appendChild(row);
+        }
+
+        function removeExperiment(btn) {
+            btn.parentElement.remove();
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+
+            const form = document.getElementById('masterLogbookForm');
+            const submitBtn = document.getElementById('submitBtn');
+
+            const basicInfo = {
+                subject: document.getElementById('subject').value,
+                code: document.getElementById('code').value,
+                department: document.getElementById('department').value,
+                semester: parseInt(document.getElementById('semester').value),
+                batch: document.getElementById('batch').value
+            };
+
+            const experiments = [];
+            const expRows = document.querySelectorAll('[name^="exp_slno_"]');
+            expRows.forEach((slnoInput, idx) => {
+                const name = document.querySelector(`[name="exp_name_${idx}"]`)?.value;
+                const co = document.querySelector(`[name="exp_co_${idx}"]`)?.value;
+                const marks = parseInt(document.querySelector(`[name="exp_marks_${idx}"]`)?.value) || 0;
+                
+                if (name && co) {
+                    experiments.push({
+                        slNo: parseInt(slnoInput.value) || idx + 1,
+                        experimentName: name,
+                        co: co,
+                        maxMarks: marks
+                    });
+                }
+            });
+
+            if (experiments.length === 0) {
+                showNotification('Please add at least one experiment', 'error');
+                return;
+            }
+
+            const payload = {
+                ...basicInfo,
+                experiments: experiments,
+                openEndedProject: {},
+                labExams: []
+            };
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading"></span> Creating...';
+
+            try {
+                const response = await fetch(`${API_URL}/api/logbook/master/create`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('✓ Master logbook created successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = `assign-students.html?masterId=${data.masterId}`;
+                    }, 1500);
+                } else {
+                    showNotification(`Error: ${data.error || 'Failed to create'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification(`Error: ${error.message}`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Create Master Logbook';
+            }
+        }
+
+        document.getElementById('masterLogbookForm').addEventListener('submit', handleSubmit);
+
+        window.addEventListener('load', () => {
+            addExperiment();
+        });
+    </script>
+</body>
+</html>

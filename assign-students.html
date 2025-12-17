@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assign Students to Master Logbook</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .course-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .info-value {
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .upload-box {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .upload-box:hover {
+            border-color: #764ba2;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .upload-text strong {
+            color: #667eea;
+        }
+
+        #studentFile {
+            display: none;
+        }
+
+        .paste-section {
+            margin-top: 30px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+
+        .paste-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .students-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .students-table thead {
+            background: #f0f0f0;
+        }
+
+        .students-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .students-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .students-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .student-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .status-valid {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 32px;
+            font-size: 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .notification {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideIn 0.3s ease-in-out;
+        }
+
+        .notification.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .notification.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .notification.show {
+            display: block;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .summary {
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .summary.show {
+            display: block;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .summary-value {
+            color: #333;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👥 Assign Students</h1>
+            <p>Add students to the master logbook template</p>
+        </div>
+
+        <div class="content">
+            <div id="notification" class="notification"></div>
+
+            <div class="section">
+                <div class="section-title">📚 Master Logbook Details</div>
+                <div id="courseInfo" class="course-info">
+                    <div class="info-item">
+                        <span class="info-label">Subject</span>
+                        <span class="info-value" id="infoSubject">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Code</span>
+                        <span class="info-value" id="infoCode">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Department</span>
+                        <span class="info-value" id="infoDept">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Batch</span>
+                        <span class="info-value" id="infoBatch">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">� Select Students to Assign</div>
+                
+                <div id="summary" class="summary">
+                    <div class="summary-item">
+                        <span class="summary-label">Students to Assign:</span>
+                        <span class="summary-value" id="summaryCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Valid Records:</span>
+                        <span class="summary-value" id="summaryValid">0</span>
+                    </div>
+                </div>
+
+                <table id="studentsTable" class="students-table" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Select</th>
+                            <th>Name</th>
+                            <th>Roll No</th>
+                            <th>Register No</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="btn btn-primary" id="assignBtn" onclick="assignStudents()" disabled>Assign Selected Students</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3005';
+        let masterId = null;
+        let parsedStudents = [];
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('token');
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        function getUrlParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+
+        let masterData = null;
+
+        async function loadMasterDetails() {
+            masterId = getUrlParam('masterId');
+            if (!masterId) {
+                showNotification('Master Logbook ID not found in URL', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/logbook/master/${masterId}`, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) throw new Error('Failed to load master logbook');
+
+                const data = await response.json();
+                if (data.success) {
+                    masterData = data.data;
+                    document.getElementById('infoSubject').textContent = data.data.subject;
+                    document.getElementById('infoCode').textContent = data.data.code;
+                    document.getElementById('infoDept').textContent = data.data.department;
+                    document.getElementById('infoBatch').textContent = data.data.batch;
+                    
+                    // Auto-load registered students
+                    loadRegisteredStudents();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Failed to load master logbook details', 'error');
+            }
+        }
+
+        async function loadRegisteredStudents() {
+            if (!masterData) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/logbook/students/by-dept-sem?department=${encodeURIComponent(masterData.department)}&semester=${masterData.semester}`, {
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+                if (data.success && data.students.length > 0) {
+                    displayRegisteredStudents(data.students);
+                    showNotification(`Found ${data.students.length} registered student(s) in ${masterData.department}, Semester ${masterData.semester}`, 'success');
+                } else {
+                    showNotification('No registered students found for this department and semester', 'info');
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+                showNotification('Failed to load registered students', 'error');
+            }
+        }
+
+        function displayRegisteredStudents(students) {
+            parsedStudents = students.map(s => ({
+                name: s.name,
+                rollno: s.rollno,
+                rgno: s.rgno,
+                valid: true
+            }));
+
+            const tbody = document.getElementById('studentsBody');
+            tbody.innerHTML = students.map((student, index) => `
+                <tr>
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="student-checkbox" 
+                               data-index="${index}" 
+                               data-name="${student.name}" 
+                               data-rollno="${student.rollno}" 
+                               data-rgno="${student.rgno}" 
+                               checked>
+                    </td>
+                    <td>${student.name}</td>
+                    <td>${student.rollno}</td>
+                    <td>${student.rgno}</td>
+                    <td><span class="status valid">✓ Valid</span></td>
+                </tr>
+            `).join('');
+
+            // Add event listeners to checkboxes to update button state
+            const checkboxes = document.querySelectorAll('.student-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateAssignButtonState);
+            });
+
+            document.getElementById('studentsTable').style.display = 'table';
+            updateAssignButtonState();
+            document.getElementById('summary').classList.add('show');
+        }
+
+        function updateAssignButtonState() {
+            const checkedCount = document.querySelectorAll('.student-checkbox:checked').length;
+            document.getElementById('assignBtn').disabled = checkedCount === 0;
+            document.getElementById('summaryCount').textContent = checkedCount;
+            document.getElementById('summaryValid').textContent = checkedCount;
+        }
+
+
+
+        async function assignStudents() {
+            // Get all checked checkboxes
+            const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
+            
+            if (checkedBoxes.length === 0) {
+                showNotification('Please select at least one student to assign', 'error');
+                return;
+            }
+
+            // Extract student data from checked checkboxes
+            const selectedStudents = Array.from(checkedBoxes).map(checkbox => ({
+                name: checkbox.dataset.name,
+                rollno: checkbox.dataset.rollno,
+                rgno: checkbox.dataset.rgno
+            }));
+
+            const assignBtn = document.getElementById('assignBtn');
+            assignBtn.disabled = true;
+            assignBtn.innerHTML = '<span class="loading"></span> Assigning...';
+
+            try {
+                const response = await fetch(`${API_URL}/api/logbook/master/${masterId}/assign-students`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        students: selectedStudents
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(`✓ Successfully assigned ${data.count} students!`, 'success');
+                    setTimeout(() => {
+                        window.location.href = 'logbook-viewer.html';
+                    }, 2000);
+                } else {
+                    showNotification(`Error: ${data.error || 'Failed to assign students'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification(`Error: ${error.message}`, 'error');
+            } finally {
+                assignBtn.disabled = false;
+                assignBtn.innerHTML = 'Assign Students';
+            }
+        }
+
+        window.addEventListener('load', loadMasterDetails);
+    </script>
+</body>
+</html>
