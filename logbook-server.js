@@ -1284,4 +1284,9 @@ app.delete('/api/logbook/:id', async (req, res) => {
     }
 });
 
+// Health check for Render/uptime monitors
+app.get('/health', (req, res) => {
+    res.json({ status: 'Logbook Server OK', port: PORT });
+});
+
 app.listen(PORT, () => console.log(`Log Book Server running on port ${PORT}\nDatabase: LOGI`));
