@@ -7,6 +7,7 @@ const app = express();
 const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LOGI';
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://sreehari-m-dev.github.io').split(',').map(s => s.trim());
 const JWT_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
 // Require a secret before starting
@@ -16,7 +17,20 @@ if (!JWT_SECRET) {
 }
 
 // Middleware
-app.use(cors({ origin: '*' }));
+app.use(cors({
+    origin: function(origin, callback) {
+        if (!origin) return callback(null, true); // allow non-browser requests
+        if (ALLOWED_ORIGINS.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+    maxAge: 86400
+}));
+app.options('*', cors());
 app.use(express.json());
 
 // MongoDB Connection
