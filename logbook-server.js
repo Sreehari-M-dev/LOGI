@@ -102,10 +102,30 @@ function authenticateToken(req, res, next) {
 }
 
 // Middleware
+const allowedOrigins = [
+    'https://sreehari-m-dev.github.io',
+    'http://localhost:3000',
+    'http://localhost:8080'
+];
+
 app.use(cors({
-    origin: '*',  // Allow all origins for debugging
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: false
+    origin: function(origin, callback) {
+        console.log(`[CORS] Origin received: ${origin}`);
+        if (!origin) {
+            console.log('[CORS] No origin (non-browser request) - allowing');
+            return callback(null, true);
+        }
+        if (allowedOrigins.includes(origin)) {
+            console.log(`[CORS] Origin ${origin} is allowed`);
+            return callback(null, true);
+        }
+        console.log(`[CORS] Origin ${origin} is NOT allowed`);
+        return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+    maxAge: 86400
 }));
 
 // Security headers
