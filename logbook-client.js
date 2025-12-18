@@ -138,7 +138,7 @@ async function fetchUserProfile() {
             return;
         }
         
-        const response = await fetch(`${window.REACT_APP_AUTH_API || 'http://localhost:3002'}/api/auth/profile`, {
+        const response = await fetch(`${window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth'}/profile`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
