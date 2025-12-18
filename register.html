@@ -305,7 +305,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
     <script>
-        const AUTH_API = 'http://localhost:3002/api/auth';
+        const AUTH_API = window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth';
         
         function togglePasswordVisibility(inputId) {
             const input = document.getElementById(inputId);
