@@ -30,7 +30,6 @@ app.use(cors({
     credentials: false,
     maxAge: 86400
 }));
-app.options('*', cors());
 app.use(express.json());
 
 // MongoDB Connection
