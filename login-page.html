@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - LOGI</title>
+    <script>
+        // Set production API URLs (override localhost defaults)
+        window.REACT_APP_AUTH_API = 'https://logi-auth-service.onrender.com/api/auth';
+        window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service.onrender.com/api/logbook';
+    </script>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
