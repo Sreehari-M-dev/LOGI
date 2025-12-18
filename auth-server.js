@@ -22,6 +22,14 @@ const allowedOrigins = [
     'http://localhost:8080'
 ];
 
+// Log all incoming requests and headers
+app.use((req, res, next) => {
+    console.log(`[REQUEST] ${req.method} ${req.path}`);
+    console.log(`[HEADERS] Origin: ${req.headers.origin}, Referer: ${req.headers.referer}`);
+    console.log(`[HEADERS] Host: ${req.headers.host}`);
+    next();
+});
+
 app.use(cors({
     origin: function(origin, callback) {
         console.log(`[CORS] Origin received: ${origin}`);
