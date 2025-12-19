@@ -55,48 +55,33 @@ function sanitizeInput(obj) {
     return obj;
 }
 
-// JWT Token verification function
-function verifyToken(token) {
-    try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return null;
-        
-        const [header, payload, signature] = parts;
-        const expectedSignature = crypto
-            .createHmac('sha256', JWT_SECRET)
-            .update(`${header}.${payload}`)
-            .digest('base64');
-        
-        if (signature !== expectedSignature) return null;
-        
-        const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-        const now = Math.floor(Date.now() / 1000);
-        
-        if (decodedPayload.exp < now) return null; // Token expired
-        
-        return decodedPayload;
-    } catch (error) {
-        return null;
-    }
-}
-
-// Authentication middleware
-function authenticateToken(req, res, next) {
+// Authentication middleware: delegate verification to Auth Service to enforce session idle timeout
+async function authenticateToken(req, res, next) {
     try {
         const token = req.headers.authorization?.split(' ')[1];
-        
         if (!token) {
             return res.status(401).json({ success: false, error: 'No token provided' });
         }
 
-        const decoded = verifyToken(token);
-        if (!decoded) {
-            return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+        const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:3002';
+        const response = await fetch(`${authServiceUrl}/api/auth/verify`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: 'Authentication failed' }));
+            return res.status(401).json({ success: false, error: err.error || 'Authentication failed' });
         }
 
-        req.user = decoded;
+        const data = await response.json();
+        req.user = data.user; // decoded payload from auth-server
         next();
     } catch (error) {
+        console.error('Auth verification error:', error);
         res.status(401).json({ success: false, error: 'Authentication failed' });
     }
 }

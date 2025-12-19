@@ -8,6 +8,8 @@ const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LOGI';
 const JWT_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+const IDLE_TIMEOUT_MS = parseInt(process.env.IDLE_TIMEOUT_MS || '900000'); // 15 minutes default
+const TOUCH_INTERVAL_MS = 60000; // update lastActivity at most once per minute
 
 // Require a secret before starting
 if (!JWT_SECRET) {
@@ -77,6 +79,19 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Session Schema for idle timeout and server-side session tracking
+const sessionSchema = new mongoose.Schema({
+    sid: { type: String, required: true, unique: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    rgno: { type: Number, required: true },
+    role: { type: String, required: true },
+    lastActivity: { type: Date, default: Date.now },
+    createdAt: { type: Date, default: Date.now },
+    expiredAt: { type: Date },
+    isExpired: { type: Boolean, default: false }
+});
+const Session = mongoose.model('Session', sessionSchema);
+
 // Simple password hashing using crypto
 function hashPassword(password) {
     return crypto.createHash('sha256').update(password + JWT_SECRET).digest('hex');
@@ -88,13 +103,14 @@ function verifyPassword(password, hash) {
 }
 
 // Simple JWT token generation (without external library)
-function generateToken(userId, rgno, role) {
+function generateToken(userId, rgno, role, sid) {
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
     const now = Math.floor(Date.now() / 1000);
     const payload = {
         userId: userId.toString(),
         rgno: rgno,
         role: role,
+        sid: sid,
         iat: now,
         exp: now + (7 * 24 * 60 * 60) // 7 days
     };
@@ -106,6 +122,47 @@ function generateToken(userId, rgno, role) {
     
     return `${header}.${encodedPayload}.${signature}`;
 }
+// Middleware to authenticate and enforce idle timeout using sessions
+async function authenticateAndTouchSession(req, res, next) {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ success: false, error: 'No token provided' });
+        }
+
+        const decoded = verifyToken(token);
+        if (!decoded || !decoded.sid) {
+            return res.status(401).json({ success: false, error: 'Invalid token' });
+        }
+
+        const session = await Session.findOne({ sid: decoded.sid });
+        if (!session || session.isExpired) {
+            return res.status(401).json({ success: false, error: 'Session expired. Please login again.' });
+        }
+
+        const now = Date.now();
+        const last = session.lastActivity ? session.lastActivity.getTime() : session.createdAt.getTime();
+        if (now - last > IDLE_TIMEOUT_MS) {
+            session.isExpired = true;
+            session.expiredAt = new Date(now);
+            await session.save();
+            return res.status(401).json({ success: false, error: 'Session expired due to inactivity. Please login again.' });
+        }
+
+        // Update last activity (sliding window) with throttling to reduce writes
+        if (now - last > TOUCH_INTERVAL_MS) {
+            session.lastActivity = new Date(now);
+            await session.save();
+        }
+
+        req.auth = { decoded, session };
+        next();
+    } catch (error) {
+        console.error('Session auth error:', error);
+        return res.status(401).json({ success: false, error: 'Authentication failed' });
+    }
+}
+
 
 // Verify JWT token
 function verifyToken(token) {
@@ -171,8 +228,12 @@ app.post('/api/auth/register', async (req, res) => {
 
         await newUser.save();
 
-        // Generate token using rgno
-        const token = generateToken(newUser._id, newUser.rgno, newUser.role);
+        // Create server-side session and generate token with session id (sid)
+        const sid = crypto.randomBytes(16).toString('hex');
+        await new Session({ sid, userId: newUser._id, rgno: newUser.rgno, role: newUser.role }).save();
+
+        // Generate token using rgno + sid
+        const token = generateToken(newUser._id, newUser.rgno, newUser.role, sid);
 
         res.status(201).json({
             success: true,
@@ -232,8 +293,12 @@ app.post('/api/auth/login', async (req, res) => {
             });
         }
 
-        // Generate token using rgno
-        const token = generateToken(user._id, user.rgno, user.role);
+        // Create server-side session and generate token with session id (sid)
+        const sid = crypto.randomBytes(16).toString('hex');
+        await new Session({ sid, userId: user._id, rgno: user.rgno, role: user.role }).save();
+
+        // Generate token using rgno + sid
+        const token = generateToken(user._id, user.rgno, user.role, sid);
 
         res.json({
             success: true,
@@ -256,44 +321,19 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Verify Token Route
-app.post('/api/auth/verify', (req, res) => {
+app.post('/api/auth/verify', authenticateAndTouchSession, (req, res) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
-        
-        if (!token) {
-            return res.status(401).json({ success: false, error: 'No token provided' });
-        }
-
-        const decoded = verifyToken(token);
-        if (!decoded) {
-            return res.status(401).json({ success: false, error: 'Invalid token' });
-        }
-
-        res.json({ 
-            success: true, 
-            user: decoded 
-        });
-
+        // If middleware passed, session is valid and activity updated
+        res.json({ success: true, user: req.auth.decoded });
     } catch (error) {
         res.status(401).json({ success: false, error: 'Invalid token' });
     }
 });
 
 // Get User Profile
-app.get('/api/auth/profile', async (req, res) => {
+app.get('/api/auth/profile', authenticateAndTouchSession, async (req, res) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
-        
-        if (!token) {
-            return res.status(401).json({ success: false, error: 'No token provided' });
-        }
-
-        const decoded = verifyToken(token);
-        if (!decoded) {
-            return res.status(401).json({ success: false, error: 'Invalid token' });
-        }
-
-        const user = await User.findById(decoded.userId).select('-password');
+        const user = await User.findById(req.auth.decoded.userId).select('-password');
         
         res.json({ 
             success: true, 
@@ -306,21 +346,10 @@ app.get('/api/auth/profile', async (req, res) => {
 });
 
 // Change Password Route
-app.post('/api/auth/change-password', async (req, res) => {
+app.post('/api/auth/change-password', authenticateAndTouchSession, async (req, res) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
         const { currentPassword, newPassword } = req.body;
-
-        if (!token) {
-            return res.status(401).json({ success: false, error: 'No token provided' });
-        }
-
-        const decoded = verifyToken(token);
-        if (!decoded) {
-            return res.status(401).json({ success: false, error: 'Invalid token' });
-        }
-
-        const user = await User.findById(decoded.userId);
+        const user = await User.findById(req.auth.decoded.userId);
 
         // Verify current password
         const isValid = verifyPassword(currentPassword, user.password);
@@ -343,8 +372,23 @@ app.post('/api/auth/change-password', async (req, res) => {
 });
 
 // Logout Route (client-side)
-app.post('/api/auth/logout', (req, res) => {
-    // In JWT, logout is typically handled on client-side by removing token
+app.post('/api/auth/logout', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (token) {
+            const decoded = verifyToken(token);
+            if (decoded && decoded.sid) {
+                const session = await Session.findOne({ sid: decoded.sid });
+                if (session && !session.isExpired) {
+                    session.isExpired = true;
+                    session.expiredAt = new Date();
+                    await session.save();
+                }
+            }
+        }
+    } catch (e) {
+        // ignore and return success
+    }
     res.json({ success: true, message: 'Logout successful' });
 });
 
@@ -379,21 +423,10 @@ app.post('/api/auth/students/filter', async (req, res) => {
 });
 
 // Get all users (Admin only)
-app.get('/api/auth/users', async (req, res) => {
+app.get('/api/auth/users', authenticateAndTouchSession, async (req, res) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
-        
-        if (!token) {
-            return res.status(401).json({ success: false, error: 'No token provided' });
-        }
-
-        const decoded = verifyToken(token);
-        if (!decoded) {
-            return res.status(401).json({ success: false, error: 'Invalid token' });
-        }
-        
         // Check if user is admin
-        if (decoded.role !== 'admin') {
+        if (req.auth.decoded.role !== 'admin') {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
