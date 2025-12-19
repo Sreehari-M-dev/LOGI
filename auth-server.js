@@ -1,3 +1,5 @@
+// Load environment variables from .env for local development
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
@@ -17,12 +19,18 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
-// Middleware
-const allowedOrigins = [
-    'https://sreehari-m-dev.github.io',
-    'http://localhost:3000',
-    'http://localhost:8080'
-];
+// Middleware - Environment-aware CORS origins
+const isProduction = process.env.NODE_ENV === 'production';
+const allowedOrigins = isProduction
+    ? ['https://sreehari-m-dev.github.io'] // Production: only GitHub Pages
+    : [
+        'https://sreehari-m-dev.github.io',
+        'http://localhost',
+        'http://localhost:3000',
+        'http://localhost:8080',
+        'http://127.0.0.1',
+        'http://127.0.0.1:3000'
+    ];
 
 // Log all incoming requests and headers
 app.use((req, res, next) => {

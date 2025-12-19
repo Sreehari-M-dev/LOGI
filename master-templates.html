@@ -5,9 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master Templates - LOGI</title>
     <script>
-        // Set production API URLs (override localhost defaults)
-        window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
-        window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
+        // Auto-detect environment: use local servers for localhost, Render for production
+        (function() {
+            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            if (isLocal) {
+                window.REACT_APP_AUTH_API = 'http://localhost:3002/api/auth';
+                window.REACT_APP_LOGBOOK_API = 'http://localhost:3005/api/logbook';
+            } else {
+                window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
+                window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
+            }
+        })();
     </script>
     <link rel="stylesheet" href="styles.css">
     <style>
