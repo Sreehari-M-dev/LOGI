@@ -3,11 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - LOGI</title>
+    <title>Login - LOGI | Digital Lab Logbook System</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Login to LOGI - Digital Lab Logbook Management System. Access your lab experiments, track progress, and manage laboratory documentation.">
+    <meta name="keywords" content="LOGI login, lab logbook login, student portal, faculty login, lab management">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://sreehari-m-dev.github.io/LOGI/login-page.html">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Login - LOGI Digital Lab Logbook">
+    <meta property="og:description" content="Access your lab experiments and documentation with LOGI.">
+    <meta property="og:url" content="https://sreehari-m-dev.github.io/LOGI/login-page.html">
+    <meta property="og:image" content="https://sreehari-m-dev.github.io/LOGI/c-logo.png">
+    
     <script>
-        // Set production API URLs (override localhost defaults)
-        window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
-        window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
+        // Auto-detect environment: use local servers for localhost, Render for production
+        (function() {
+            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            if (isLocal) {
+                window.REACT_APP_AUTH_API = 'http://localhost:3002/api/auth';
+                window.REACT_APP_LOGBOOK_API = 'http://localhost:3005/api/logbook';
+            } else {
+                window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
+                window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
+            }
+        })();
     </script>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">

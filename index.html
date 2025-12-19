@@ -4,11 +4,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Lab Portal - College Name</title>
+    <title>LOGI - Digital Lab Logbook Management System | College Lab Portal</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="LOGI is a digital lab logbook management system for colleges. Manage lab experiments, track student progress, and streamline laboratory documentation online.">
+    <meta name="keywords" content="lab logbook, digital logbook, college lab management, experiment tracking, laboratory portal, student lab records, LOGI, lab management system">
+    <meta name="author" content="LOGI Team">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://sreehari-m-dev.github.io/LOGI/">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sreehari-m-dev.github.io/LOGI/">
+    <meta property="og:title" content="LOGI - Digital Lab Logbook Management System">
+    <meta property="og:description" content="Manage lab experiments, track student progress, and streamline laboratory documentation with LOGI digital logbook system.">
+    <meta property="og:image" content="https://sreehari-m-dev.github.io/LOGI/c-logo.png">
+    <meta property="og:site_name" content="LOGI">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sreehari-m-dev.github.io/LOGI/">
+    <meta name="twitter:title" content="LOGI - Digital Lab Logbook Management System">
+    <meta name="twitter:description" content="Manage lab experiments, track student progress, and streamline laboratory documentation with LOGI.">
+    <meta name="twitter:image" content="https://sreehari-m-dev.github.io/LOGI/c-logo.png">
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "LOGI",
+        "description": "Digital Lab Logbook Management System for colleges and universities",
+        "url": "https://sreehari-m-dev.github.io/LOGI/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web Browser",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        }
+    }
+    </script>
+    
     <script>
-        // Set production API URLs (override localhost defaults)
-        window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
-        window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
+        // Auto-detect environment: use local servers for localhost, Render for production
+        (function() {
+            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            if (isLocal) {
+                window.REACT_APP_AUTH_API = 'http://localhost:3002/api/auth';
+                window.REACT_APP_LOGBOOK_API = 'http://localhost:3005/api/logbook';
+            } else {
+                window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
+                window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
+            }
+        })();
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />

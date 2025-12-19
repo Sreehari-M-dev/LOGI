@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sreehari-m-dev.github.io/LOGI/sitemap.xml
