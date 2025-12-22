@@ -4,6 +4,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
@@ -24,12 +25,12 @@ const isProduction = process.env.NODE_ENV === 'production';
 const allowedOrigins = isProduction
     ? ['https://sreehari-m-dev.github.io'] // Production: only GitHub Pages
     : [
-        'https://sreehari-m-dev.github.io',
         'http://localhost',
         'http://localhost:3000',
         'http://localhost:8080',
         'http://127.0.0.1',
-        'http://127.0.0.1:3000'
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3003'
     ];
 
 // Log all incoming requests and headers
@@ -74,7 +75,7 @@ mongoose.connect(MONGODB_URI, {
 // User Schema - using Register Number (rgno) as unique identifier
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    email: { type: String, sparse: true }, // Optional for faculty
+    email: { type: String, required: true, unique: true }, // Unique email for password reset flow
     rollno: { type: Number, sparse: true }, // For students
     rgno: { type: Number, required: true, unique: true }, // Unique identifier (Register Number)
     password: { type: String, required: true }, // Hashed
@@ -82,7 +83,10 @@ const userSchema = new mongoose.Schema({
     department: String,
     semester: Number,
     createdAt: { type: Date, default: Date.now },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    // Password reset fields
+    resetPasswordToken: { type: String, default: undefined },
+    resetPasswordExpires: { type: Date, default: undefined }
 });
 
 const User = mongoose.model('User', userSchema);
@@ -213,9 +217,9 @@ app.post('/api/auth/register', async (req, res) => {
         // Check if user already exists by register number
         const existingUser = await User.findOne({ rgno: parseInt(rgno) });
         if (existingUser) {
-            return res.status(400).json({ 
+            return res.status(409).json({ 
                 success: false, 
-                error: 'Register number already registered' 
+                error: 'This register number is already registered.' 
             });
         }
 
@@ -258,6 +262,19 @@ app.post('/api/auth/register', async (req, res) => {
 
     } catch (error) {
         console.error('Registration error:', error);
+        
+        // Handle duplicate key errors (E11000)
+        if (error.code === 11000) {
+            const field = Object.keys(error.keyPattern)[0]; // Get which field caused the duplicate
+            let message = 'This information is already registered.';
+            if (field === 'email') {
+                message = 'This email is already registered. Please use a different email.';
+            } else if (field === 'rgno') {
+                message = 'This register number is already registered.';
+            }
+            return res.status(409).json({ success: false, error: message });
+        }
+        
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -443,6 +460,162 @@ app.get('/api/auth/users', authenticateAndTouchSession, async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- Password Reset: Forgot Password Endpoint ---
+
+// Add these to your .env:
+// EMAIL_USER=your_gmail_address@gmail.com
+// EMAIL_PASS=your_gmail_app_password
+// FRONTEND_URL=https://sreehari-m-dev.github.io/LOGI
+
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI';
+
+// Validate email credentials
+if (!EMAIL_USER || !EMAIL_PASS) {
+    console.warn('⚠️ EMAIL_USER or EMAIL_PASS not configured in .env - Password reset emails will not work');
+}
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS
+    }
+});
+
+// Test transporter connection
+if (EMAIL_USER && EMAIL_PASS) {
+    transporter.verify((error, success) => {
+        if (error) {
+            console.error('❌ Email transporter error:', error.message);
+        } else {
+            console.log('✅ Email transporter ready');
+        }
+    });
+}
+
+// Forgot Password Endpoint
+app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+        const { rgno, email } = req.body;
+        
+        console.log('[FORGOT PASSWORD] Request received - rgno:', rgno, 'email:', email);
+        
+        // Validate email configuration first
+        if (!EMAIL_USER || !EMAIL_PASS) {
+            console.error('[FORGOT PASSWORD] Email not configured - EMAIL_USER or EMAIL_PASS missing in .env');
+            return res.status(503).json({ 
+                success: false, 
+                error: 'Email service not configured. Please contact administrator.' 
+            });
+        }
+        
+        if (!rgno || !email) {
+            return res.status(400).json({ success: false, error: 'Register number and email are required' });
+        }
+        
+        // Find user by register number (trim email in DB and input for robustness)
+        const user = await User.findOne({ rgno: parseInt(rgno) });
+        if (!user) {
+            console.log('[FORGOT PASSWORD] User not found - rgno:', rgno);
+            return res.status(404).json({ success: false, error: 'No user found with that register number' });
+        }
+        
+        console.log('[FORGOT PASSWORD] User found:', user.rgno, 'DB Email:', user.email);
+        
+        // Normalize and compare emails
+        const dbEmail = user.email ? user.email.trim().toLowerCase() : '';
+        const inputEmail = email ? email.trim().toLowerCase() : '';
+        
+        if (!dbEmail || dbEmail !== inputEmail) {
+            console.log('[FORGOT PASSWORD] Email mismatch - DB:', dbEmail, 'Input:', inputEmail);
+            return res.status(400).json({ success: false, error: 'Email does not match the register number' });
+        }
+        
+        // Check if running locally or in production
+        const isLocal = process.env.NODE_ENV !== 'production' && (process.env.FRONTEND_URL?.includes('localhost') || process.env.FRONTEND_URL?.includes('127.0.0.1'));
+        if (isLocal) {
+            console.log('[FORGOT PASSWORD] Running in local mode');
+        } else {
+            console.log('[FORGOT PASSWORD] Running in production mode');
+        }
+        
+        // Generate token
+        const token = crypto.randomBytes(32).toString('hex');
+        user.resetPasswordToken = token;
+        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+        await user.save();
+        console.log('[FORGOT PASSWORD] Reset token generated and saved:', token.substring(0, 8) + '...');
+        
+        // Send email
+        const resetUrl = `${FRONTEND_URL}/reset-password.html?token=${token}`;
+        const mailOptions = {
+            from: `LOGI <${EMAIL_USER}>`,
+            to: user.email,
+            subject: 'LOGI Password Reset Request',
+            html: `<p>Hello ${user.name},</p>
+                   <p>You requested a password reset for your LOGI account.</p>
+                   <p><b>Register Number:</b> ${user.rgno}</p>
+                   <p>Click the link below to reset your password. This link is valid for 1 hour.</p>
+                   <p><a href='${resetUrl}'>Reset Password</a></p>
+                   <p>If you did not request this, please ignore this email.</p>`
+        };
+        
+        console.log('[FORGOT PASSWORD] Sending email to:', user.email);
+        await transporter.sendMail(mailOptions);
+        console.log('[FORGOT PASSWORD] Email sent successfully');
+        
+        res.json({ success: true, message: 'Password reset email sent' });
+    } catch (error) {
+        console.error('[FORGOT PASSWORD] Error:', error.message);
+        console.error('[FORGOT PASSWORD] Full error:', error);
+        res.status(500).json({ success: false, error: 'Failed to send reset email: ' + error.message });
+    }
+});
+
+// --- Password Reset: Reset Password Endpoint ---
+app.post('/api/auth/reset-password/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+        if (!token || !password) {
+            return res.status(400).json({ success: false, error: 'Token and new password are required' });
+        }
+
+        // Debug log for reset token
+        console.log('[RESET PASSWORD] Token received:', token);
+
+        // Find user by reset token and expiry
+        const user = await User.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            console.log('[RESET PASSWORD] Invalid or expired token');
+            return res.status(400).json({ success: false, error: 'Invalid or expired token' });
+        }
+
+        console.log('[RESET PASSWORD] User found:', user);
+
+        // Hash the new password
+        const hashedPassword = hashPassword(password);
+        user.password = hashedPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+
+        // Save the updated user document
+        await user.save();
+        console.log('[RESET PASSWORD] Password updated successfully for user:', user.rgno);
+
+        res.json({ success: true, message: 'Password has been reset successfully' });
+    } catch (error) {
+        console.error('[RESET PASSWORD] Error:', error);
+        res.status(500).json({ success: false, error: 'Failed to reset password' });
     }
 });
 

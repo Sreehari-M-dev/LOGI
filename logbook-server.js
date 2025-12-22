@@ -93,12 +93,12 @@ const isProduction = process.env.NODE_ENV === 'production';
 const allowedOrigins = isProduction
     ? ['https://sreehari-m-dev.github.io'] // Production: only GitHub Pages
     : [
-        'https://sreehari-m-dev.github.io',
         'http://localhost',
         'http://localhost:3000',
         'http://localhost:8080',
         'http://127.0.0.1',
-        'http://127.0.0.1:3000'
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3003'
     ];
 
 // Log all incoming requests and headers

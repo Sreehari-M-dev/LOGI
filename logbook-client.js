@@ -3,6 +3,20 @@ const API_URL = window.REACT_APP_LOGBOOK_API || 'http://localhost:3005/api/logbo
 let currentUser = null;
 let currentStudentLogbookId = null;
 
+// Helper to check if error handler is available
+function handleFetchError(error, context) {
+    console.error(`[${context}] Error:`, error);
+    
+    if (typeof showErrorNotification === 'function') {
+        const friendlyMessage = typeof getErrorMessage === 'function' 
+            ? getErrorMessage(error) 
+            : 'Something went wrong. Please try again.';
+        showErrorNotification(friendlyMessage, 'error');
+    } else {
+        showNotification('❌ Error: ' + error.message, 'error');
+    }
+}
+
 // Helper function to get auth headers
 function getAuthHeaders() {
     const token = localStorage.getItem('token');
@@ -89,6 +103,7 @@ async function updateVerification(type, index, date) {
         }
     } catch (error) {
         console.error('Error updating verification:', error);
+        handleFetchError(error, 'Update Verification');
     }
 }
 
@@ -193,6 +208,7 @@ async function fetchUserProfile() {
         }
     } catch (error) {
         console.error('Error fetching user profile:', error);
+        handleFetchError(error, 'Fetch User Profile');
     }
 }
 
@@ -239,7 +255,7 @@ async function loadMyLogBooks() {
         }
     } catch (error) {
         console.error('Error loading logbooks:', error);
-        showNotification('❌ Error: ' + error.message, 'error');
+        handleFetchError(error, 'Load Logbooks');
     }
 }
 
@@ -295,7 +311,7 @@ async function loadLogBookById(logbookId) {
         }
     } catch (error) {
         console.error('Error loading logbook:', error);
-        showNotification('❌ Error: ' + error.message, 'error');
+        handleFetchError(error, 'Load Logbook');
     }
 }
 
@@ -615,7 +631,7 @@ async function handleLogBookSubmit() {
         }
     } catch (error) {
         console.error('Error submitting form:', error);
-        showNotification('❌ Error: ' + error.message, 'error');
+        handleFetchError(error, 'Submit Logbook');
     }
 }
 
@@ -687,7 +703,7 @@ async function loadLogBookByRoll() {
         }
     } catch (error) {
         console.error('Fetch error:', error);
-        showNotification('❌ Error: ' + error.message, 'error');
+        handleFetchError(error, 'Load by Roll Number');
     }
 }
 
@@ -759,7 +775,7 @@ async function loadLogBookByRegister() {
         }
     } catch (error) {
         console.error('Fetch error:', error);
-        showNotification('❌ Error: ' + error.message, 'error');
+        handleFetchError(error, 'Load by Register Number');
     }
 }
 
