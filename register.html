@@ -277,8 +277,8 @@
             </div>
             
             <div class="form-group">
-                <label for="registerEmail"><i class="fas fa-envelope"></i> Email (Optional)</label>
-                <input type="email" id="registerEmail" name="email" placeholder="Enter your email (optional)">
+                <label for="registerEmail"><i class="fas fa-envelope"></i> Email <span style="color:red">*</span></label>
+                <input type="email" id="registerEmail" name="email" placeholder="Enter your email address" required>
             </div>
             
             <div class="form-group password-toggle">
@@ -312,6 +312,7 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
+    <script src="error-handler.js"></script>
     <script>
         const AUTH_API = window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth';
         
@@ -367,19 +368,37 @@
             
             // Validation
             if (password.length < 6) {
-                errorDiv.textContent = 'Password must be at least 6 characters';
+                const msg = 'Password must be at least 6 characters';
+                if (typeof showAlertNotification === 'function') {
+                    showAlertNotification(msg, 'error');
+                } else {
+                    Swal.fire({ title: 'Validation Error', text: msg, icon: 'error', confirmButtonColor: '#667eea' });
+                }
+                errorDiv.textContent = msg;
                 errorDiv.style.display = 'block';
                 return;
             }
             
             if (password !== confirmPassword) {
-                errorDiv.textContent = 'Passwords do not match';
+                const msg = 'Passwords do not match';
+                if (typeof showAlertNotification === 'function') {
+                    showAlertNotification(msg, 'error');
+                } else {
+                    Swal.fire({ title: 'Validation Error', text: msg, icon: 'error', confirmButtonColor: '#667eea' });
+                }
+                errorDiv.textContent = msg;
                 errorDiv.style.display = 'block';
                 return;
             }
             
             if (!rgno) {
-                errorDiv.textContent = 'Register number is required';
+                const msg = 'Register number is required';
+                if (typeof showAlertNotification === 'function') {
+                    showAlertNotification(msg, 'error');
+                } else {
+                    Swal.fire({ title: 'Validation Error', text: msg, icon: 'error', confirmButtonColor: '#667eea' });
+                }
+                errorDiv.textContent = msg;
                 errorDiv.style.display = 'block';
                 return;
             }
@@ -405,6 +424,9 @@
                 
                 const result = await response.json();
                 
+                console.log('[REGISTER] Response status:', response.status);
+                console.log('[REGISTER] Response body:', result);
+                
                 if (result.success) {
                     // Store token
                     localStorage.setItem('token', result.token);
@@ -420,11 +442,38 @@
                         window.location.href = 'Log_Book1.html';
                     });
                 } else {
-                    errorDiv.textContent = result.error;
+                    // Show popup with error message using error handler
+                    const friendlyMsg = (typeof getErrorMessage === 'function') 
+                        ? getErrorMessage(result.error) 
+                        : result.error;
+                    if (typeof showAlertNotification === 'function') {
+                        showAlertNotification(friendlyMsg, 'error');
+                    } else {
+                        Swal.fire({
+                            title: 'Registration Error',
+                            text: friendlyMsg,
+                            icon: 'error',
+                            confirmButtonColor: '#667eea'
+                        });
+                    }
+                    errorDiv.textContent = friendlyMsg;
                     errorDiv.style.display = 'block';
                 }
             } catch (error) {
-                errorDiv.textContent = 'Error: ' + error.message;
+                const friendlyMsg = (typeof getErrorMessage === 'function') 
+                    ? getErrorMessage(error) 
+                    : ('Error: ' + error.message);
+                if (typeof showAlertNotification === 'function') {
+                    showAlertNotification(friendlyMsg, 'error');
+                } else {
+                    Swal.fire({
+                        title: 'Registration Error',
+                        text: friendlyMsg,
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    });
+                }
+                errorDiv.textContent = friendlyMsg;
                 errorDiv.style.display = 'block';
             } finally {
                 loadingDiv.style.display = 'none';
