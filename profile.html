@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - LOGI</title>
+    <script>
+        // Auto-detect environment
+        (function () {
+            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            if (isLocal) {
+                window.REACT_APP_AUTH_API = 'http://localhost:3002/api/auth';
+            } else {
+                window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        input[type="number"] {
+            height: auto;
+        }
+
+        .profile-container {
+            max-width: 700px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .profile-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .profile-header h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .profile-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            margin: 0 auto 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input:disabled,
+        .form-group select:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+            color: #999;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #e8e8e8;
+            border-color: #d0d0d0;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .role-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .role-badge.faculty {
+            background: #ff9800;
+        }
+
+        .role-badge.admin {
+            background: #f44336;
+        }
+
+        .info-section {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .info-value {
+            color: #666;
+        }
+
+        @media (max-width: 600px) {
+            .profile-container {
+                padding: 20px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .profile-header h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="index.html">Digital Lab Portal</a>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="Log_Book1.html">Log Book</a></li>
+                <li><a href="Studyresources.html">Study Resources</a></li>
+                <li><a href="About.html">About US</a></li>
+                <li><a href="profile.html" class="active">Profile</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="profile-container">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <h1><i class="fas fa-user-circle"></i> My Profile</h1>
+            <p>View and manage your account details</p>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <div id="viewMode">
+            <div class="info-section">
+                <div class="info-row">
+                    <span class="info-label">Full Name:</span>
+                    <span class="info-value" id="displayName">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Register Number:</span>
+                    <span class="info-value" id="displayRgno">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value" id="displayEmail">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Role:</span>
+                    <span class="info-value" id="displayRole">-</span>
+                </div>
+                <div class="info-row" id="rollnoRow" style="display: none;">
+                    <span class="info-label">Roll Number:</span>
+                    <span class="info-value" id="displayRollno">-</span>
+                </div>
+                <div class="info-row" id="departmentRow" style="display: none;">
+                    <span class="info-label">Department:</span>
+                    <span class="info-value" id="displayDepartment">-</span>
+                </div>
+                <div class="info-row" id="semesterRow" style="display: none;">
+                    <span class="info-label">Semester:</span>
+                    <span class="info-value" id="displaySemester">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Member Since:</span>
+                    <span class="info-value" id="displayCreatedAt">-</span>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="enterEditMode()">
+                    <i class="fas fa-edit"></i> Edit Profile
+                </button>
+                <button class="btn btn-secondary" onclick="openChangePasswordModal()">
+                    <i class="fas fa-key"></i> Change Password
+                </button>
+            </div>
+        </div>
+
+        <div id="editMode" style="display: none;">
+            <form onsubmit="handleUpdateProfile(event)">
+                <div class="form-group">
+                    <label for="editName"><i class="fas fa-user"></i> Full Name</label>
+                    <input type="text" id="editName" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editEmail"><i class="fas fa-envelope"></i> Email</label>
+                    <input type="email" id="editEmail" name="email" required>
+                </div>
+
+                <div id="studentFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="editRollno"><i class="fas fa-id-badge"></i> Roll Number</label>
+                        <input type="number" id="editRollno" name="rollno">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editDepartment"><i class="fas fa-building"></i> Department</label>
+                            <input type="text" id="editDepartment" name="department">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="editSemester"><i class="fas fa-calendar"></i> Semester</label>
+                            <input type="number" id="editSemester" name="semester" min="1" max="8">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editRgno"><i class="fas fa-id-card"></i> Register Number</label>
+                    <input type="number" id="editRgno" name="rgno" disabled>
+                    <small style="color: #999; display: block; margin-top: 5px;">Register number cannot be
+                        changed</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="editRole"><i class="fas fa-user-tag"></i> Role</label>
+                    <input type="text" id="editRole" name="role" disabled>
+                    <small style="color: #999; display: block; margin-top: 5px;">Role cannot be changed</small>
+                </div>
+
+                <div class="loading" id="editLoading">
+                    <span class="spinner"></span> Updating profile...
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="cancelEditMode()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
+    <script src="error-handler.js"></script>
+    <script src="auth.js"></script>
+    <script src="scripts.js"></script>
+    <script>
+        const PROFILE_AUTH_API = (typeof AUTH_API !== 'undefined')
+            ? AUTH_API
+            : (window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth');
+
+        // Load profile on page load
+        document.addEventListener('DOMContentLoaded', async function () {
+            // Ensure user is logged in before attempting fetch
+            if (typeof AuthManager !== 'undefined' && !AuthManager.isLoggedIn()) {
+                window.location.href = 'login-page.html';
+                return;
+            }
+            await loadProfile();
+        });
+
+        // Fetch user profile from server
+        async function loadProfile() {
+            try {
+                const headers = (typeof AuthManager !== 'undefined' && AuthManager.getAuthHeader)
+                    ? AuthManager.getAuthHeader()
+                    : {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json'
+                    };
+
+                if (!headers.Authorization || headers.Authorization === 'Bearer null') {
+                    window.location.href = 'login-page.html';
+                    return;
+                }
+
+                const response = await fetch(`${PROFILE_AUTH_API}/profile`, {
+                    method: 'GET',
+                    headers
+                });
+
+                const result = await response.json();
+                console.log('[PROFILE LOAD] Response:', result);
+
+                if (response.status === 401) {
+                    if (typeof AuthManager !== 'undefined') {
+                        AuthManager.logout('inactivity');
+                    } else {
+                        window.location.href = 'login-page.html';
+                    }
+                    return;
+                }
+
+                if (result.success && result.user) {
+                    if (typeof AuthManager !== 'undefined' && AuthManager.setUser) {
+                        AuthManager.setUser(result.user);
+                    }
+                    displayProfile(result.user);
+                } else {
+                    showError('Failed to load profile. Please refresh the page.');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                const friendlyMsg = (typeof getErrorMessage === 'function')
+                    ? getErrorMessage(error)
+                    : ('Error: ' + error.message);
+                showError(friendlyMsg);
+            }
+        }
+
+        // Display profile information in view mode
+        function displayProfile(user) {
+            document.getElementById('displayName').textContent = user.name || '-';
+            document.getElementById('displayRgno').textContent = user.rgno || '-';
+            document.getElementById('displayEmail').textContent = user.email || '-';
+            document.getElementById('displayRole').textContent = user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : '-';
+            document.getElementById('displayCreatedAt').textContent = new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            // Show student-specific fields
+            if (user.role === 'student') {
+                document.getElementById('rollnoRow').style.display = 'flex';
+                document.getElementById('departmentRow').style.display = 'flex';
+                document.getElementById('semesterRow').style.display = 'flex';
+                document.getElementById('displayRollno').textContent = user.rollno || '-';
+                document.getElementById('displayDepartment').textContent = user.department || '-';
+                document.getElementById('displaySemester').textContent = user.semester || '-';
+            }
+
+            // Populate edit form
+            document.getElementById('editName').value = user.name || '';
+            document.getElementById('editEmail').value = user.email || '';
+            document.getElementById('editRgno').value = user.rgno || '';
+            document.getElementById('editRole').value = user.role || '';
+
+            if (user.role === 'student') {
+                document.getElementById('studentFields').style.display = 'block';
+                document.getElementById('editRollno').value = user.rollno || '';
+                document.getElementById('editDepartment').value = user.department || '';
+                document.getElementById('editSemester').value = user.semester || '';
+            }
+        }
+
+        // Enter edit mode
+        function enterEditMode() {
+            document.getElementById('viewMode').style.display = 'none';
+            document.getElementById('editMode').style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // Cancel edit mode
+        function cancelEditMode() {
+            document.getElementById('editMode').style.display = 'none';
+            document.getElementById('viewMode').style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        // Handle profile update
+        async function handleUpdateProfile(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('editName').value;
+            const email = document.getElementById('editEmail').value;
+            const rollno = document.getElementById('editRollno').value;
+            const department = document.getElementById('editDepartment').value;
+            const semester = document.getElementById('editSemester').value;
+
+            const loading = document.getElementById('editLoading');
+            loading.style.display = 'block';
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${AUTH_API}/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        rollno: rollno ? parseInt(rollno) : null,
+                        department,
+                        semester: semester ? parseInt(semester) : null
+                    })
+                });
+
+                const result = await response.json();
+                console.log('[PROFILE UPDATE] Response:', result);
+
+                if (result.success) {
+                    // Update local storage
+                    const user = result.user;
+                    localStorage.setItem('user', JSON.stringify(user));
+
+                    // Show success and reload
+                    showSuccess('Profile updated successfully!');
+                    setTimeout(() => {
+                        displayProfile(user);
+                        cancelEditMode();
+                    }, 1000);
+                } else {
+                    const friendlyMsg = (typeof getErrorMessage === 'function')
+                        ? getErrorMessage(result.error)
+                        : result.error;
+                    showError(friendlyMsg);
+                }
+            } catch (error) {
+                console.error('Error updating profile:', error);
+                const friendlyMsg = (typeof getErrorMessage === 'function')
+                    ? getErrorMessage(error)
+                    : ('Error: ' + error.message);
+                showError(friendlyMsg);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Change password modal
+        function openChangePasswordModal() {
+            Swal.fire({
+                title: 'Change Password',
+                html: `
+                    <div style="text-align: left;">
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <input type="password" id="currentPassword" class="swal2-input" placeholder="Current Password" style="width: 100%;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <input type="password" id="newPassword" class="swal2-input" placeholder="New Password (min 6 characters)" style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <input type="password" id="confirmPassword" class="swal2-input" placeholder="Confirm New Password" style="width: 100%;">
+                        </div>
+                    </div>
+                `,
+                didOpen: () => {
+                    const currentPasswordInput = Swal.getPopup().querySelector('#currentPassword');
+                    currentPasswordInput.focus();
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Change Password',
+                confirmButtonColor: '#667eea',
+                cancelButtonText: 'Cancel',
+                preConfirm: () => {
+                    const currentPassword = Swal.getPopup().querySelector('#currentPassword').value;
+                    const newPassword = Swal.getPopup().querySelector('#newPassword').value;
+                    const confirmPassword = Swal.getPopup().querySelector('#confirmPassword').value;
+
+                    if (!currentPassword || !newPassword || !confirmPassword) {
+                        Swal.showValidationMessage('All fields are required');
+                        return false;
+                    }
+
+                    if (newPassword.length < 6) {
+                        Swal.showValidationMessage('New password must be at least 6 characters');
+                        return false;
+                    }
+
+                    if (newPassword !== confirmPassword) {
+                        Swal.showValidationMessage('New passwords do not match');
+                        return false;
+                    }
+
+                    return { currentPassword, newPassword };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await handleChangePassword(result.value.currentPassword, result.value.newPassword);
+                }
+            });
+        }
+
+        // Handle password change
+        async function handleChangePassword(currentPassword, newPassword) {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${AUTH_API}/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+
+                const result = await response.json();
+                console.log('[CHANGE PASSWORD] Response:', result);
+
+                if (result.success) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Password changed successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#667eea'
+                    });
+                } else {
+                    const friendlyMsg = (typeof getErrorMessage === 'function')
+                        ? getErrorMessage(result.error)
+                        : result.error;
+                    Swal.fire({
+                        title: 'Error',
+                        text: friendlyMsg,
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    });
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                const friendlyMsg = (typeof getErrorMessage === 'function')
+                    ? getErrorMessage(error)
+                    : ('Error: ' + error.message);
+                Swal.fire({
+                    title: 'Error',
+                    text: friendlyMsg,
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+
+            if (typeof showAlertNotification === 'function') {
+                showAlertNotification(message, 'error');
+            }
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+
+            if (typeof showAlertNotification === 'function') {
+                showAlertNotification(message, 'success');
+            }
+        }
+
+        // Logout
+        function handleLogout() {
+            Swal.fire({
+                title: 'Logout',
+                text: 'Are you sure you want to logout?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#f44336',
+                confirmButtonText: 'Logout',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = 'login-page.html';
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

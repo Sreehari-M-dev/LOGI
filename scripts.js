@@ -118,6 +118,53 @@ function contactUs() {
     alert('📞 Contact Information:\n\n📧 Email: info@digitallabportal.edu\n📱 Phone: (555) 123-4567\n🏢 Office: Digital Innovation Center\n🕒 Hours: Monday - Friday, 9:00 AM - 5:00 PM\n\n💬 We\'d love to hear from you! Whether you have questions about our platform, need technical support, or want to discuss implementation at your institution, our team is here to help.\n\nResponse Time: Within 24 hours for general inquiries, within 4 hours for urgent technical support.');
 }
 
+// Inject a shared footer when one isn't present
+function renderFooter() {
+    if (document.querySelector('.footer')) return;
+
+    const footer = document.createElement('footer');
+    footer.className = 'footer';
+    footer.innerHTML = `
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="Log_Book1.html">Lab Book</a></li>
+                    <li><a href="Studyresources.html">Resources</a></li>
+                    <li><a href="About.html">About Us</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Contact Us</h3>
+                <ul>
+                    <li>Email: info@college.edu</li>
+                    <li>Phone: (555) 123-4567</li>
+                    <li>Address: College Campus, City, State ZIP</li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Help & Support</h3>
+                <ul>
+                    <li><a href="#">FAQ</a></li>
+                    <li><a href="#">Technical Support</a></li>
+                    <li><a href="#">Student Guide</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Digital Lab Portal. All rights reserved.</p>
+        </div>
+    `;
+
+    document.body.appendChild(footer);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initHamburgerMenu();
+    renderFooter();
+});
+
 function learnMore() {
     alert('📚 Learn More About Our Platform:\n\n🎯 CORE FEATURES:\n• Digital lab book management\n• Secure student record keeping\n• Real-time progress tracking\n• Cloud-based file storage\n• Advanced analytics & reporting\n\n🔧 TECHNICAL SPECIFICATIONS:\n• Web-based platform (no installation required)\n• Mobile-responsive design\n• Google Drive integration\n• Role-based access control\n• SSL encryption for data security\n\n🏫 INSTITUTIONAL BENEFITS:\n• Reduced paper waste\n• Streamlined workflows\n• Improved data accuracy\n• Enhanced collaboration\n• Cost-effective solution\n\n📊 SUCCESS METRICS:\n• 95% user satisfaction rate\n• 60% reduction in administrative time\n• 40% improvement in data accuracy\n\nWant a detailed demo? Contact us to schedule a presentation!');
 }

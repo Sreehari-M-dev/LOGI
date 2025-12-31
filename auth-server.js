@@ -134,23 +134,25 @@ function generateToken(userId, rgno, role, sid) {
     
     return `${header}.${encodedPayload}.${signature}`;
 }
-// Middleware to authenticate and enforce idle timeout using sessions
+// Shared session lookup helper
+async function findActiveSession(token) {
+    if (!token) return { error: 'No token provided' };
+    const decoded = verifyToken(token);
+    if (!decoded || !decoded.sid) return { error: 'Invalid token' };
+
+    const session = await Session.findOne({ sid: decoded.sid });
+    if (!session || session.isExpired) return { error: 'Session expired. Please login again.' };
+
+    return { session, decoded };
+}
+
+// Middleware to authenticate and enforce idle timeout using sessions (touches lastActivity)
 async function authenticateAndTouchSession(req, res, next) {
     try {
         const token = req.headers.authorization?.split(' ')[1];
-        if (!token) {
-            return res.status(401).json({ success: false, error: 'No token provided' });
-        }
-
-        const decoded = verifyToken(token);
-        if (!decoded || !decoded.sid) {
-            return res.status(401).json({ success: false, error: 'Invalid token' });
-        }
-
-        const session = await Session.findOne({ sid: decoded.sid });
-        if (!session || session.isExpired) {
-            return res.status(401).json({ success: false, error: 'Session expired. Please login again.' });
-        }
+        const result = await findActiveSession(token);
+        if (result.error) return res.status(401).json({ success: false, error: result.error });
+        const { session, decoded } = result;
 
         const now = Date.now();
         const last = session.lastActivity ? session.lastActivity.getTime() : session.createdAt.getTime();
@@ -171,6 +173,33 @@ async function authenticateAndTouchSession(req, res, next) {
         next();
     } catch (error) {
         console.error('Session auth error:', error);
+        return res.status(401).json({ success: false, error: 'Authentication failed' });
+    }
+}
+
+// Middleware to authenticate session without updating lastActivity (for read-only remaining time)
+async function authenticateSessionNoTouch(req, res, next) {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        const result = await findActiveSession(token);
+        if (result.error) return res.status(401).json({ success: false, error: result.error });
+
+        const { session, decoded } = result;
+        const now = Date.now();
+        const last = session.lastActivity ? session.lastActivity.getTime() : session.createdAt.getTime();
+
+        // If already expired by idle window
+        if (now - last > IDLE_TIMEOUT_MS) {
+            session.isExpired = true;
+            session.expiredAt = new Date(now);
+            await session.save();
+            return res.status(401).json({ success: false, error: 'Session expired due to inactivity. Please login again.' });
+        }
+
+        req.auth = { decoded, session };
+        next();
+    } catch (error) {
+        console.error('Session auth error (no touch):', error);
         return res.status(401).json({ success: false, error: 'Authentication failed' });
     }
 }
@@ -204,7 +233,19 @@ function verifyToken(token) {
 // Register Route - using Register Number
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { name, email, password, rollno, rgno, role, department, semester } = req.body;
+        // Normalize and trim incoming fields
+        const name = req.body.name?.trim();
+        const email = req.body.email?.trim().toLowerCase();
+        const password = req.body.password?.trim();
+        const rgnoRaw = req.body.rgno;
+        const rollnoRaw = req.body.rollno;
+        const role = req.body.role?.trim();
+        const department = req.body.department?.trim();
+        const semesterRaw = req.body.semester;
+
+        const rgno = rgnoRaw !== undefined && rgnoRaw !== null && rgnoRaw !== '' ? parseInt(rgnoRaw, 10) : null;
+        const rollno = rollnoRaw !== undefined && rollnoRaw !== null && rollnoRaw !== '' ? parseInt(rollnoRaw, 10) : null;
+        const semester = semesterRaw !== undefined && semesterRaw !== null && semesterRaw !== '' ? parseInt(semesterRaw, 10) : null;
 
         // Validation - rgno is required
         if (!name || !rgno || !password) {
@@ -215,7 +256,7 @@ app.post('/api/auth/register', async (req, res) => {
         }
 
         // Check if user already exists by register number
-        const existingUser = await User.findOne({ rgno: parseInt(rgno) });
+        const existingUser = await User.findOne({ rgno });
         if (existingUser) {
             return res.status(409).json({ 
                 success: false, 
@@ -231,11 +272,11 @@ app.post('/api/auth/register', async (req, res) => {
             name,
             email: email || null,
             password: hashedPassword,
-            rollno: rollno ? parseInt(rollno) : null,
-            rgno: parseInt(rgno),
+            rollno: rollno || null,
+            rgno,
             role: role || 'student',
-            department,
-            semester: semester ? parseInt(semester) : null
+            department: department || null,
+            semester: semester || null
         });
 
         await newUser.save();
@@ -367,6 +408,81 @@ app.get('/api/auth/profile', authenticateAndTouchSession, async (req, res) => {
 
     } catch (error) {
         res.status(401).json({ success: false, error: 'Invalid token' });
+    }
+});
+
+// Get remaining session time without extending the session
+app.get('/api/auth/session-remaining', authenticateSessionNoTouch, async (req, res) => {
+    try {
+        const session = req.auth.session;
+        const now = Date.now();
+        const last = session.lastActivity ? session.lastActivity.getTime() : session.createdAt.getTime();
+        const remainingMs = Math.max(0, IDLE_TIMEOUT_MS - (now - last));
+        res.json({ success: true, remainingMs });
+    } catch (error) {
+        console.error('Session remaining error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch session time' });
+    }
+});
+
+// Update Profile Route
+app.put('/api/auth/profile', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { name, email, rollno, department, semester } = req.body;
+        const userId = req.auth.decoded.userId;
+
+        // Validation
+        if (!name || !email) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Name and email are required' 
+            });
+        }
+
+        // Check if new email is already taken by another user
+        if (email) {
+            const existingUser = await User.findOne({ email: email, _id: { $ne: userId } });
+            if (existingUser) {
+                return res.status(409).json({ 
+                    success: false, 
+                    error: 'This email is already registered. Please use a different email.' 
+                });
+            }
+        }
+
+        // Update user
+        const user = await User.findByIdAndUpdate(
+            userId,
+            {
+                name,
+                email,
+                rollno: rollno ? parseInt(rollno) : null,
+                department,
+                semester: semester ? parseInt(semester) : null
+            },
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            user
+        });
+
+    } catch (error) {
+        console.error('Profile update error:', error);
+
+        // Handle duplicate key errors (E11000)
+        if (error.code === 11000) {
+            const field = Object.keys(error.keyPattern)[0];
+            let message = 'This information is already in use.';
+            if (field === 'email') {
+                message = 'This email is already registered. Please use a different email.';
+            }
+            return res.status(409).json({ success: false, error: message });
+        }
+
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

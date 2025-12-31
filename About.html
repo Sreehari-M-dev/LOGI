@@ -4,7 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About US</title>
+    <script>
+        // Auto-detect environment for auth API
+        (function() {
+            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            window.REACT_APP_AUTH_API = isLocal
+                ? 'http://localhost:3002/api/auth'
+                : 'https://logi-auth-service-avbs.onrender.com/api/auth';
+        })();
+    </script>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
     <nav class="navbar">
@@ -22,6 +32,7 @@
                 <li><a href="Log_Book1.html">Log Book</a></li>
                 <li><a href="Studyresources.html">Study Resources</a></li>
                 <li><a href="About.html" class="active">About US</a></li>
+                <li><a href="profile.html">Profile</a></li>
             </ul>
         </div>
     </nav>
@@ -186,6 +197,8 @@
         </div>
     </div>
 
+    <script src="error-handler.js"></script>
+    <script src="auth.js"></script>
     <script src="scripts.js"></script>
 </body>
 </html>

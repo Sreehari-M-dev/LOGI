@@ -1,9 +1,10 @@
 // Authentication Helper
 const AUTH_API = window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth';
-const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
+const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds (server-driven)
 
 class AuthManager {
     static inactivityTimer = null;
+    static syncInterval = null;
     
     static getToken() {
         return localStorage.getItem('token');
@@ -34,22 +35,20 @@ class AuthManager {
         return !!this.getToken();
     }
     
-    static resetInactivityTimer() {
+    static resetInactivityTimer(remainingMs = INACTIVITY_TIMEOUT) {
         // Clear existing timer
         if (this.inactivityTimer) {
             clearTimeout(this.inactivityTimer);
         }
-        
-        // Only set timer if user is logged in
+
         if (this.isLoggedIn()) {
-            // Store timeout end time
-            this.timeoutEndTime = Date.now() + INACTIVITY_TIMEOUT;
-            
+            const safeRemaining = Math.max(0, remainingMs);
+            this.timeoutEndTime = Date.now() + safeRemaining;
+
             this.inactivityTimer = setTimeout(() => {
                 this.logout('inactivity');
-            }, INACTIVITY_TIMEOUT);
-            
-            // Update the display
+            }, safeRemaining);
+
             this.updateTimerDisplay();
         }
     }
@@ -79,24 +78,52 @@ class AuthManager {
         updateDisplay();
     }
     
-    static startInactivityMonitoring() {
-        // Reset timer on user activity (excluding mousemove)
-        const events = ['mousedown', 'keypress', 'scroll', 'touchstart', 'click'];
-        
-        events.forEach(event => {
-            document.addEventListener(event, () => {
-                this.resetInactivityTimer();
-            }, true);
-        });
-        
-        // Start the timer
-        this.resetInactivityTimer();
+    static async startInactivityMonitoring() {
+        // Do not reset on user activity; only refresh when page loads or navigation occurs.
+        await this.syncRemainingWithServer();
+
+        // Periodically resync with server (does not extend session)
+        if (!this.syncInterval) {
+            this.syncInterval = setInterval(() => this.syncRemainingWithServer(), 60000);
+        }
     }
     
     static stopInactivityMonitoring() {
         if (this.inactivityTimer) {
             clearTimeout(this.inactivityTimer);
             this.inactivityTimer = null;
+        }
+        this.timeoutEndTime = null;
+
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
+        }
+    }
+
+    static async syncRemainingWithServer() {
+        if (!this.isLoggedIn()) return;
+        try {
+            const res = await fetch(`${AUTH_API}/session-remaining`, {
+                method: 'GET',
+                headers: this.getAuthHeader()
+            });
+
+            if (res.status === 401) {
+                // Session already expired on server
+                return this.logout('inactivity');
+            }
+
+            const data = await res.json();
+            if (data.success && typeof data.remainingMs === 'number') {
+                this.resetInactivityTimer(data.remainingMs);
+            } else {
+                // Fallback to client timer if server doesn't respond properly
+                this.resetInactivityTimer();
+            }
+        } catch (error) {
+            console.error('Failed to sync session remaining time:', error);
+            // Do not reset timer on error; rely on existing timer if any
         }
     }
     
@@ -166,16 +193,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentPage = window.location.pathname.split('/').pop();
     
     // Pages that don't require authentication
-    const publicPages = ['login-page.html', 'register.html', 'index.html', 'home.html'];
+    const publicPages = ['login-page.html', 'register.html', 'home.html'];
     
     // Check if current page requires authentication
     if (!publicPages.includes(currentPage) && !currentPage.includes('login') && !currentPage.includes('register')) {
         checkAuthentication();
-        
-        // Start inactivity monitoring for authenticated pages
-        if (AuthManager.isLoggedIn()) {
-            AuthManager.startInactivityMonitoring();
-        }
+    }
+
+    // Always start inactivity monitoring when logged in so the timer shows on public pages too
+    if (AuthManager.isLoggedIn()) {
+        AuthManager.startInactivityMonitoring();
     }
     
     // Setup authentication buttons (login/logout) on navbar

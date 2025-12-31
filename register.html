@@ -18,6 +18,7 @@
         })();
     </script>
     <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
     <style>
@@ -28,23 +29,124 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at 15% 20%, rgba(124, 58, 237, 0.18), transparent 30%),
+                        radial-gradient(circle at 80% 10%, rgba(34, 211, 238, 0.16), transparent 25%),
+                        linear-gradient(130deg, #0f172a 0%, #1a0b2d 45%, #102347 100%);
             min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
-            padding: 20px;
+            justify-content: center;
+            padding: 32px;
+            color: #0f1024;
         }
         
-        .register-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        .auth-shell {
             width: 100%;
-            max-width: 500px;
-            padding: 40px;
-            animation: slideIn 0.5s ease-out;
+            max-width: 1100px;
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 32px;
+            align-items: center;
+            position: relative;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.92);
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            overflow: hidden;
+        }
+
+        .hero-panel {
+            position: relative;
+            padding: 48px 44px;
+            color: #130f28;
+            background: linear-gradient(145deg, #f1e9ff 0%, #e9f3ff 45%, #dde9ff 100%);
+            min-height: 540px;
+        }
+
+        .hero-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(76, 29, 149, 0.08);
+            color: #4c1d95;
+            border-radius: 999px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .hero-title {
+            margin: 18px 0 10px;
+            font-size: 34px;
+            font-weight: 700;
+            color: #130f28;
+            line-height: 1.2;
+        }
+
+        .hero-sub {
+            color: #3c3852;
+            font-size: 16px;
+            max-width: 460px;
+            line-height: 1.6;
+        }
+
+        .hero-figure {
+            margin-top: 28px;
+            background: linear-gradient(135deg, #251349 0%, #1b2e6b 55%, #0f1024 100%);
+            border-radius: 18px;
+            padding: 28px;
+            position: relative;
+            overflow: hidden;
+            min-height: 300px;
+        }
+
+        .hero-figure svg {
+            width: 100%;
+            height: 240px;
+            display: block;
+        }
+
+        .hero-badge {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #2d1b4d;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-weight: 700;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .register-panel {
+            padding: 44px 42px;
+            max-width: 540px;
+            margin-left: auto;
+        }
+        
+        .register-header {
+            text-align: left;
+            margin-bottom: 30px;
+        }
+        
+        .register-header h1 {
+            color: #2d1b4d;
+            font-size: 30px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 0.3px;
+        }
+        
+        .register-header p {
+            color: #4d566c;
+            font-size: 15px;
         }
         input[type="number"] {
             letter-spacing:0px;
@@ -63,34 +165,14 @@
             }
         }
         
-        .register-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .register-header h1 {
-            color: #667eea;
-            font-size: 32px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        
-        .register-header p {
-            color: #666;
-            font-size: 14px;
-        }
-        
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         
         .form-group label {
             display: block;
             margin-bottom: 8px;
-            color: #333;
+            color: #2d1b4d;
             font-weight: 600;
             font-size: 14px;
         }
@@ -98,24 +180,26 @@
         .form-group input,
         .form-group select {
             width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            padding: 12px 14px;
+            border: 2px solid #e6e1f5;
+            border-radius: 12px;
             font-size: 14px;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
             font-family: inherit;
             text-align: center;
+            background: #f7f5ff;
         }
         
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.15);
+            background: #fff;
         }
         
         .form-group input::placeholder {
-            color: #999;
+            color: #9aa0b5;
         }
         
         .password-toggle {
@@ -124,34 +208,35 @@
         
         .password-toggle-icon {
             position: absolute;
-            right: 15px;
-            top: 42px;
+            right: 14px;
+            top: 44px;
             cursor: pointer;
-            color: #666;
-            transition: color 0.3s ease;
+            color: #6f6c8f;
+            transition: color 0.25s ease;
         }
         
         .password-toggle-icon:hover {
-            color: #667eea;
+            color: #4c1d95;
         }
         
         .submit-btn {
             width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 14px;
+            background: linear-gradient(120deg, #7c3aed 0%, #6d28d9 55%, #2563eb 100%);
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 16px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-top: 10px;
+            margin-top: 6px;
+            box-shadow: 0 12px 28px rgba(93, 63, 211, 0.35);
         }
         
         .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            transform: translateY(-1px) scale(1.005);
+            box-shadow: 0 14px 30px rgba(93, 63, 211, 0.45);
         }
         
         .submit-btn:active {
@@ -164,14 +249,14 @@
         }
         
         .form-footer {
-            text-align: center;
-            margin-top: 20px;
+            text-align: left;
+            margin-top: 12px;
             font-size: 14px;
-            color: #666;
+            color: #5b5f73;
         }
         
         .form-footer a {
-            color: #667eea;
+            color: #4c1d95;
             text-decoration: none;
             font-weight: 600;
         }
@@ -181,19 +266,20 @@
         }
         
         .error-message {
-            background: #fee;
-            color: #c33;
+            background: #ffecec;
+            color: #c0392b;
             padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            border-radius: 10px;
+            margin-bottom: 18px;
             display: none;
             font-size: 14px;
+            border: 1px solid #ffd1d1;
         }
         
         .loading {
             display: none;
             text-align: center;
-            color: #667eea;
+            color: #4c1d95;
             font-weight: 600;
             margin-top: 10px;
         }
@@ -203,7 +289,7 @@
             width: 20px;
             height: 20px;
             border: 3px solid #e0e0e0;
-            border-top-color: #667eea;
+            border-top-color: #4c1d95;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             margin-right: 10px;
@@ -229,85 +315,117 @@
     </style>
 </head>
 <body>
-    <div class="register-container">
-        <div class="register-header">
-            <h1><i class="fas fa-user-plus"></i> Register</h1>
-            <p>Create your LOGI account</p>
+    <div class="auth-shell">
+        <div class="glass-card hero-panel">
+            <div class="hero-kicker"><i class="fas fa-flask"></i> Join the Lab Portal</div>
+            <div class="hero-title">Create your LOGI account</div>
+            <p class="hero-sub">Register once and keep every experiment, template, and submission in sync across sessions.</p>
+            <div class="hero-figure">
+                <div class="hero-badge"><i class="fas fa-bolt"></i> Fast Onboarding</div>
+                <svg viewBox="0 0 420 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="rgrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#a855f7"/>
+                            <stop offset="100%" stop-color="#22d3ee"/>
+                        </linearGradient>
+                        <linearGradient id="rgrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#2563eb" stop-opacity="0.9"/>
+                            <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.9"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M34 210 Q120 120 210 182 T386 176" fill="none" stroke="#c4b5fd" stroke-width="12" stroke-linecap="round" stroke-dasharray="12 16" opacity="0.65"/>
+                    <rect x="78" y="64" rx="18" ry="18" width="190" height="126" fill="#0f1024" stroke="#c084fc" stroke-width="3" opacity="0.92"/>
+                    <rect x="95" y="84" rx="10" ry="10" width="110" height="20" fill="#7c3aed" opacity="0.85"/>
+                    <rect x="95" y="114" rx="10" ry="10" width="150" height="20" fill="#6366f1" opacity="0.8"/>
+                    <rect x="95" y="144" rx="10" ry="10" width="125" height="20" fill="#22d3ee" opacity="0.78"/>
+                    <circle cx="290" cy="118" r="50" fill="url(#rgrad1)" opacity="0.95"/>
+                    <path d="M270 118 l18 18 34-40" fill="none" stroke="#0f1024" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="332" cy="72" r="20" fill="url(#rgrad2)" opacity="0.92"/>
+                    <path d="M330 68 v10 m5-5 h-10" stroke="#0f1024" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+            </div>
         </div>
-        
-        <div id="registerError" class="error-message"></div>
-        
-        <form onsubmit="handleRegister(event)">
-            <div class="form-group">
-                <label for="registerName"><i class="fas fa-user"></i> Full Name</label>
-                <input type="text" id="registerName" name="name" placeholder="Enter your full name" required autofocus>
+
+        <div class="glass-card register-panel">
+            <div class="register-header">
+                <h1><i class="fas fa-user-plus"></i> Register</h1>
+                <p>Create your LOGI account</p>
             </div>
             
-            <div class="form-group">
-                <label for="registerRole"><i class="fas fa-user-tag"></i> Role</label>
-                <select id="registerRole" name="role" onchange="toggleAdditionalFields()" required>
-                    <option value="">Select your role</option>
-                    <option value="student" selected>Student</option>
-                    <option value="faculty">Faculty</option>
-                </select>
-            </div>
+            <div id="registerError" class="error-message"></div>
             
-            <div class="form-group">
-                <label for="registerRgno"><i class="fas fa-id-card"></i> Register Number</label>
-                <input type="number" id="registerRgno" name="rgno" placeholder="Register number" required>
-            </div>
-            
-            <div class="additional-fields show" id="additionalFields">
+            <form onsubmit="handleRegister(event)">
                 <div class="form-group">
-                    <label for="registerRoll"><i class="fas fa-id-badge"></i> Roll Number</label>
-                    <input type="number" id="registerRoll" name="rollno" placeholder="Roll number" required>
+                    <label for="registerName"><i class="fas fa-user"></i> Full Name</label>
+                    <input type="text" id="registerName" name="name" placeholder="Enter your full name" required autofocus>
                 </div>
                 
-                <div class="form-row">
+                <div class="form-group">
+                    <label for="registerRole"><i class="fas fa-user-tag"></i> Role</label>
+                    <select id="registerRole" name="role" onchange="toggleAdditionalFields()" required>
+                        <option value="">Select your role</option>
+                        <option value="student" selected>Student</option>
+                        <option value="faculty">Faculty</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerRgno"><i class="fas fa-id-card"></i> Register Number</label>
+                    <input type="number" id="registerRgno" name="rgno" placeholder="Register number" required>
+                </div>
+                
+                <div class="additional-fields show" id="additionalFields">
                     <div class="form-group">
-                        <label for="registerDept"><i class="fas fa-building"></i> Department</label>
-                        <input type="text" id="registerDept" name="department" placeholder="Department">
+                        <label for="registerRoll"><i class="fas fa-id-badge"></i> Roll Number</label>
+                        <input type="number" id="registerRoll" name="rollno" placeholder="Roll number" required>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="registerSem"><i class="fas fa-calendar"></i> Semester</label>
-                        <input type="number" id="registerSem" name="semester" placeholder="Semester" min="1" max="8">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="registerDept"><i class="fas fa-building"></i> Department</label>
+                            <input type="text" id="registerDept" name="department" placeholder="Department">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="registerSem"><i class="fas fa-calendar"></i> Semester</label>
+                            <input type="number" id="registerSem" name="semester" placeholder="Semester" min="1" max="8">
+                        </div>
                     </div>
                 </div>
-            </div>
+                
+                <div class="form-group">
+                    <label for="registerEmail"><i class="fas fa-envelope"></i> Email <span style="color:red">*</span></label>
+                    <input type="email" id="registerEmail" name="email" placeholder="Enter your email address" required>
+                </div>
+                
+                <div class="form-group password-toggle">
+                    <label for="registerPassword"><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" id="registerPassword" name="password" placeholder="Create a password (min 6 characters)" required>
+                    <span class="password-toggle-icon" onclick="togglePasswordVisibility('registerPassword')">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                
+                <div class="form-group password-toggle">
+                    <label for="registerConfirmPassword"><i class="fas fa-lock"></i> Confirm Password</label>
+                    <input type="password" id="registerConfirmPassword" name="confirmPassword" placeholder="Confirm your password" required>
+                    <span class="password-toggle-icon" onclick="togglePasswordVisibility('registerConfirmPassword')">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                
+                <div class="loading" id="registerLoading">
+                    <span class="spinner"></span> Creating account...
+                </div>
+                
+                <button type="submit" class="submit-btn" id="registerBtn">
+                    <i class="fas fa-user-plus"></i> Register
+                </button>
+            </form>
             
-            <div class="form-group">
-                <label for="registerEmail"><i class="fas fa-envelope"></i> Email <span style="color:red">*</span></label>
-                <input type="email" id="registerEmail" name="email" placeholder="Enter your email address" required>
+            <div class="form-footer">
+                Already have an account? <a href="login-page.html">Login here</a>
             </div>
-            
-            <div class="form-group password-toggle">
-                <label for="registerPassword"><i class="fas fa-lock"></i> Password</label>
-                <input type="password" id="registerPassword" name="password" placeholder="Create a password (min 6 characters)" required>
-                <span class="password-toggle-icon" onclick="togglePasswordVisibility('registerPassword')">
-                    <i class="fas fa-eye"></i>
-                </span>
-            </div>
-            
-            <div class="form-group password-toggle">
-                <label for="registerConfirmPassword"><i class="fas fa-lock"></i> Confirm Password</label>
-                <input type="password" id="registerConfirmPassword" name="confirmPassword" placeholder="Confirm your password" required>
-                <span class="password-toggle-icon" onclick="togglePasswordVisibility('registerConfirmPassword')">
-                    <i class="fas fa-eye"></i>
-                </span>
-            </div>
-            
-            <div class="loading" id="registerLoading">
-                <span class="spinner"></span> Creating account...
-            </div>
-            
-            <button type="submit" class="submit-btn" id="registerBtn">
-                <i class="fas fa-user-plus"></i> Register
-            </button>
-        </form>
-        
-        <div class="form-footer">
-            Already have an account? <a href="login-page.html">Login here</a>
         </div>
     </div>
     
@@ -350,15 +468,15 @@
         async function handleRegister(e) {
             e.preventDefault();
             
-            const name = document.getElementById('registerName').value;
-            const email = document.getElementById('registerEmail').value;
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('registerConfirmPassword').value;
-            const role = document.getElementById('registerRole').value;
-            const rollno = document.getElementById('registerRoll').value;
-            const rgno = document.getElementById('registerRgno').value;
-            const department = document.getElementById('registerDept').value;
-            const semester = document.getElementById('registerSem').value;
+            const name = document.getElementById('registerName').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value.trim();
+            const confirmPassword = document.getElementById('registerConfirmPassword').value.trim();
+            const role = document.getElementById('registerRole').value.trim();
+            const rollno = document.getElementById('registerRoll').value.trim();
+            const rgno = document.getElementById('registerRgno').value.trim();
+            const department = document.getElementById('registerDept').value.trim();
+            const semester = document.getElementById('registerSem').value.trim();
             
             const errorDiv = document.getElementById('registerError');
             const loadingDiv = document.getElementById('registerLoading');
@@ -414,11 +532,11 @@
                         name,
                         email: email || null,
                         password,
-                        rollno: rollno ? parseInt(rollno) : null,
-                        rgno: parseInt(rgno),
+                        rollno: rollno ? parseInt(rollno, 10) : null,
+                        rgno: rgno ? parseInt(rgno, 10) : null,
                         role,
-                        department,
-                        semester: semester ? parseInt(semester) : null
+                        department: department || null,
+                        semester: semester ? parseInt(semester, 10) : null
                     })
                 });
                 

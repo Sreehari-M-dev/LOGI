@@ -90,11 +90,13 @@ html {
 .nav-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: nowrap;
     height: 70px;
+    column-gap: 32px; /* add breathing room between logo and menu */
 }
 
 .nav-logo a {
@@ -103,6 +105,7 @@ html {
     font-weight: bold;
     text-decoration: none;
     transition: color 0.3s ease;
+    white-space: nowrap; /* keep the brand on a single line */
 }
 
 .nav-logo a:hover {
@@ -113,11 +116,14 @@ html {
     display: flex;
     list-style: none;
     margin: 0 0 0 auto !important; /* force menu to the right on desktop */
-    padding: 0;
+    padding: 0 0 0 24px; /* space between logo block and menu */
+    flex-wrap: nowrap;
+    align-items: center;
 }
 
 .nav-menu li {
     margin: 0 10px;
+    white-space: nowrap;
 }
 
 .nav-menu a {
