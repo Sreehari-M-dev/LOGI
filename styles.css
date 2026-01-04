@@ -14,7 +14,7 @@ body {
     font-family: 'Arial', sans-serif;
     /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
     min-height: 100vh;
-    min-width: 1200px;
+    min-width: 1300px;
     line-height: 1.6;
     color: #2C3E50;
     overflow-x: hidden;
@@ -2062,4 +2062,5 @@ h1,h2,h3 {
     .contact-text {
         font-size: 1rem;
     }
+
 }
