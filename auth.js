@@ -44,6 +44,8 @@ class AuthManager {
         if (this.isLoggedIn()) {
             const safeRemaining = Math.max(0, remainingMs);
             this.timeoutEndTime = Date.now() + safeRemaining;
+            
+            console.log('[AUTH] Timer reset - Will expire in', Math.floor(safeRemaining / 1000), 'seconds');
 
             this.inactivityTimer = setTimeout(() => {
                 this.logout('inactivity');
@@ -53,12 +55,32 @@ class AuthManager {
         }
     }
     
-    static updateTimerDisplay() {
+    static displayUpdateInterval = null;
+    
+    static updateTimerDisplay(retryCount = 0) {
         const timerElement = document.getElementById('inactivityTimer');
-        if (!timerElement) return;
+        if (!timerElement) {
+            // Timer element not ready yet, retry up to 10 times
+            if (retryCount < 10) {
+                setTimeout(() => this.updateTimerDisplay(retryCount + 1), 100);
+            }
+            return;
+        }
         
+        // Clear any existing display interval to prevent multiple loops
+        if (this.displayUpdateInterval) {
+            clearInterval(this.displayUpdateInterval);
+            this.displayUpdateInterval = null;
+        }
+        
+        // Update function that runs every second
         const updateDisplay = () => {
-            if (!this.isLoggedIn() || !this.timeoutEndTime) {
+            const el = document.getElementById('inactivityTimer');
+            if (!el || !this.isLoggedIn() || !this.timeoutEndTime) {
+                if (this.displayUpdateInterval) {
+                    clearInterval(this.displayUpdateInterval);
+                    this.displayUpdateInterval = null;
+                }
                 return;
             }
             
@@ -66,16 +88,23 @@ class AuthManager {
             const minutes = Math.floor(remaining / 60000);
             const seconds = Math.floor((remaining % 60000) / 1000);
             
-            if (remaining > 0) {
-                timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                timerElement.style.color = remaining < 120000 ? '#e74c3c' : '#2ecc71'; // Red if < 2 min
-                requestAnimationFrame(updateDisplay);
-            } else {
-                timerElement.textContent = '0:00';
+            el.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            el.style.color = remaining < 120000 ? '#e74c3c' : '#2ecc71'; // Red if < 2 min
+            
+            if (remaining <= 0) {
+                el.textContent = '0:00';
+                if (this.displayUpdateInterval) {
+                    clearInterval(this.displayUpdateInterval);
+                    this.displayUpdateInterval = null;
+                }
             }
         };
         
+        // Run immediately
         updateDisplay();
+        
+        // Then update every second
+        this.displayUpdateInterval = setInterval(updateDisplay, 1000);
     }
     
     static async startInactivityMonitoring() {
@@ -85,6 +114,17 @@ class AuthManager {
         // Periodically resync with server (does not extend session)
         if (!this.syncInterval) {
             this.syncInterval = setInterval(() => this.syncRemainingWithServer(), 60000);
+        }
+        
+        // Handle page visibility - sync when user returns to the page
+        if (!this.visibilityHandler) {
+            this.visibilityHandler = () => {
+                if (!document.hidden && this.isLoggedIn()) {
+                    // Page became visible again - resync with server
+                    this.syncRemainingWithServer();
+                }
+            };
+            document.addEventListener('visibilitychange', this.visibilityHandler);
         }
     }
     
@@ -99,6 +139,18 @@ class AuthManager {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
         }
+        
+        // Clear display update interval
+        if (this.displayUpdateInterval) {
+            clearInterval(this.displayUpdateInterval);
+            this.displayUpdateInterval = null;
+        }
+        
+        // Remove visibility handler
+        if (this.visibilityHandler) {
+            document.removeEventListener('visibilitychange', this.visibilityHandler);
+            this.visibilityHandler = null;
+        }
     }
 
     static async syncRemainingWithServer() {
@@ -111,14 +163,17 @@ class AuthManager {
 
             if (res.status === 401) {
                 // Session already expired on server
+                console.log('[AUTH] Session expired on server, logging out');
                 return this.logout('inactivity');
             }
 
             const data = await res.json();
             if (data.success && typeof data.remainingMs === 'number') {
+                console.log('[AUTH] Server sync - Remaining time:', Math.floor(data.remainingMs / 1000), 'seconds');
                 this.resetInactivityTimer(data.remainingMs);
             } else {
                 // Fallback to client timer if server doesn't respond properly
+                console.log('[AUTH] Using fallback client timer');
                 this.resetInactivityTimer();
             }
         } catch (error) {
@@ -200,13 +255,14 @@ document.addEventListener('DOMContentLoaded', () => {
         checkAuthentication();
     }
 
-    // Always start inactivity monitoring when logged in so the timer shows on public pages too
+    // Setup authentication buttons (login/logout) on navbar FIRST
+    // This creates the timer element before we try to update it
+    setupAuthButtons();
+    
+    // THEN start inactivity monitoring when logged in (this syncs with server)
     if (AuthManager.isLoggedIn()) {
         AuthManager.startInactivityMonitoring();
     }
-    
-    // Setup authentication buttons (login/logout) on navbar
-    setupAuthButtons();
 });
 
 function setupAuthButtons() {

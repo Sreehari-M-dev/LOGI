@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1200, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>User Profile - LOGI</title>
     <script>
         // Auto-detect environment
@@ -596,6 +596,16 @@
                 const result = await response.json();
                 console.log('[PROFILE UPDATE] Response:', result);
 
+                // Check for error responses (including 409 for duplicate email)
+                if (!response.ok || !result.success) {
+                    const friendlyMsg = (typeof getErrorMessage === 'function')
+                        ? getErrorMessage(result.error)
+                        : (result.error || 'Failed to update profile');
+                    showError(friendlyMsg);
+                    return;
+                }
+
+                // Success case
                 if (result.success) {
                     // Update local storage
                     const user = result.user;
@@ -607,11 +617,6 @@
                         displayProfile(user);
                         cancelEditMode();
                     }, 1000);
-                } else {
-                    const friendlyMsg = (typeof getErrorMessage === 'function')
-                        ? getErrorMessage(result.error)
-                        : result.error;
-                    showError(friendlyMsg);
                 }
             } catch (error) {
                 console.error('Error updating profile:', error);
@@ -630,20 +635,44 @@
                 title: 'Change Password',
                 html: `
                     <div style="text-align: left;">
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <input type="password" id="currentPassword" class="swal2-input" placeholder="Current Password" style="width: 100%;">
+                        <div class="form-group" style="margin-bottom: 15px; position: relative;">
+                            <input type="password" id="currentPassword" class="swal2-input" placeholder="Current Password" style="width: 100%; padding-right: 45px;">
+                            <i class="fas fa-eye" id="toggleCurrentPassword" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666;"></i>
                         </div>
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <input type="password" id="newPassword" class="swal2-input" placeholder="New Password (min 6 characters)" style="width: 100%;">
+                        <div class="form-group" style="margin-bottom: 15px; position: relative;">
+                            <input type="password" id="newPassword" class="swal2-input" placeholder="New Password (min 6 characters)" style="width: 100%; padding-right: 45px;">
+                            <i class="fas fa-eye" id="toggleNewPassword" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666;"></i>
                         </div>
-                        <div class="form-group">
-                            <input type="password" id="confirmPassword" class="swal2-input" placeholder="Confirm New Password" style="width: 100%;">
+                        <div class="form-group" style="position: relative;">
+                            <input type="password" id="confirmPassword" class="swal2-input" placeholder="Confirm New Password" style="width: 100%; padding-right: 45px;">
+                            <i class="fas fa-eye" id="toggleConfirmPassword" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666;"></i>
                         </div>
                     </div>
                 `,
                 didOpen: () => {
                     const currentPasswordInput = Swal.getPopup().querySelector('#currentPassword');
                     currentPasswordInput.focus();
+                    
+                    // Add password visibility toggle functionality
+                    const toggleButtons = [
+                        { toggle: '#toggleCurrentPassword', input: '#currentPassword' },
+                        { toggle: '#toggleNewPassword', input: '#newPassword' },
+                        { toggle: '#toggleConfirmPassword', input: '#confirmPassword' }
+                    ];
+                    
+                    toggleButtons.forEach(({ toggle, input }) => {
+                        const toggleBtn = Swal.getPopup().querySelector(toggle);
+                        const inputField = Swal.getPopup().querySelector(input);
+                        
+                        if (toggleBtn && inputField) {
+                            toggleBtn.addEventListener('click', () => {
+                                const type = inputField.getAttribute('type') === 'password' ? 'text' : 'password';
+                                inputField.setAttribute('type', type);
+                                toggleBtn.classList.toggle('fa-eye');
+                                toggleBtn.classList.toggle('fa-eye-slash');
+                            });
+                        }
+                    });
                 },
                 showCancelButton: true,
                 confirmButtonText: 'Change Password',

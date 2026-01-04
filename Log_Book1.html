@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1200, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
     <title>Log Book</title>
     <script>
         // Auto-detect environment: use local servers for localhost, Render for production
@@ -159,6 +160,9 @@
             <button type="button" class="btn-load" onclick="createNewLogBook()">
                 <i class="fas fa-plus"></i> Create New Log Book
             </button>
+            <div style="padding: 15px; margin-top: 15px; background-color: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+                <p style="margin: 0; color: #2e7d32;"><strong>ℹ️ Note:</strong> Only faculty members can create new logbooks. If you need a logbook, please contact your faculty member.</p>
+            </div>
         </div>
     </div>
 
@@ -169,6 +173,7 @@
         <button type="button" class="btn-load" onclick="createNewLogBook()" style="width: 100%; padding: 15px;">
             <i class="fas fa-plus"></i> Create New Log Book
         </button>
+        
     </div>
 
     <!-- Student Logbook Form Container - Hidden for Faculty/Admin -->

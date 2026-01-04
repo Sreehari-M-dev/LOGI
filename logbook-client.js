@@ -194,11 +194,17 @@ async function fetchUserProfile() {
                 if (studentFormContainer) studentFormContainer.style.display = 'none';
                 if (logbookSelectionPanel) logbookSelectionPanel.style.display = 'none';
             } else {
-                // Students can see their logbooks list and form
+                // Students can see their logbooks list but NOT create logbooks
                 if (teacherActions) teacherActions.style.display = 'none';
                 if (studentActions) studentActions.style.display = 'block';
                 if (studentFormContainer) studentFormContainer.style.display = 'block';
                 if (logbookSelectionPanel) logbookSelectionPanel.style.display = 'block';
+                
+                // Hide "Create New Log Book" buttons for students
+                const createButtons = document.querySelectorAll('button[onclick="createNewLogBook()"]');
+                createButtons.forEach(button => {
+                    button.style.display = 'none';
+                });
                 
                 // Load student's logbooks
                 loadMyLogBooks();
@@ -317,6 +323,12 @@ async function loadLogBookById(logbookId) {
 
 // Create new logbook for student
 function createNewLogBook() {
+    // Check if user is faculty or admin
+    if (!currentUser || (currentUser.role !== 'faculty' && currentUser.role !== 'admin')) {
+        showNotification('❌ Only faculty can create logbooks. Contact your faculty to request a logbook.', 'error');
+        return;
+    }
+    
     // Clear the form
     document.getElementById('logbookForm').reset();
     

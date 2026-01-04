@@ -11,8 +11,11 @@ const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LOGI';
 const JWT_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-const IDLE_TIMEOUT_MS = parseInt(process.env.IDLE_TIMEOUT_MS || '900000'); // 15 minutes default
+const IDLE_TIMEOUT_MS = parseInt(process.env.IDLE_TIMEOUT_MS || '600000'); // 10 minutes default
 const TOUCH_INTERVAL_MS = 60000; // update lastActivity at most once per minute
+
+// Log the actual timeout being used
+console.log(`⏱️ Session idle timeout: ${IDLE_TIMEOUT_MS / 1000 / 60} minutes (${IDLE_TIMEOUT_MS}ms)`);
 
 // Require a secret before starting
 if (!JWT_SECRET) {
@@ -386,18 +389,18 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Verify Token Route
-app.post('/api/auth/verify', authenticateAndTouchSession, (req, res) => {
+// Verify Token Route (does NOT extend session - just checking validity)
+app.post('/api/auth/verify', authenticateSessionNoTouch, (req, res) => {
     try {
-        // If middleware passed, session is valid and activity updated
+        // If middleware passed, session is valid
         res.json({ success: true, user: req.auth.decoded });
     } catch (error) {
         res.status(401).json({ success: false, error: 'Invalid token' });
     }
 });
 
-// Get User Profile
-app.get('/api/auth/profile', authenticateAndTouchSession, async (req, res) => {
+// Get User Profile (does NOT extend session - read-only operation)
+app.get('/api/auth/profile', authenticateSessionNoTouch, async (req, res) => {
     try {
         const user = await User.findById(req.auth.decoded.userId).select('-password');
         
