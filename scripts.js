@@ -3,20 +3,53 @@ function initHamburgerMenu() {
     const hamburger = document.getElementById('hamburger');
     const navMenu = document.getElementById('nav-menu');
 
-    if (hamburger && navMenu) {
-        hamburger.addEventListener('click', () => {
-            hamburger.classList.toggle('active');
-            navMenu.classList.toggle('active');
-        });
-
-        // Close menu when clicking on a link
-        document.querySelectorAll('.nav-menu a').forEach(link => {
-            link.addEventListener('click', () => {
-                hamburger.classList.remove('active');
-                navMenu.classList.remove('active');
-            });
-        });
+    if (!hamburger) {
+        console.error('ERROR: Hamburger element not found');
+        return;
     }
+    
+    if (!navMenu) {
+        console.error('ERROR: Nav-menu element not found');
+        return;
+    }
+
+    console.log('✓ Hamburger menu initialized');
+
+    // Toggle menu on hamburger click
+    hamburger.addEventListener('click', function(e) {
+        console.log('Hamburger clicked');
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const isActive = hamburger.classList.contains('active');
+        console.log('Current state:', isActive ? 'active' : 'inactive');
+        
+        hamburger.classList.toggle('active');
+        navMenu.classList.toggle('active');
+        
+        console.log('New state:', hamburger.classList.contains('active') ? 'active' : 'inactive');
+    });
+
+    // Close menu when clicking on a link
+    const links = navMenu.querySelectorAll('a');
+    console.log('Found', links.length, 'menu links');
+    
+    links.forEach(link => {
+        link.addEventListener('click', function() {
+            console.log('Menu link clicked, closing menu');
+            hamburger.classList.remove('active');
+            navMenu.classList.remove('active');
+        });
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!navMenu.contains(e.target) && !hamburger.contains(e.target) && hamburger.classList.contains('active')) {
+            console.log('Clicked outside menu, closing');
+            hamburger.classList.remove('active');
+            navMenu.classList.remove('active');
+        }
+    });
 }
 
 // Log Book Dynamic Row Functions
@@ -160,11 +193,6 @@ function renderFooter() {
     document.body.appendChild(footer);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    initHamburgerMenu();
-    renderFooter();
-});
-
 function learnMore() {
     alert('📚 Learn More About Our Platform:\n\n🎯 CORE FEATURES:\n• Digital lab book management\n• Secure student record keeping\n• Real-time progress tracking\n• Cloud-based file storage\n• Advanced analytics & reporting\n\n🔧 TECHNICAL SPECIFICATIONS:\n• Web-based platform (no installation required)\n• Mobile-responsive design\n• Google Drive integration\n• Role-based access control\n• SSL encryption for data security\n\n🏫 INSTITUTIONAL BENEFITS:\n• Reduced paper waste\n• Streamlined workflows\n• Improved data accuracy\n• Enhanced collaboration\n• Cost-effective solution\n\n📊 SUCCESS METRICS:\n• 95% user satisfaction rate\n• 60% reduction in administrative time\n• 40% improvement in data accuracy\n\nWant a detailed demo? Contact us to schedule a presentation!');
 }
@@ -173,6 +201,9 @@ function learnMore() {
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize hamburger menu on all pages
     initHamburgerMenu();
+    
+    // Render footer on all pages
+    renderFooter();
     
     // Add any other page-specific initializations here
     console.log('Digital Lab Portal scripts loaded successfully');

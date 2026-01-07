@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1200, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - LOGI | Digital Lab Logbook System</title>
     
     <!-- SEO Meta Tags -->
@@ -18,12 +18,15 @@
     <meta property="og:image" content="https://sreehari-m-dev.github.io/LOGI/c-logo.png">
     
     <script>
-        // Auto-detect environment: use local servers for localhost, Render for production
+        // Auto-detect environment: use local servers for localhost/local IPs, Render for production
         (function() {
-            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            const hostname = window.location.hostname;
+            const isLocal = ['localhost', '127.0.0.1', '10.196.162.19'].includes(hostname) || hostname.startsWith('192.168.');
             if (isLocal) {
-                window.REACT_APP_AUTH_API = 'http://localhost:3002/api/auth';
-                window.REACT_APP_LOGBOOK_API = 'http://localhost:3005/api/logbook';
+                // Use the same hostname/IP for local servers so it works from remote IPs too
+                const host = hostname === 'localhost' ? 'localhost' : hostname;
+                window.REACT_APP_AUTH_API = `http://${host}:3002/api/auth`;
+                window.REACT_APP_LOGBOOK_API = `http://${host}:3005/api/logbook`;
             } else {
                 window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
                 window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';

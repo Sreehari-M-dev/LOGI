@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master Templates - LOGI</title>
     <script>
-        // Auto-detect environment: use local servers for localhost, Render for production
+        // Auto-detect environment: use local servers for localhost/local IPs, Render for production
         (function() {
-            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            const hostname = window.location.hostname;
+            const isLocal = ['localhost', '127.0.0.1', '10.196.162.19'].includes(hostname) || hostname.startsWith('192.168.');
             if (isLocal) {
-                window.REACT_APP_AUTH_API = 'http://localhost:3002/api/auth';
-                window.REACT_APP_LOGBOOK_API = 'http://localhost:3005/api/logbook';
+                // Use the same hostname/IP for local servers so it works from remote IPs too
+                const host = hostname === 'localhost' ? 'localhost' : hostname;
+                window.REACT_APP_AUTH_API = `http://${host}:3002/api/auth`;
+                window.REACT_APP_LOGBOOK_API = `http://${host}:3005/api/logbook`;
             } else {
                 window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
                 window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
@@ -299,16 +302,43 @@
     </style>
 </head>
 <body>
+    <script>
+        // Hamburger menu initialization (immediate)
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.getElementById('hamburger');
+            const navMenu = document.getElementById('nav-menu');
+            if (hamburger && navMenu) {
+                hamburger.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    hamburger.classList.toggle('active');
+                    navMenu.classList.toggle('active');
+                };
+                navMenu.querySelectorAll('a').forEach(function(link) {
+                    link.onclick = function() {
+                        hamburger.classList.remove('active');
+                        navMenu.classList.remove('active');
+                    };
+                });
+                document.onclick = function(e) {
+                    if (!navMenu.contains(e.target) && !hamburger.contains(e.target)) {
+                        hamburger.classList.remove('active');
+                        navMenu.classList.remove('active');
+                    }
+                };
+            }
+        });
+    </script>
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
                 <a href="index.html">Digital Lab Portal</a>
             </div>
-            <div class="hamburger" id="hamburger">
+            <button class="hamburger" id="hamburger" type="button" aria-label="Toggle navigation menu">
                 <span></span>
                 <span></span>
                 <span></span>
-            </div>
+            </button>
             <ul class="nav-menu" id="nav-menu">
                 <li><a href="index.html">Home</a></li>
                 <li><a href="Log_Book1.html">Log Book</a></li>
