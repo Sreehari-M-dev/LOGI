@@ -420,6 +420,7 @@ html {
     padding: 5rem 0 1rem;
     position: relative;
     overflow: hidden;
+    margin-top: 80px;
 }
 
 .footer::before {
@@ -730,6 +731,21 @@ img {
     padding: 250px;
 }
 
+/* Table scroll wrapper for mobile - wrap tables in .table-scroll-wrapper */
+.table-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 20px 0;
+    margin: 15px 0 0 10px;
+
+    border-radius: 8px;
+}
+
+.table-scroll-wrapper table {
+    min-width: 900px; /* Ensures table maintains full desktop width */
+}
+
 #table {
     padding: 50px;
     border: 10px;
@@ -866,7 +882,7 @@ input[type="submit"]:hover {
 
 h1,h2,h3 {
     text-align: center;
-    color: #ffffff;
+    color: #000000;
 }
 
 #addrow,
@@ -1607,7 +1623,191 @@ h1,h2,h3 {
     transform: translateY(-2px);
 }
 
-/* Responsive Design */
+/* ================== */
+/* LOGBOOK PAGE STYLES */
+/* ================== */
+
+/* Logbook Actions Section */
+.logbook-actions {
+    text-align: center;
+    margin: 20px 0;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.logbook-actions h3 {
+    color: white;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.logbook-actions button {
+    margin: 5px;
+    padding: 12px 24px;
+    font-size: 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.btn-load { 
+    background: linear-gradient(135deg, #2196f3, #1976d2); 
+    color: white; 
+}
+
+.btn-load:hover { 
+    background: linear-gradient(135deg, #1976d2, #1565c0); 
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+}
+
+.btn-load-reg { 
+    background: linear-gradient(135deg, #ff9800, #f57c00); 
+    color: white; 
+}
+
+.btn-load-reg:hover { 
+    background: linear-gradient(135deg, #f57c00, #ef6c00); 
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+.btn-view { 
+    background: linear-gradient(135deg, #4caf50, #388e3c); 
+    color: white; 
+}
+
+.btn-view:hover { 
+    background: linear-gradient(135deg, #388e3c, #2e7d32); 
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+/* Logbook Table Enhanced Styling */
+.logbook-table {
+    border-collapse: collapse;
+    width: calc(100% - 40px);
+    margin: 30px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 2px solid #b9b4b4;
+}
+
+.logbook-table td, .logbook-table th {
+    border: 1px solid #333;
+    padding: 10px;
+}
+
+/* Readonly inputs in tables */
+table input[readonly] {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    cursor: not-allowed;
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Submit button styling for logbook */
+.logbook-submit,
+form input[type="submit"] {
+    background: linear-gradient(135deg, #28a745, #218838);
+    color: white;
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.logbook-submit:hover,
+form input[type="submit"]:hover {
+    background: linear-gradient(135deg, #218838, #1e7e34);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+}
+
+/* ================== */
+/* RESPONSIVE DESIGN */
+/* ================== */
+
+/* Large tablets and small desktops */
+@media (max-width: 1200px) {
+    .nav-container {
+        padding: 0 20px;
+    }
+    
+    .hero h1 {
+        font-size: 3rem;
+    }
+    
+    .links-container {
+        gap: 2rem;
+    }
+    
+    .footer-content {
+        gap: 2rem;
+    }
+    
+    .about-container {
+        padding: 60px 15px;
+    }
+}
+
+/* Tablets */
+@media (max-width: 992px) {
+    .nav-container {
+        column-gap: 20px;
+    }
+    
+    .nav-menu li {
+        margin: 0 5px;
+    }
+    
+    .nav-menu a {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+    
+    .hero {
+        padding: 6rem 0 4rem;
+    }
+    
+    .hero h1 {
+        font-size: 2.8rem;
+    }
+    
+    .hero p {
+        font-size: 1.1rem;
+    }
+    
+    .sections-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+    
+    .container .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .about-container .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .values-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    table {
+        width: 95%;
+    }
+}
+
 @media (max-width: 768px) {
     .hamburger {
         display: flex !important;
@@ -1699,36 +1899,6 @@ h1,h2,h3 {
         font-size: 14px;
     }
 
-    /* Logbook tables: allow horizontal scroll on small screens */
-    #t1,
-    #t2,
-    #t3,
-    .experiment-table {
-        display: block;
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        min-width: 50px;
-    }
-
-    #t1 td,
-    #t1 th,
-    #t2 td,
-    #t2 th,
-    #t3 td,
-    #t3 th,
-    .experiment-table td,
-    .experiment-table th {
-        white-space: nowrap;
-        font-size: 12px;
-        padding: 6px;
-    }
-
-    td,
-    th {
-        padding: 5px;
-    }
-
     .ftab {
         width: fit-content;
     }
@@ -1751,7 +1921,7 @@ h1,h2,h3 {
     }
 
     body {
-        background-color: black;
+        background-color: rgb(255, 255, 255);
     }
 
     #homeh1 {
@@ -1791,15 +1961,20 @@ h1,h2,h3 {
     }
 
     .hero {
-        padding: 6rem 0;
+        padding: 4rem 0 3rem;
     }
 
     .hero h1 {
-        font-size: 2.5rem;
+        font-size: 2rem;
     }
 
     .hero p {
-        font-size: 1.1rem;
+        font-size: 1rem;
+        padding: 0 15px;
+    }
+    
+    #hero-image {
+        width: 50%;
     }
 
     .top-bar-content {
@@ -1814,86 +1989,75 @@ h1,h2,h3 {
     }
 
     .quick-links {
-        padding: 3rem 0;
+        padding: 2rem 0;
+        margin-top: -1rem;
+    }
+    
+    .links-container {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 0 15px;
     }
 
     .link-card {
         padding: 1.5rem;
     }
+    
+    .link-card h3 {
+        font-size: 1.3rem;
+    }
 
     .footer {
-        padding: 3rem 0 1rem;
+        padding: 2.5rem 0 1rem;
+        margin-top: 40px;
     }
 
     .footer-content {
+        grid-template-columns: 1fr;
         gap: 2rem;
+        text-align: center;
+    }
+    
+    .footer-section h3::after {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
+    .footer-section ul li:hover {
+        transform: none;
+    }
+    
+    /* Hero content on mobile */
+    .hero-content {
+        padding: 0 20px;
+    }
+    
+    /* Container adjustments */
+    .container {
+        padding: 20px 15px;
+    }
+    
+    /* Table improvements for mobile */
+    table {
+        width: 100%;
+        margin: 15px 0 0 10px;
+        font-size: 12px;
+    }
+    
+    td, th {
+        padding: 8px 5px;
+    }
+    
+    /* Logbook actions responsive */
+    .logbook-actions button {
+        display: block;
+        width: 90%;
+        margin: 8px auto;
     }
 }
 
+/* Tablet and smaller screens */
 @media only screen and (max-width: 600px) {
-    /* Compact mobile layout for main lab work table (#t1) without affecting desktop */
-    #t1 {
-        width: 100%;
-    }
-
-    /* Hide complex header rows on small screens */
-    #t1 tr:nth-child(-n+3) {
-        display: none;
-    }
-
-    /* Reflow each data row into grouped blocks */
-    #t1 tr {
-        display: grid;
-        /* Tighter first-row columns for date / experiment / CO on very small screens */
-        grid-template-columns: 0.8fr 1fr 0.8fr;
-        grid-template-areas:
-            "sl sl sl"
-            "date exp co"
-            "r1 r2 r3"
-            "r4 r5 total"
-            "sig sig sig";
-        gap: 6px;
-        margin-bottom: 10px;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        background: #fafafa;
-    }
-
-    #t1 td {
-        padding: 5px;
-        font-size: 12px;
-        white-space: normal;
-    }
-
-    /* Tighter inputs for date / experiment / CO */
-    #t1 td:nth-child(2) input,
-    #t1 td:nth-child(3) input,
-    #t1 td:nth-child(4) input {
-        font-size: 11px;
-        padding: 5px;
-    }
-
-    #t1 td:nth-child(1) { grid-area: sl; font-weight: 600; }
-    #t1 td:nth-child(2) { grid-area: date; }
-    #t1 td:nth-child(3) { grid-area: exp; }
-    #t1 td:nth-child(4) { grid-area: co; }
-    #t1 td:nth-child(5) { grid-area: r1; }
-    #t1 td:nth-child(6) { grid-area: r2; }
-    #t1 td:nth-child(7) { grid-area: r3; }
-    #t1 td:nth-child(8) { grid-area: r4; }
-    #t1 td:nth-child(9) { grid-area: r5; }
-    #t1 td:nth-child(10) { grid-area: total; font-weight: 600; }
-    #t1 td:nth-child(11) { grid-area: sig; }
-
-    /* Keep inputs full-width within their grid cells */
-    #t1 input,
-    #t1 select,
-    #t1 textarea {
-        width: 100%;
-        box-sizing: border-box;
-    }
-
     .page-header h1 {
         font-size: 1.8rem;
     }
@@ -1901,11 +2065,6 @@ h1,h2,h3 {
     .section-card {
         padding: 15px;
         margin: 10px;
-    }
-
-    .btn {
-        padding: 12px 20px;
-        font-size: 14px;
     }
 
     .about-content h1 {
@@ -1928,49 +2087,128 @@ h1,h2,h3 {
         font-size: 2rem;
     }
 
-    .btn {
-        padding: 0.8rem 2rem;
-        font-size: 1rem;
-    }
-
     .link-card h3 {
         font-size: 1.3rem;
     }
 }
 
 @media (max-width: 480px) {
+    .nav-container {
+        padding: 0 10px;
+        height: 60px;
+    }
+    
+    .nav-logo a {
+        font-size: 1.1rem;
+    }
+    
+    .hamburger {
+        width: 44px;
+        height: 44px;
+    }
+    
+    .nav-menu {
+        top: 60px !important;
+        height: calc(100vh - 60px) !important;
+    }
+    
+    .hero {
+        padding: 3rem 0 2rem;
+    }
+    
     .hero h1 {
-        font-size: 2rem;
+        font-size: 1.6rem;
+        line-height: 1.3;
+    }
+    
+    .hero p {
+        font-size: 0.95rem;
+    }
+    
+    #hero-image {
+        width: 60%;
     }
 
     .btn {
-        padding: 0.8rem 2rem;
-        font-size: 1rem;
+        padding: 0.7rem 1.5rem;
+        font-size: 0.9rem;
     }
 
+    .link-card {
+        padding: 1.2rem;
+    }
+    
     .link-card h3 {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
+    }
+    
+    .link-card p {
+        font-size: 0.9rem;
+    }
+    
+    .quick-links {
+        padding: 1.5rem 0;
+    }
+    
+    .links-container {
+        padding: 0 10px;
+        gap: 1rem;
+    }
+    
+    /* Footer mobile */
+    .footer {
+        padding: 2rem 0 1rem;
+        margin-top: 30px;
+    }
+    
+    .footer-section h3 {
+        font-size: 1.1rem;
+    }
+    
+    .footer-section ul li {
+        font-size: 0.9rem;
+    }
+    
+    .footer-bottom {
+        font-size: 0.8rem;
+        padding: 1rem 10px;
     }
 
     /* Google Drive Integration Mobile Styles */
     .container .features-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
         gap: 1rem;
+    }
+    
+    .feature-item {
+        padding: 1rem;
+    }
+    
+    .feature-icon {
+        font-size: 2rem;
+    }
+    
+    .feature-item h3 {
+        font-size: 1rem;
     }
 
     .actions-container {
         grid-template-columns: 1fr;
-        gap: 1.5rem;
+        gap: 1rem;
     }
 
     .action-card {
-        padding: 1.5rem;
+        padding: 1.2rem;
     }
 
     .action-header {
         flex-direction: column;
         text-align: center;
         gap: 10px;
+    }
+    
+    .action-card h3 {
+        font-size: 1.2rem;
     }
 
     .instructions-grid {
@@ -1983,9 +2221,14 @@ h1,h2,h3 {
         text-align: center;
         gap: 0.5rem;
     }
+    
+    .step-number {
+        width: 35px;
+        height: 35px;
+    }
 
     .quick-links-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
         gap: 0.5rem;
     }
 
@@ -1998,6 +2241,62 @@ h1,h2,h3 {
         flex-direction: column;
         gap: 10px;
     }
+    
+    /* About page mobile */
+    .about-container .features-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .feature-card {
+        padding: 1.5rem;
+    }
+    
+    .values-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .value-item {
+        padding: 1.2rem;
+    }
+    
+    .section-header h2 {
+        font-size: 1.6rem;
+    }
+    
+    .section-title {
+        font-size: 1.6rem;
+    }
+    
+    .lead-text {
+        font-size: 1rem;
+    }
+    
+    /* Study resources page */
+    .sections-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .section-card {
+        padding: 15px;
+    }
+    
+    .section-card h2 {
+        font-size: 1.4rem;
+    }
+    
+    .file-iframe {
+        height: 250px;
+    }
+    
+    /* Page header */
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .page-header p {
+        font-size: 0.9rem;
+    }
 
     .btn-upload, .btn-download {
         padding: 12px 20px;
@@ -2005,85 +2304,203 @@ h1,h2,h3 {
     }
 
     /* About Page Mobile Styles */
+    .about-hero {
+        padding: 60px 0;
+    }
+    
     .hero-title {
-        font-size: 2.5rem;
+        font-size: 2rem;
     }
 
     .hero-subtitle {
-        font-size: 1.1rem;
+        font-size: 1rem;
+    }
+    
+    .hero-icon svg {
+        width: 60px;
+        height: 60px;
     }
 
     .about-container {
-        padding: 40px 15px;
+        padding: 30px 15px;
     }
 
     .section-header {
         flex-direction: column;
         gap: 10px;
         text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .section-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.8rem;
     }
 
     .section-header h2 {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
 
     .section-title {
-        font-size: 2rem;
+        font-size: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .section-title::after {
+        width: 60px;
     }
 
     .about-container .features-grid {
         grid-template-columns: 1fr;
-        gap: 1.5rem;
+        gap: 1rem;
     }
 
     .feature-card {
-        padding: 2rem;
+        padding: 1.5rem;
+    }
+    
+    .feature-card .feature-icon {
+        font-size: 2.2rem;
+    }
+    
+    .feature-card h3 {
+        font-size: 1.2rem;
     }
 
     .values-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
         gap: 1rem;
     }
 
     .value-item {
-        padding: 1.5rem;
+        padding: 1.2rem;
+    }
+    
+    .value-icon {
+        font-size: 2rem;
+    }
+    
+    .value-item h3 {
+        font-size: 1.1rem;
     }
 
-    .journey-section, .contact-section {
-        padding: 40px 20px;
-        margin: 40px 0;
+    .journey-section {
+        padding: 30px 15px;
+        margin: 30px 0;
+        border-radius: 20px;
+    }
+    
+    .contact-section {
+        padding: 30px 15px;
+        margin: 30px 0;
+        border-radius: 20px;
     }
 
     .journey-timeline::before {
-        left: 15px;
+        left: 12px;
     }
 
     .timeline-item {
-        padding-left: 50px;
-        margin-bottom: 2rem;
+        padding-left: 45px;
+        margin-bottom: 1.5rem;
     }
 
     .timeline-marker {
-        left: 6px;
-        width: 18px;
-        height: 18px;
-        box-shadow: 0 0 0 4px white, 0 0 0 6px #36ba86;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        box-shadow: 0 0 0 3px white, 0 0 0 5px #36ba86;
+    }
+    
+    .timeline-content h3 {
+        font-size: 1.1rem;
+    }
+    
+    .timeline-content p {
+        font-size: 0.95rem;
     }
 
     .contact-buttons {
         flex-direction: column;
         align-items: center;
+        gap: 0.8rem;
     }
 
     .contact-btn {
-        width: 200px;
+        width: 100%;
+        max-width: 250px;
+        padding: 12px 20px;
+        font-size: 1rem;
     }
 
     .lead-text {
-        font-size: 1.1rem;
+        font-size: 1rem;
     }
 
     .contact-text {
+        font-size: 0.95rem;
+    }
+    
+    /* About content legacy styles */
+    .about-content h1 {
+        font-size: 1.5rem;
+        margin: 20px 0 15px 0;
+    }
+    
+    .about-content p {
+        font-size: 14px;
+        padding: 15px;
+        margin: 10px auto;
+    }
+    
+    .aboutbox {
+        margin-left: 0;
+        padding: 0 10px;
+    }
+    
+    .about-table {
+        margin: 30px 10px;
+        padding: 15px;
+    }
+}
+
+/* Extra small screens (phones in portrait) */
+@media (max-width: 360px) {
+    .nav-logo a {
         font-size: 1rem;
+    }
+    
+    .hero h1 {
+        font-size: 1.4rem;
+    }
+    
+    .hero p {
+        font-size: 0.9rem;
+    }
+    
+    .btn {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.85rem;
+    }
+    
+    .link-card {
+        padding: 1rem;
+    }
+    
+    .link-card h3 {
+        font-size: 1.1rem;
+    }
+    
+    .footer-section h3 {
+        font-size: 1rem;
+    }
+    
+    .hero-title {
+        font-size: 1.6rem;
+    }
+    
+    .section-header h2 {
+        font-size: 1.3rem;
     }
 }

@@ -98,7 +98,9 @@ const allowedOrigins = isProduction
         'http://localhost:8080',
         'http://127.0.0.1',
         'http://127.0.0.1:3000',
-        'http://127.0.0.1:3003'
+        'http://127.0.0.1:3003',
+        'http://10.154.126.1:5000'
+        
     ];
 
 // Log all incoming requests and headers

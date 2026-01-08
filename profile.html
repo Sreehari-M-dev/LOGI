@@ -9,7 +9,7 @@
         // Auto-detect environment
         (function () {
             const hostname = window.location.hostname;
-            const isLocal = ['localhost', '127.0.0.1', '10.196.162.19'].includes(hostname) || hostname.startsWith('192.168.');
+            const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
             if (isLocal) {
                 // Use the same hostname/IP for local servers
                 const host = hostname === 'localhost' ? 'localhost' : hostname;
@@ -388,6 +388,9 @@
                 <button class="btn btn-secondary" onclick="openChangePasswordModal()">
                     <i class="fas fa-key"></i> Change Password
                 </button>
+                <button class="btn btn-danger" onclick="openDeleteAccountModal()">
+                    <i class="fas fa-trash-alt"></i> Delete Account
+                </button>
             </div>
         </div>
 
@@ -455,33 +458,6 @@
     <script src="error-handler.js"></script>
     <script src="auth.js"></script>
     <script src="scripts.js"></script>
-    <script>
-        // Hamburger menu initialization
-        (function() {
-            const hamburger = document.getElementById('hamburger');
-            const navMenu = document.getElementById('nav-menu');
-            if (hamburger && navMenu) {
-                hamburger.onclick = function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    hamburger.classList.toggle('active');
-                    navMenu.classList.toggle('active');
-                };
-                navMenu.querySelectorAll('a').forEach(function(link) {
-                    link.onclick = function() {
-                        hamburger.classList.remove('active');
-                        navMenu.classList.remove('active');
-                    };
-                });
-                document.onclick = function(e) {
-                    if (!navMenu.contains(e.target) && !hamburger.contains(e.target)) {
-                        hamburger.classList.remove('active');
-                        navMenu.classList.remove('active');
-                    }
-                };
-            }
-        })();
-    </script>
     <script>
         const PROFILE_AUTH_API = (typeof AUTH_API !== 'undefined')
             ? AUTH_API
@@ -741,7 +717,7 @@
         async function handleChangePassword(currentPassword, newPassword) {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`${AUTH_API}/change-password`, {
+                const response = await fetch(`${PROFILE_AUTH_API}/change-password`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -753,7 +729,7 @@
                 const result = await response.json();
                 console.log('[CHANGE PASSWORD] Response:', result);
 
-                if (result.success) {
+                if (response.ok && result.success) {
                     Swal.fire({
                         title: 'Success!',
                         text: 'Password changed successfully.',
@@ -761,24 +737,35 @@
                         confirmButtonColor: '#667eea'
                     });
                 } else {
-                    const friendlyMsg = (typeof getErrorMessage === 'function')
-                        ? getErrorMessage(result.error)
-                        : result.error;
+                    // Handle specific error messages
+                    let errorMessage = 'Failed to change password';
+                    
+                    if (response.status === 401) {
+                        errorMessage = 'Current password is incorrect. Please try again.';
+                    } else if (response.status === 400 && result.error) {
+                        if (result.error.toLowerCase().includes('current password')) {
+                            errorMessage = 'Current password is incorrect. Please try again.';
+                        } else if (result.error.toLowerCase().includes('password')) {
+                            errorMessage = result.error;
+                        } else {
+                            errorMessage = result.error;
+                        }
+                    } else if (result.error) {
+                        errorMessage = result.error;
+                    }
+                    
                     Swal.fire({
                         title: 'Error',
-                        text: friendlyMsg,
+                        text: errorMessage,
                         icon: 'error',
                         confirmButtonColor: '#667eea'
                     });
                 }
             } catch (error) {
                 console.error('Error changing password:', error);
-                const friendlyMsg = (typeof getErrorMessage === 'function')
-                    ? getErrorMessage(error)
-                    : ('Error: ' + error.message);
                 Swal.fire({
                     title: 'Error',
-                    text: friendlyMsg,
+                    text: 'Unable to connect to the server. Please check your connection and try again.',
                     icon: 'error',
                     confirmButtonColor: '#667eea'
                 });
@@ -824,6 +811,122 @@
                     localStorage.removeItem('token');
                     localStorage.removeItem('user');
                     window.location.href = 'login-page.html';
+                }
+            });
+        }
+
+        // Delete account modal
+        function openDeleteAccountModal() {
+            Swal.fire({
+                title: 'Delete Account',
+                width: '550px',
+                html: `
+                    <div style="text-align: left; padding: 0 20px;">
+                        <p style="margin-bottom: 20px; color: #d32f2f; font-weight: 600;">
+                            <i class="fas fa-exclamation-triangle"></i> Warning: This action cannot be undone!
+                        </p>
+                        <p style="margin-bottom: 15px; color: #666;">
+                            Deleting your account will permanently remove:
+                        </p>
+                        <ul style="text-align: left; color: #666; margin-bottom: 20px; padding-left: 20px;">
+                            <li>Your profile information</li>
+                            <li>All your lab logbooks</li>
+                            <li>All your templates</li>
+                            <li>All associated data</li>
+                        </ul>
+                        <p style="margin-bottom: 15px; color: #333; font-weight: 600;">
+                            Please enter your password to confirm:
+                        </p>
+                        <div style="position: relative; max-width: 400px; margin: 0 auto;">
+                            <input type="password" id="deletePassword" class="swal2-input" placeholder="Enter your password" style="width: 100%; padding-right: 45px; margin: 0;">
+                            <i class="fas fa-eye" id="toggleDeletePassword" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666;"></i>
+                        </div>
+                    </div>
+                `,
+                didOpen: () => {
+                    const passwordInput = Swal.getPopup().querySelector('#deletePassword');
+                    passwordInput.focus();
+                    
+                    const toggleBtn = Swal.getPopup().querySelector('#toggleDeletePassword');
+                    if (toggleBtn && passwordInput) {
+                        toggleBtn.addEventListener('click', () => {
+                            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                            passwordInput.setAttribute('type', type);
+                            toggleBtn.classList.toggle('fa-eye');
+                            toggleBtn.classList.toggle('fa-eye-slash');
+                        });
+                    }
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Delete My Account',
+                confirmButtonColor: '#d32f2f',
+                cancelButtonText: 'Cancel',
+                cancelButtonColor: '#667eea',
+                preConfirm: () => {
+                    const password = Swal.getPopup().querySelector('#deletePassword').value;
+                    if (!password) {
+                        Swal.showValidationMessage('Password is required');
+                        return false;
+                    }
+                    return { password };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        const response = await fetch(`${PROFILE_AUTH_API}/delete-account`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            },
+                            body: JSON.stringify({ password: result.value.password })
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok && data.success) {
+                            await Swal.fire({
+                                title: 'Account Deleted',
+                                text: 'Your account has been permanently deleted.',
+                                icon: 'success',
+                                confirmButtonColor: '#667eea',
+                                timer: 2000
+                            });
+                            localStorage.removeItem('token');
+                            localStorage.removeItem('user');
+                            window.location.href = 'login-page.html';
+                        } else {
+                            // Handle specific error messages
+                            let errorMessage = 'Failed to delete account';
+                            
+                            if (response.status === 401) {
+                                errorMessage = 'Incorrect password. Please try again.';
+                            } else if (response.status === 404) {
+                                errorMessage = 'Account not found.';
+                            } else if (data.error) {
+                                if (data.error.includes('password')) {
+                                    errorMessage = 'Incorrect password. Please try again.';
+                                } else {
+                                    errorMessage = data.error;
+                                }
+                            }
+                            
+                            Swal.fire({
+                                title: 'Error',
+                                text: errorMessage,
+                                icon: 'error',
+                                confirmButtonColor: '#667eea'
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Delete account error:', error);
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Unable to connect to the server. Please check your connection and try again.',
+                            icon: 'error',
+                            confirmButtonColor: '#667eea'
+                        });
+                    }
                 }
             });
         }

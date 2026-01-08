@@ -51,7 +51,7 @@
         // Auto-detect environment: use local servers for localhost, Render for production
         (function() {
             const hostname = window.location.hostname;
-            const isLocal = ['localhost', '127.0.0.1', '10.196.162.19'].includes(hostname) || hostname.startsWith('192.168.');
+            const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
             if (isLocal) {
                 // Use the same hostname/IP for local servers so it works from remote IPs too
                 const host = hostname === 'localhost' ? 'localhost' : hostname;
@@ -174,35 +174,6 @@
             if (user && (user.role === 'faculty' || user.role === 'admin')) {
                 document.getElementById('teacherTemplatesCard').style.display = 'block';
                 document.getElementById('viewLogbooksCard').style.display = 'block';
-            }
-            
-            // Direct hamburger menu initialization (backup)
-            const hamburger = document.getElementById('hamburger');
-            const navMenu = document.getElementById('nav-menu');
-            
-            if (hamburger && navMenu) {
-                hamburger.onclick = function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    hamburger.classList.toggle('active');
-                    navMenu.classList.toggle('active');
-                };
-                
-                // Close menu when clicking a link
-                navMenu.querySelectorAll('a').forEach(function(link) {
-                    link.onclick = function() {
-                        hamburger.classList.remove('active');
-                        navMenu.classList.remove('active');
-                    };
-                });
-                
-                // Close menu when clicking outside
-                document.onclick = function(e) {
-                    if (!navMenu.contains(e.target) && !hamburger.contains(e.target)) {
-                        hamburger.classList.remove('active');
-                        navMenu.classList.remove('active');
-                    }
-                };
             }
         });
     </script>

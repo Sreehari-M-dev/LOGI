@@ -8,7 +8,7 @@
         // Auto-detect environment: use local servers for localhost/local IPs, Render for production
         (function() {
             const hostname = window.location.hostname;
-            const isLocal = ['localhost', '127.0.0.1', '10.196.162.19'].includes(hostname) || hostname.startsWith('192.168.');
+            const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
             if (isLocal) {
                 // Use the same hostname/IP for local servers so it works from remote IPs too
                 const host = hostname === 'localhost' ? 'localhost' : hostname;
@@ -314,6 +314,122 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
+        }
+        
+        /* Responsive Styles */
+        @media (max-width: 992px) {
+            .auth-shell {
+                grid-template-columns: 1fr;
+                max-width: 550px;
+                gap: 24px;
+            }
+            .hero-panel {
+                min-height: auto;
+                padding: 36px 32px;
+            }
+            .hero-figure {
+                min-height: 220px;
+            }
+            .hero-figure svg {
+                height: 200px;
+            }
+            .register-panel {
+                padding: 36px 32px;
+                margin-left: 0;
+            }
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 16px;
+            }
+            .auth-shell {
+                gap: 16px;
+            }
+            .hero-panel {
+                padding: 28px 20px;
+            }
+            .hero-kicker {
+                font-size: 13px;
+                padding: 8px 12px;
+            }
+            .hero-title {
+                font-size: 26px;
+                margin: 14px 0 8px;
+            }
+            .hero-sub {
+                font-size: 14px;
+            }
+            .hero-figure {
+                margin-top: 20px;
+                padding: 20px;
+                min-height: 180px;
+            }
+            .hero-figure svg {
+                height: 160px;
+            }
+            .hero-badge {
+                padding: 8px 10px;
+                font-size: 12px;
+                top: 12px;
+                right: 12px;
+            }
+            .register-panel {
+                padding: 28px 20px;
+            }
+            .register-header h1 {
+                font-size: 24px;
+            }
+            .register-header p {
+                font-size: 14px;
+            }
+            .form-group label {
+                font-size: 13px;
+            }
+            .form-group input, .form-group select {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+            .submit-btn {
+                padding: 12px;
+                font-size: 15px;
+            }
+            .form-footer {
+                font-size: 13px;
+            }
+        }
+        @media (max-width: 400px) {
+            body {
+                padding: 10px;
+            }
+            .hero-panel {
+                padding: 20px 15px;
+            }
+            .hero-title {
+                font-size: 20px;
+            }
+            .hero-sub {
+                font-size: 13px;
+            }
+            .hero-figure {
+                padding: 15px;
+                min-height: 130px;
+            }
+            .hero-figure svg {
+                height: 110px;
+            }
+            .register-panel {
+                padding: 20px 15px;
+            }
+            .register-header h1 {
+                font-size: 18px;
+            }
+            .glass-card {
+                border-radius: 16px;
+            }
         }
     </style>
 </head>

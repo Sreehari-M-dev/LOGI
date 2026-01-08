@@ -11,7 +11,7 @@ const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LOGI';
 const JWT_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-const IDLE_TIMEOUT_MS = parseInt(process.env.IDLE_TIMEOUT_MS || '600000'); // 10 minutes default
+const IDLE_TIMEOUT_MS = parseInt(process.env.IDLE_TIMEOUT_MS || '6000000'); // 10 minutes default
 const TOUCH_INTERVAL_MS = 60000; // update lastActivity at most once per minute
 
 // Log the actual timeout being used
@@ -35,7 +35,8 @@ const allowedOrigins = isProduction
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3003',
         'http://10.196.162.19',
-        'http://10.196.162.19:5000'
+        'http://10.154.126.1:5000'
+
     ];
 
 // Log all incoming requests and headers

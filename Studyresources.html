@@ -9,7 +9,7 @@
         // Auto-detect environment: use local servers for localhost/local IPs, Render for production
         (function() {
             const hostname = window.location.hostname;
-            const isLocal = ['localhost', '127.0.0.1', '10.196.162.19'].includes(hostname) || hostname.startsWith('192.168.');
+            const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
             if (isLocal) {
                 // Use the same hostname/IP for local servers so it works from remote IPs too
                 const host = hostname === 'localhost' ? 'localhost' : hostname;
@@ -185,32 +185,5 @@
     <script src="error-handler.js"></script>
     <script src="auth.js"></script>
     <script src="scripts.js"></script>
-    <script>
-        // Hamburger menu initialization
-        document.addEventListener('DOMContentLoaded', function() {
-            const hamburger = document.getElementById('hamburger');
-            const navMenu = document.getElementById('nav-menu');
-            if (hamburger && navMenu) {
-                hamburger.onclick = function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    hamburger.classList.toggle('active');
-                    navMenu.classList.toggle('active');
-                };
-                navMenu.querySelectorAll('a').forEach(function(link) {
-                    link.onclick = function() {
-                        hamburger.classList.remove('active');
-                        navMenu.classList.remove('active');
-                    };
-                });
-                document.onclick = function(e) {
-                    if (!navMenu.contains(e.target) && !hamburger.contains(e.target)) {
-                        hamburger.classList.remove('active');
-                        navMenu.classList.remove('active');
-                    }
-                };
-            }
-        });
-    </script>
 </body>
 </html>
