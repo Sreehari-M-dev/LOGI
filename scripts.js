@@ -197,10 +197,220 @@ function learnMore() {
     alert('📚 Learn More About Our Platform:\n\n🎯 CORE FEATURES:\n• Digital lab book management\n• Secure student record keeping\n• Real-time progress tracking\n• Cloud-based file storage\n• Advanced analytics & reporting\n\n🔧 TECHNICAL SPECIFICATIONS:\n• Web-based platform (no installation required)\n• Mobile-responsive design\n• Google Drive integration\n• Role-based access control\n• SSL encryption for data security\n\n🏫 INSTITUTIONAL BENEFITS:\n• Reduced paper waste\n• Streamlined workflows\n• Improved data accuracy\n• Enhanced collaboration\n• Cost-effective solution\n\n📊 SUCCESS METRICS:\n• 95% user satisfaction rate\n• 60% reduction in administrative time\n• 40% improvement in data accuracy\n\nWant a detailed demo? Contact us to schedule a presentation!');
 }
 
+// ==================== DARK MODE FUNCTIONALITY ====================
+
+/**
+ * Initialize dark mode toggle button and functionality
+ * Persists preference in localStorage
+ */
+function initDarkMode() {
+    // Create dark mode toggle button if it doesn't exist
+    if (!document.querySelector('.dark-mode-toggle')) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'dark-mode-toggle';
+        toggleBtn.setAttribute('aria-label', 'Toggle dark mode');
+        toggleBtn.setAttribute('title', 'Toggle dark/light mode');
+        toggleBtn.innerHTML = `
+            <span class="moon-icon">🌙</span>
+            <span class="sun-icon">☀️</span>
+        `;
+        document.body.appendChild(toggleBtn);
+        
+        // Add click listener
+        toggleBtn.addEventListener('click', toggleDarkMode);
+    }
+    
+    // Check for saved preference
+    const savedMode = localStorage.getItem('darkMode');
+    if (savedMode === 'enabled') {
+        document.body.classList.add('dark-mode');
+    } else if (savedMode === null) {
+        // Check system preference if no saved preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-mode');
+            localStorage.setItem('darkMode', 'enabled');
+        }
+    }
+    
+    // Listen for system preference changes
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (localStorage.getItem('darkMode') === null) {
+                if (e.matches) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+            }
+        });
+    }
+    
+    console.log('✓ Dark mode initialized');
+}
+
+/**
+ * Toggle dark mode on/off
+ */
+function toggleDarkMode() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+    
+    // Announce change for accessibility
+    const announcement = document.createElement('div');
+    announcement.setAttribute('role', 'status');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.style.cssText = 'position: absolute; left: -9999px;';
+    announcement.textContent = isDark ? 'Dark mode enabled' : 'Light mode enabled';
+    document.body.appendChild(announcement);
+    setTimeout(() => announcement.remove(), 1000);
+}
+
+/**
+ * Inject Admin Panel link into navbar for authorized users
+ * Shows for: super-admin, principal, faculty
+ */
+function injectAdminPanelLink() {
+    try {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return;
+        
+        const user = JSON.parse(userStr);
+        const authorizedRoles = ['super-admin', 'principal', 'faculty'];
+        
+        if (!authorizedRoles.includes(user.role)) return;
+        
+        const navMenu = document.getElementById('nav-menu');
+        if (!navMenu) return;
+        
+        // Check if admin link already exists
+        if (navMenu.querySelector('a[href="admin-dashboard.html"]')) return;
+        
+        // Create admin panel link
+        const adminLi = document.createElement('li');
+        const adminLink = document.createElement('a');
+        adminLink.href = 'admin-dashboard.html';
+        adminLink.innerHTML = '<i class="fas fa-shield-halved" style="margin-right: 5px;"></i>Admin';
+        
+        // Highlight if on admin page
+        if (window.location.pathname.includes('admin-dashboard')) {
+            adminLink.classList.add('active');
+        }
+        
+        // Style based on role
+        if (user.role === 'super-admin') {
+            adminLink.style.color = '#ef4444';
+        } else if (user.role === 'principal') {
+            adminLink.style.color = '#3b82f6';
+        } else if (user.role === 'faculty') {
+            adminLink.style.color = '#10b981';
+        }
+        
+        adminLi.appendChild(adminLink);
+        
+        // Insert before Profile link
+        const profileLink = navMenu.querySelector('a[href="profile.html"]');
+        if (profileLink && profileLink.parentElement) {
+            navMenu.insertBefore(adminLi, profileLink.parentElement);
+        } else {
+            navMenu.appendChild(adminLi);
+        }
+        
+        console.log('✓ Admin panel link injected for', user.role);
+    } catch (e) {
+        console.error('Error injecting admin link:', e);
+    }
+}
+
+// Apply navbar preferences for principals and super-admins
+async function applyNavbarPreferences() {
+    try {
+        const user = AuthManager.getUser();
+        if (!user) return;
+        
+        // Only apply for principals and super-admins
+        if (!['principal', 'super-admin'].includes(user.role)) return;
+        
+        const navMenu = document.getElementById('nav-menu');
+        if (!navMenu) return;
+        
+        // Try to get preferences from localStorage first for immediate effect
+        let prefs = null;
+        const cachedPrefs = localStorage.getItem('navbarPreferences');
+        if (cachedPrefs) {
+            try {
+                prefs = JSON.parse(cachedPrefs);
+            } catch (e) {
+                console.error('Failed to parse cached navbar prefs:', e);
+            }
+        }
+        
+        // If no cached prefs, fetch from server (but don't wait too long)
+        if (!prefs) {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            
+            const host = window.location.hostname;
+            const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(host) || host.startsWith('192.168.');
+            const apiUrl = isLocal 
+                ? `http://${host === 'localhost' ? 'localhost' : host}:3002/api/auth`
+                : 'https://logi-auth-service-avbs.onrender.com/api/auth';
+            
+            try {
+                const response = await fetch(`${apiUrl}/navbar-preferences`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success && data.navbarPreferences) {
+                    prefs = data.navbarPreferences;
+                    localStorage.setItem('navbarPreferences', JSON.stringify(prefs));
+                }
+            } catch (e) {
+                console.log('Could not fetch navbar prefs, using defaults');
+                return;
+            }
+        }
+        
+        if (!prefs) return;
+        
+        // Map of preference keys to link hrefs
+        const navLinks = {
+            home: 'index.html',
+            logbook: 'Log_Book1.html',
+            resources: 'Studyresources.html',
+            about: 'About.html',
+            profile: 'profile.html',
+            admin: 'admin-dashboard.html'
+        };
+        
+        // Apply visibility to each nav item
+        Object.entries(navLinks).forEach(([key, href]) => {
+            if (prefs[key] === false) {
+                const link = navMenu.querySelector(`a[href="${href}"]`);
+                if (link && link.parentElement) {
+                    link.parentElement.style.display = 'none';
+                }
+            }
+        });
+        
+        console.log('✓ Navbar preferences applied');
+    } catch (e) {
+        console.error('Error applying navbar preferences:', e);
+    }
+}
+
 // Initialize all functionality when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize hamburger menu on all pages
     initHamburgerMenu();
+    
+    // Initialize dark mode
+    initDarkMode();
+    
+    // Inject admin panel link for authorized users
+    injectAdminPanelLink();
+    
+    // Apply navbar preferences for principals/super-admins
+    applyNavbarPreferences();
     
     // Render footer on all pages
     renderFooter();

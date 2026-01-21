@@ -1,52 +1,90 @@
 /**
  * User-Friendly Error Handler & Logger
  * Converts technical errors into human-readable messages
- * Shows styled pop-up notifications to users
+ * Shows styled pop-up notifications to users using SweetAlert2
  */
 
-// Error message translations
+// Error message translations - Natural language messages
 const ERROR_MESSAGES = {
     // Database errors
-    'MONGODB_DRIVER': 'Database driver update in progress. This is normal and will be fixed soon.',
-    'useNewUrlParser': 'Database connection is being optimized.',
-    'useUnifiedTopology': 'Database driver is being updated for better performance.',
-    'MongoDB connection error': 'Could not connect to the database. Please check your connection.',
+    'MONGODB_DRIVER': 'We\'re updating our systems. Please try again in a moment.',
+    'useNewUrlParser': 'We\'re optimizing our connection. Please wait.',
+    'useUnifiedTopology': 'We\'re improving our service. Please be patient.',
+    'MongoDB connection error': 'We couldn\'t connect to our servers. Please check your internet connection and try again.',
+    'database error': 'There was a problem accessing our database. Please try again later.',
     
     // Network errors
-    'Failed to fetch': 'Network error. Please check your internet connection.',
-    'CORS error': 'Connection blocked. Please refresh the page.',
-    'Bad Request': 'The request was invalid. Please try again.',
-    '400': 'Something went wrong with your request. Please try again.',
-    '401': 'You need to log in. Please log in first.',
-    '403': 'You do not have permission to do this.',
-    '404': 'The requested item was not found.',
-    '500': 'Server error. Please try again later.',
+    'Failed to fetch': 'We couldn\'t reach our servers. Please check your internet connection and try again.',
+    'NetworkError': 'You seem to be offline. Please check your internet connection.',
+    'CORS error': 'There was a connection issue. Please refresh the page and try again.',
+    'Bad Request': 'We couldn\'t process your request. Please check your information and try again.',
+    '400': 'Something doesn\'t look right. Please check your information and try again.',
+    '401': 'You need to log in to access this. Please sign in and try again.',
+    '403': 'You don\'t have permission to do this. Please contact an administrator if you think this is a mistake.',
+    '404': 'We couldn\'t find what you were looking for. It may have been moved or deleted.',
+    '500': 'Something went wrong on our end. Please try again later.',
+    '502': 'Our servers are temporarily unavailable. Please try again in a few minutes.',
+    '503': 'Our service is temporarily unavailable. Please try again later.',
     
     // Authentication errors
-    'No token provided': 'Please log in to continue.',
-    'Invalid token': 'Your login session expired. Please log in again.',
-    'Authentication failed': 'Login failed. Please check your credentials.',
+    'No token provided': 'You need to be logged in to do this. Please sign in and try again.',
+    'Invalid token': 'Your session has expired. Please log in again to continue.',
+    'Authentication failed': 'We couldn\'t verify your credentials. Please check your email and password.',
+    'Incorrect password': 'The password you entered is incorrect. Please try again.',
+    'User not found': 'We couldn\'t find an account with those details. Please check and try again.',
+    'Session expired': 'Your session has expired for security reasons. Please log in again.',
     
     // Validation errors
-    'required': 'This field is required.',
+    'required': 'Please fill in all required fields.',
     'invalid email': 'Please enter a valid email address.',
-    'password mismatch': 'Passwords do not match.',
+    'password mismatch': 'The passwords you entered don\'t match. Please try again.',
+    'too short': 'The information you entered is too short. Please provide more details.',
+    'too long': 'The information you entered is too long. Please shorten it.',
     
     // Password reset errors
-    'Invalid or expired token': 'This password reset link has expired. Please request a new one.',
-    'Email does not match': 'The email does not match this register number.',
-    'No user found': 'User not found. Please check your register number.',
-    'Failed to send reset email': 'Could not send reset email. Please try again.',
+    'Invalid or expired token': 'This password reset link has expired. Please request a new one from the login page.',
+    'Email does not match': 'The email address doesn\'t match our records for this account.',
+    'No user found': 'We couldn\'t find an account with that information. Please check and try again.',
+    'Failed to send reset email': 'We couldn\'t send the reset email. Please try again or contact support.',
+    'Reset link expired': 'This reset link has expired. Please request a new password reset.',
+    
+    // Registration hierarchy errors
+    'No approved faculty found': 'No faculty has been registered and approved for your college/department yet. A faculty member must register and be approved before students can register.',
+    'No approved principal found': 'No principal has been registered and approved for your college yet. The principal must register and be approved before faculty can register.',
+    'A faculty member must be registered': 'A faculty member needs to be registered and approved for your college/department before students can register.',
+    'A principal must be registered': 'The principal needs to be registered and approved for your college before faculty can register.',
+    'Only one principal is allowed': 'A principal is already registered for this college. Only one principal is allowed per college. If the previous principal transferred, please contact them or the super-admin.',
+    'principal is already registered': 'A principal is already registered for this college. Contact the existing principal to transfer the account or ask the super-admin to remove the old account.',
+    'principal registration is already pending': 'A principal registration is already pending approval for this college. Please wait or contact the super-admin.',
+    'pending registration': 'This account has a pending registration. Please wait for approval.',
+    'has a pending registration': 'This has a pending registration. Please wait for approval before trying again.',
     
     // Duplicate field errors (match exact server messages)
-    'This email is already registered': 'This email is already registered. Please use a different email.',
-    'This register number is already registered': 'This register number is already registered.',
-    'duplicate key error': 'This information is already registered. Please use a different email or register number.',
-    'E11000': 'This information is already in use. Please try again with different details.',
+    'This email is already registered': 'This email address is already in use. Please use a different email or try logging in.',
+    'This register number is already registered': 'This register number is already in use. Please check if you already have an account.',
+    'This register number has a pending registration': 'This register number has a pending registration. Please wait for approval.',
+    'This email has a pending registration': 'This email has a pending registration. Please wait for approval.',
+    'duplicate key error': 'This information is already registered. Please use different details or try logging in.',
+    'E11000': 'This information is already in use. Please try with different details.',
+    'already exists': 'This already exists in our system. Please try with different information.',
     
     // File upload errors
-    'File too large': 'The file is too large. Maximum size is 10MB.',
-    'Invalid file type': 'This file type is not allowed.'
+    'File too large': 'This file is too large. Please use a file smaller than 10MB.',
+    'Invalid file type': 'This file type isn\'t supported. Please use a different file format.',
+    'upload failed': 'We couldn\'t upload your file. Please try again.',
+    
+    // Logbook-specific errors
+    'template not found': 'We couldn\'t find the logbook template. It may have been deleted.',
+    'logbook not found': 'We couldn\'t find this logbook. It may have been removed.',
+    'already assigned': 'This student is already assigned to a logbook for this course.',
+    'cannot delete': 'This cannot be deleted because it\'s currently in use.',
+    'integrity check failed': 'The file integrity check failed. The file may have been modified.',
+    'hash mismatch': 'This file appears to have been modified outside the system.',
+    
+    // Permission errors
+    'not authorized': 'You\'re not authorized to perform this action.',
+    'students cannot': 'This feature is only available to faculty members.',
+    'faculty only': 'Only faculty members can access this feature.'
 };
 
 // Severity levels with colors matching project theme
@@ -206,7 +244,8 @@ function showErrorNotification(message, severity = 'error') {
 }
 
 /**
- * Show SweetAlert2 notification (if available)
+ * Show SweetAlert2 notification (preferred method)
+ * Falls back to custom notification if SweetAlert2 is not available
  */
 function showAlertNotification(message, severity = 'error') {
     if (typeof Swal === 'undefined') {
@@ -221,17 +260,39 @@ function showAlertNotification(message, severity = 'error') {
         info: 'info'
     };
     
+    const buttonColors = {
+        error: '#F44336',
+        warning: '#FF9800',
+        success: '#4CAF50',
+        info: '#2196F3'
+    };
+    
     Swal.fire({
         title: SEVERITY_LEVELS[severity].title,
         text: message,
         icon: iconMap[severity],
-        confirmButtonColor: SEVERITY_LEVELS[severity].color,
-        confirmButtonText: 'OK',
+        confirmButtonColor: buttonColors[severity] || '#667eea',
+        confirmButtonText: 'Got it',
         allowOutsideClick: true,
         allowEscapeKey: true,
         toast: false,
-        position: 'center'
+        position: 'center',
+        customClass: {
+            popup: 'user-friendly-swal-popup'
+        }
     });
+}
+
+/**
+ * Show error popup - Primary function to use throughout the app
+ * Prefers SweetAlert2, falls back to custom notification
+ */
+function showErrorPopup(message, severity = 'error') {
+    const friendlyMessage = typeof message === 'string' 
+        ? getErrorMessage(message) 
+        : getErrorMessage(message.message || message.toString());
+    
+    showAlertNotification(friendlyMessage, severity);
 }
 
 /**
@@ -400,6 +461,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         showErrorNotification,
         showAlertNotification,
+        showErrorPopup,
         getErrorMessage,
         logError,
         ERROR_MESSAGES,

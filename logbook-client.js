@@ -34,11 +34,18 @@ function setFormPermissions(role) {
     const permissionIndicator = document.getElementById('permissionIndicator');
     
     if (role === 'student') {
-        // Disable all inputs except dates and verification checkboxes
+        // Disable all inputs except dates and student verification checkboxes
         const allInputs = form.querySelectorAll('input, textarea, select');
         allInputs.forEach(input => {
-            if (!input.name.startsWith('date') && !input.name.startsWith('student')) {
+            // Check if this is a student verification checkbox (student1, t2student1, t3student1, finalStudentSignature)
+            const isStudentCheckbox = input.name.match(/^(student\d+|t2student\d+|t3student\d+|finalStudentSignature)$/);
+            // Check if this is a date field
+            const isDateField = input.name.includes('date');
+            
+            if (!isDateField && !isStudentCheckbox) {
                 input.disabled = true;
+            } else {
+                input.disabled = false;
             }
         });
 
@@ -62,7 +69,7 @@ function setFormPermissions(role) {
         });
 
         // Disable student verification checkboxes (teacher can only see, not change them)
-        const studentCheckboxes = form.querySelectorAll('input[name^="student"], input[name^="t2student"], input[name^="t3student"]');
+        const studentCheckboxes = form.querySelectorAll('input[name^="student"], input[name^="t2student"], input[name^="t3student"], input[name="finalStudentSignature"]');
         studentCheckboxes.forEach(checkbox => {
             checkbox.disabled = true;
             checkbox.style.cursor = 'not-allowed';
@@ -193,6 +200,10 @@ async function fetchUserProfile() {
                 if (studentActions) studentActions.style.display = 'none';
                 if (studentFormContainer) studentFormContainer.style.display = 'none';
                 if (logbookSelectionPanel) logbookSelectionPanel.style.display = 'none';
+                
+                // Show submit button for faculty/admin
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) submitBtn.style.display = 'inline-block';
             } else {
                 // Students can see their logbooks list but NOT create logbooks
                 if (teacherActions) teacherActions.style.display = 'none';
@@ -205,6 +216,10 @@ async function fetchUserProfile() {
                 createButtons.forEach(button => {
                     button.style.display = 'none';
                 });
+                
+                // Hide submit button for students (only faculty can submit)
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) submitBtn.style.display = 'none';
                 
                 // Load student's logbooks
                 loadMyLogBooks();

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - LOGI</title>
+    
+    <script>
+        // Auto-detect environment
+        (function() {
+            const hostname = window.location.hostname;
+            const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
+            if (isLocal) {
+                const host = hostname === 'localhost' ? 'localhost' : hostname;
+                window.REACT_APP_AUTH_API = `http://${host}:3002/api/auth`;
+            } else {
+                window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
+            }
+        })();
+    </script>
+    
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(102, 126, 234, 0.18), transparent 30%),
+                        radial-gradient(circle at 80% 0%, rgba(76, 201, 240, 0.2), transparent 28%),
+                        linear-gradient(135deg, #0f172a 0%, #0b2b2d 40%, #0c4335 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .verify-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 50px 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .verify-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        .verify-icon.loading {
+            color: #667eea;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .verify-icon.success {
+            color: #28a745;
+        }
+        
+        .verify-icon.error {
+            color: #dc3545;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 28px;
+        }
+        
+        .message {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .user-info p {
+            margin: 8px 0;
+            color: #555;
+        }
+        
+        .user-info strong {
+            color: #333;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #ddd;
+            margin-top: 15px;
+        }
+        
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+        
+        .resend-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .resend-section p {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        #resendForm {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+        
+        #resendForm input {
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        #resendForm input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        
+        .countdown {
+            color: #dc3545;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="verify-container" id="mainContainer">
+        <div class="verify-icon loading" id="statusIcon">
+            <i class="fas fa-envelope-circle-check"></i>
+        </div>
+        <h1 id="statusTitle">Verifying Email...</h1>
+        <p class="message" id="statusMessage">Please wait while we verify your email address.</p>
+        
+        <div id="actionButtons" style="display: none;">
+            <a href="login-page.html" class="btn btn-primary">
+                <i class="fas fa-sign-in-alt"></i> Go to Login
+            </a>
+        </div>
+        
+        <div id="resendSection" class="resend-section" style="display: none;">
+            <p>Didn't receive the email or link expired?</p>
+            <form id="resendForm" onsubmit="resendVerification(event)">
+                <input type="text" id="resendRgno" placeholder="Enter your Register Number" required>
+                <button type="submit" class="btn btn-secondary" id="resendBtn">
+                    <i class="fas fa-paper-plane"></i> Resend Verification Email
+                </button>
+            </form>
+            <p id="cooldownMsg" style="display: none;" class="countdown"></p>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
+    <script>
+        const AUTH_API = window.REACT_APP_AUTH_API;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            
+            if (!token) {
+                showNoToken();
+                return;
+            }
+            
+            await verifyEmail(token);
+        });
+        
+        async function verifyEmail(token) {
+            try {
+                const response = await fetch(`${AUTH_API}/verify-email?token=${token}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(result);
+                } else {
+                    showError(result);
+                }
+            } catch (error) {
+                showError({ error: 'Failed to verify email. Please try again.' });
+            }
+        }
+        
+        function showSuccess(result) {
+            const icon = document.getElementById('statusIcon');
+            const title = document.getElementById('statusTitle');
+            const message = document.getElementById('statusMessage');
+            const buttons = document.getElementById('actionButtons');
+            
+            icon.className = 'verify-icon success';
+            icon.innerHTML = '<i class="fas fa-check-circle"></i>';
+            
+            if (result.alreadyVerified) {
+                title.textContent = 'Already Verified';
+                message.textContent = 'Your email was already verified. You can log in now.';
+            } else {
+                title.textContent = 'Email Verified! ✓';
+                message.innerHTML = `
+                    <strong>Welcome, ${result.user?.name || 'User'}!</strong><br>
+                    Your email has been successfully verified.<br>
+                    You can now log in to your account.
+                `;
+            }
+            
+            buttons.style.display = 'block';
+        }
+        
+        function showError(result) {
+            const icon = document.getElementById('statusIcon');
+            const title = document.getElementById('statusTitle');
+            const message = document.getElementById('statusMessage');
+            const resendSection = document.getElementById('resendSection');
+            
+            icon.className = 'verify-icon error';
+            icon.innerHTML = '<i class="fas fa-times-circle"></i>';
+            
+            title.textContent = 'Verification Failed';
+            message.textContent = result.error || 'Invalid or expired verification link.';
+            
+            // Show resend section
+            resendSection.style.display = 'block';
+        }
+        
+        function showNoToken() {
+            const icon = document.getElementById('statusIcon');
+            const title = document.getElementById('statusTitle');
+            const message = document.getElementById('statusMessage');
+            const resendSection = document.getElementById('resendSection');
+            
+            icon.className = 'verify-icon error';
+            icon.innerHTML = '<i class="fas fa-question-circle"></i>';
+            
+            title.textContent = 'No Verification Token';
+            message.textContent = 'This page is for verifying your email. Please use the link from your verification email.';
+            
+            // Show resend section
+            resendSection.style.display = 'block';
+        }
+        
+        async function resendVerification(event) {
+            event.preventDefault();
+            
+            const rgno = document.getElementById('resendRgno').value.trim();
+            const resendBtn = document.getElementById('resendBtn');
+            
+            if (!rgno) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Please enter your register number',
+                    icon: 'warning',
+                    confirmButtonColor: '#667eea'
+                });
+                return;
+            }
+            
+            resendBtn.disabled = true;
+            resendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            
+            try {
+                const response = await fetch(`${AUTH_API}/resend-verification`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rgno: parseInt(rgno) })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    Swal.fire({
+                        title: 'Email Sent!',
+                        text: 'Please check your inbox for the verification link.',
+                        icon: 'success',
+                        confirmButtonColor: '#667eea'
+                    });
+                    resendBtn.innerHTML = '<i class="fas fa-check"></i> Email Sent';
+                    
+                    // Disable for 2 minutes
+                    startCooldown(120);
+                } else if (result.retryAfter) {
+                    startCooldown(result.retryAfter);
+                    Swal.fire({
+                        title: 'Please Wait',
+                        text: result.error,
+                        icon: 'info',
+                        confirmButtonColor: '#667eea'
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: result.error || 'Failed to send verification email',
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    });
+                    resendBtn.disabled = false;
+                    resendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Resend Verification Email';
+                }
+            } catch (error) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Network error. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
+                resendBtn.disabled = false;
+                resendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Resend Verification Email';
+            }
+        }
+        
+        function startCooldown(seconds) {
+            const resendBtn = document.getElementById('resendBtn');
+            const cooldownMsg = document.getElementById('cooldownMsg');
+            
+            resendBtn.style.display = 'none';
+            cooldownMsg.style.display = 'block';
+            
+            let remaining = seconds;
+            
+            const timer = setInterval(() => {
+                cooldownMsg.textContent = `You can resend in ${remaining} seconds`;
+                remaining--;
+                
+                if (remaining < 0) {
+                    clearInterval(timer);
+                    resendBtn.style.display = 'block';
+                    resendBtn.disabled = false;
+                    resendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Resend Verification Email';
+                    cooldownMsg.style.display = 'none';
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

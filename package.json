@@ -8,13 +8,17 @@
     "dev": "concurrently \"nodemon logbook-server.js\" \"nodemon auth-server.js\""
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "firebase": "^12.2.1",
     "mongoose": "^8.18.3",
-    "nodemailer": "^7.0.11"
+    "nodemailer": "^7.0.11",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

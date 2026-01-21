@@ -110,7 +110,7 @@
             </div>
             <div class="link-card">
                 <h3>Study Resources</h3>
-                <p>Access course materials and study guides</p>
+                <p>Access course materials and study guides </p>
                 <a href="Studyresources.html" class="btn btn-primary">Browse Resources</a>
             </div>
             <div class="link-card">
@@ -127,6 +127,11 @@
                 <h3>View Logbooks</h3>
                 <p>Review student lab logbooks and progress</p>
                 <a href="logbook-viewer.html" class="btn btn-primary">View All Logbooks</a>
+            </div>
+            <div class="link-card" id="adminDashboardCard" style="display: none;">
+                <h3>Admin Dashboard</h3>
+                <p>Manage users, approvals, and system settings</p>
+                <a href="admin-dashboard.html" class="btn btn-primary">Open Dashboard</a>
             </div>
         </div>
     </section>
@@ -168,13 +173,18 @@
     <script src="auth.js"></script>
     <script src="scripts.js"></script>
     <script>
-        // Show teacher-specific options if user is faculty/admin
+        // Show role-specific options based on user role
         document.addEventListener('DOMContentLoaded', function() {
             const user = AuthManager.getUser();
-            if (user && (user.role === 'faculty' || user.role === 'admin')) {
+            if (!user) return;
+            
+            // Only super-admin sees ALL cards
+            if (user.role === 'super-admin') {
                 document.getElementById('teacherTemplatesCard').style.display = 'block';
                 document.getElementById('viewLogbooksCard').style.display = 'block';
+                document.getElementById('adminDashboardCard').style.display = 'block';
             }
+            // Other roles only see the default cards (Lab Records, Study Resources, Support)
         });
     </script>
 </body>

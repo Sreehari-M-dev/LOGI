@@ -3,8 +3,12 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+
+// Bcrypt configuration
+const BCRYPT_SALT_ROUNDS = 12;
 
 const app = express();
 const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
@@ -78,24 +82,196 @@ mongoose.connect(MONGODB_URI, {
     console.error('MongoDB connection error:', err);
 });
 
-// User Schema - using Register Number (rgno) as unique identifier
+// User Schema - using Register Number (rgno) as unique identifier with college scoping
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true }, // Unique email for password reset flow
-    rollno: { type: Number, sparse: true }, // For students
+    rollno: { type: Number }, // For students only - not stored for other roles
     rgno: { type: Number, required: true, unique: true }, // Unique identifier (Register Number)
     password: { type: String, required: true }, // Hashed
-    role: { type: String, enum: ['student', 'faculty', 'admin'], default: 'student' },
+    role: { type: String, enum: ['student', 'faculty', 'principal', 'super-admin'], default: 'student' },
     department: String,
-    semester: Number,
+    semester: Number, // For students only
+    college: { type: String, required: true }, // College name - required for all users
     createdAt: { type: Date, default: Date.now },
     isActive: { type: Boolean, default: true },
-    // Password reset fields
-    resetPasswordToken: { type: String, default: undefined },
-    resetPasswordExpires: { type: Date, default: undefined }
+    // Approval workflow fields
+    approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: { type: Date },
+    rejectionReason: { type: String },
+    // Password reset fields - only set when password reset is requested
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
+    // Super-admin 2FA fields - ONLY set for super-admin users (not created for others)
+    twoFactorSecret: { type: String },
+    twoFactorEnabled: { type: Boolean },
+    twoFactorBackupCodes: [{ code: String, used: { type: Boolean, default: false } }],
+    // Navbar customization - ONLY set for principal/super-admin when they customize
+    navbarPreferences: {
+        type: {
+            home: { type: Boolean },
+            logbook: { type: Boolean },
+            resources: { type: Boolean },
+            about: { type: Boolean },
+            profile: { type: Boolean },
+            masterTemplates: { type: Boolean },
+            viewLogbooks: { type: Boolean },
+            admin: { type: Boolean }
+        }
+    },
+    lastLoginAt: { type: Date },
+    lastLoginIP: { type: String },
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockoutUntil: { type: Date },
+    // Account freeze (requires admin to unfreeze)
+    accountFrozen: { type: Boolean },
+    frozenAt: { type: Date },
+    frozenReason: { type: String },
+    unfrozenBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    unfrozenAt: { type: Date },
+    // Super-admin succession invitation fields (invitation-based transfer)
+    superAdminInviteToken: { type: String }, // Secure token for invitation
+    superAdminInviteExpires: { type: Date }, // 24-hour expiry
+    superAdminInviteAccepted: { type: Boolean }, // User accepted the invitation
+    superAdminInviteAcceptedAt: { type: Date },
+    superAdminInvitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Who invited this user
+    // Transfer completion fields
+    superAdminTransferPendingCompletion: { type: Boolean }, // Waiting for super-admin to complete
+    superAdminTransferGracePeriodEnds: { type: Date }, // 24-hour grace period after completion
+    previousRole: { type: String }, // Store previous role before becoming super-admin
+    previousCollege: { type: String }, // Store previous college before becoming super-admin
+    previousDepartment: { type: String }, // Store previous department before becoming super-admin
+    demotedFromSuperAdmin: { type: Boolean }, // Flag to track if user was demoted from super-admin
+    demotedAt: { type: Date },
+    // Email verification fields
+    emailVerified: { type: Boolean, default: false }, // Whether email is verified
+    emailVerificationToken: { type: String }, // Token for verification link
+    emailVerificationExpires: { type: Date }, // Token expiry (24 hours)
+    emailVerificationSentAt: { type: Date } // When verification email was last sent
+}, {
+    // Mongoose options to minimize storage
+    minimize: true, // Remove empty objects
+    versionKey: false // Remove __v field (saves ~10 bytes per doc)
 });
 
+// Index for college-scoped queries
+userSchema.index({ college: 1, role: 1 });
+userSchema.index({ college: 1, department: 1 });
+userSchema.index({ approvalStatus: 1, college: 1 });
+
 const User = mongoose.model('User', userSchema);
+
+// Audit Log Schema for super-admin actions
+const auditLogSchema = new mongoose.Schema({
+    action: { type: String, required: true }, // e.g., 'USER_APPROVED', 'USER_DELETED', 'SESSION_REVOKED'
+    performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    performedByRgno: { type: Number, required: true },
+    performedByRole: { type: String, required: true },
+    targetUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    targetUserRgno: { type: Number },
+    details: { type: mongoose.Schema.Types.Mixed }, // Additional details
+    ipAddress: { type: String },
+    userAgent: { type: String },
+    timestamp: { type: Date, default: Date.now }
+});
+
+auditLogSchema.index({ timestamp: -1 });
+auditLogSchema.index({ performedBy: 1, timestamp: -1 });
+auditLogSchema.index({ action: 1, timestamp: -1 });
+
+const AuditLog = mongoose.model('AuditLog', auditLogSchema);
+
+// Helper function to create audit log
+async function createAuditLog(action, performedBy, targetUser, details, req) {
+    try {
+        await new AuditLog({
+            action,
+            performedBy: performedBy._id || performedBy,
+            performedByRgno: performedBy.rgno || performedBy,
+            performedByRole: performedBy.role || 'unknown',
+            targetUser: targetUser?._id || targetUser,
+            targetUserRgno: targetUser?.rgno,
+            details,
+            ipAddress: req?.ip || req?.headers?.['x-forwarded-for'] || 'unknown',
+            userAgent: req?.headers?.['user-agent'] || 'unknown'
+        }).save();
+    } catch (error) {
+        console.error('[AUDIT LOG] Error creating audit log:', error);
+    }
+}
+
+// List of valid colleges (for validation) - organized by district
+const VALID_COLLEGES = [
+    // SYSTEM (for super-admin)
+    "SYSTEM",
+    // THIRUVANANTHAPURAM DISTRICT
+    "Central Polytechnic College, Thiruvananthapuram",
+    "Government Women's Polytechnic College, Thiruvananthapuram",
+    "Government Polytechnic College, Neyyattinkara",
+    "Government Polytechnic College, Nedumangad",
+    "Government Polytechnic College, Attingal",
+    // KOLLAM DISTRICT
+    "Government Polytechnic College, Punalur",
+    "Government Polytechnic College, Ezhukone",
+    "Sree Narayana Polytechnic College, Kottiyam",
+    // PATHANAMTHITTA DISTRICT
+    "MVGM Government Polytechnic College, Vennikulam",
+    "Government Polytechnic College, Vechoochira",
+    "Government Polytechnic College, Manakala (Adoor)",
+    "N S S Polytechnic College, Pandalam",
+    // ALAPPUZHA DISTRICT
+    "Government Polytechnic College, Cherthala",
+    "Government Women's Polytechnic College, Kayamkulam",
+    "Carmel Polytechnic College, Alappuzha",
+    // KOTTAYAM DISTRICT
+    "Government Polytechnic College, Kottayam",
+    "Government Polytechnic College, Pala",
+    "Government Polytechnic College, Kaduthuruthy",
+    "Thiagarajar Polytechnic College, Alagappanagar",
+    // IDUKKI DISTRICT
+    "Government Polytechnic College, Muttom Idukki",
+    "Government Polytechnic College, Vandiperiyar",
+    "Government Polytechnic College, Nedumkandam",
+    "Government Polytechnic College, Purappuzha",
+    // ERNAKULAM DISTRICT
+    "Government Polytechnic College, Kalamassery",
+    "Women's Polytechnic College, Ernakulam",
+    "Government Polytechnic College, Kothamangalam",
+    "Government Polytechnic College, Perumbavoor",
+    // THRISSUR DISTRICT
+    "Maharaja's Technological Institute, Thrissur",
+    "Government Women's Polytechnic College, Thrissur",
+    "Government Polytechnic College, Chelakkara",
+    "Government Polytechnic College, Kunnamkulam",
+    "Government Polytechnic College, Koratty",
+    "Sree Rama Government Polytechnic College, Thriprayar",
+    // PALAKKAD DISTRICT
+    "Government Polytechnic College, Palakkad",
+    "Institute of Printing Technology and Government Polytechnic College, Shoranur",
+    // MALAPPURAM DISTRICT
+    "Government Polytechnic College, Perinthalmanna",
+    "AKNM Government Polytechnic College, Thirurangadi",
+    "Government Women's Polytechnic College, Kottakkal",
+    "Government Polytechnic College, Manjeri",
+    "Seethi Sahib Memorial Polytechnic College, Tirur",
+    // KOZHIKODE DISTRICT
+    "Kerala Government Polytechnic College, Kozhikode",
+    "Government Women's Polytechnic College, Kozhikode",
+    // WAYANAD DISTRICT
+    "Government Polytechnic College, Meenangadi",
+    "Government Polytechnic College, Meppadi",
+    "Government Polytechnic College, Mananthavady",
+    // KANNUR DISTRICT
+    "Government Polytechnic College, Kannur (Thottada)",
+    "Government Polytechnic College, Mattannur",
+    "Government Residential Women's Polytechnic College, Payyannur",
+    "Government Technical High School, Naduvil",
+    // KASARAGOD DISTRICT
+    "Government Polytechnic College, Kasaragod",
+    "EKNM Government Polytechnic College, Trikaripur",
+    "Swami Nithyananda Polytechnic, Kanhangad"
+];
 
 // Session Schema for idle timeout and server-side session tracking
 const sessionSchema = new mongoose.Schema({
@@ -106,18 +282,29 @@ const sessionSchema = new mongoose.Schema({
     lastActivity: { type: Date, default: Date.now },
     createdAt: { type: Date, default: Date.now },
     expiredAt: { type: Date },
-    isExpired: { type: Boolean, default: false }
+    isExpired: { type: Boolean, default: false },
+    stayLoggedIn: { type: Boolean, default: false }, // If true, skip idle timeout but still expire after 7 days
+    stayLoggedInExpiry: { type: Date } // Expiry date for stay logged in sessions (7 days from creation)
 });
 const Session = mongoose.model('Session', sessionSchema);
 
-// Simple password hashing using crypto
-function hashPassword(password) {
-    return crypto.createHash('sha256').update(password + JWT_SECRET).digest('hex');
+// Constants for session management
+const STAY_LOGGED_IN_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+
+// Secure password hashing using bcrypt
+async function hashPassword(password) {
+    return await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 }
 
-// Verify password
-function verifyPassword(password, hash) {
-    return hashPassword(password) === hash;
+// Verify password using bcrypt
+async function verifyPassword(password, hash) {
+    // Handle legacy SHA-256 hashes (64 hex chars) vs bcrypt hashes (start with $2)
+    if (hash && !hash.startsWith('$2')) {
+        // Legacy SHA-256 hash - compare using old method for migration
+        const legacyHash = crypto.createHash('sha256').update(password + JWT_SECRET).digest('hex');
+        return legacyHash === hash;
+    }
+    return await bcrypt.compare(password, hash);
 }
 
 // Simple JWT token generation (without external library)
@@ -160,9 +347,25 @@ async function authenticateAndTouchSession(req, res, next) {
         if (result.error) return res.status(401).json({ success: false, error: result.error });
         const { session, decoded } = result;
 
+        // Super-admin is exempt from idle timeout
+        const isSuperAdmin = session.role === 'super-admin';
+        
         const now = Date.now();
         const last = session.lastActivity ? session.lastActivity.getTime() : session.createdAt.getTime();
-        if (now - last > IDLE_TIMEOUT_MS) {
+        
+        // Check 7-day expiry for "stay logged in" sessions (not for super-admin)
+        if (!isSuperAdmin && session.stayLoggedIn && session.stayLoggedInExpiry) {
+            if (now > session.stayLoggedInExpiry.getTime()) {
+                session.isExpired = true;
+                session.expiredAt = new Date(now);
+                await session.save();
+                return res.status(401).json({ success: false, error: 'Your session has expired after 7 days. Please login again.' });
+            }
+        }
+        
+        // Skip idle timeout check for super-admin OR if "stay logged in" is enabled
+        const skipIdleTimeout = isSuperAdmin || session.stayLoggedIn;
+        if (!skipIdleTimeout && now - last > IDLE_TIMEOUT_MS) {
             session.isExpired = true;
             session.expiredAt = new Date(now);
             await session.save();
@@ -191,11 +394,15 @@ async function authenticateSessionNoTouch(req, res, next) {
         if (result.error) return res.status(401).json({ success: false, error: result.error });
 
         const { session, decoded } = result;
+        
+        // Super-admin OR "stay logged in" is exempt from idle timeout
+        const skipIdleTimeout = session.role === 'super-admin' || session.stayLoggedIn;
+        
         const now = Date.now();
         const last = session.lastActivity ? session.lastActivity.getTime() : session.createdAt.getTime();
 
-        // If already expired by idle window
-        if (now - last > IDLE_TIMEOUT_MS) {
+        // If already expired by idle window (skip for super-admin or stay logged in)
+        if (!skipIdleTimeout && now - last > IDLE_TIMEOUT_MS) {
             session.isExpired = true;
             session.expiredAt = new Date(now);
             await session.save();
@@ -236,7 +443,7 @@ function verifyToken(token) {
     }
 }
 
-// Register Route - using Register Number
+// Register Route - using Register Number with college scoping and approval workflow
 app.post('/api/auth/register', async (req, res) => {
     try {
         // Normalize and trim incoming fields
@@ -248,44 +455,258 @@ app.post('/api/auth/register', async (req, res) => {
         const role = req.body.role?.trim();
         const department = req.body.department?.trim();
         const semesterRaw = req.body.semester;
+        const college = req.body.college?.trim();
 
         const rgno = rgnoRaw !== undefined && rgnoRaw !== null && rgnoRaw !== '' ? parseInt(rgnoRaw, 10) : null;
         const rollno = rollnoRaw !== undefined && rollnoRaw !== null && rollnoRaw !== '' ? parseInt(rollnoRaw, 10) : null;
         const semester = semesterRaw !== undefined && semesterRaw !== null && semesterRaw !== '' ? parseInt(semesterRaw, 10) : null;
 
-        // Validation - rgno is required
+        // Validation - rgno and college are required
         if (!name || !rgno || !password) {
             return res.status(400).json({ 
                 success: false, 
                 error: 'Name, register number, and password are required' 
             });
         }
+        
+        // Email is REQUIRED for all registrations
+        if (!email) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Email address is required for registration' 
+            });
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Please enter a valid email address' 
+            });
+        }
+        
+        // College is required
+        if (!college) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'College selection is required' 
+            });
+        }
+        
+        // Validate college is in the allowed list
+        if (!VALID_COLLEGES.includes(college)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid college selected' 
+            });
+        }
+        
+        // Validate role
+        const validRoles = ['student', 'faculty', 'principal'];
+        if (role && !validRoles.includes(role)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid role selected' 
+            });
+        }
+        
+        // Validate department - "Office Administration" is only for principals
+        if (department && department.toLowerCase() === 'office administration' && role !== 'principal') {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Office Administration department is only available for principals.' 
+            });
+        }
+        
+        // Strong password validation
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Password must be at least 8 characters and include: uppercase letter, lowercase letter, number, and special symbol (!@#$%^&*...)' 
+            });
+        }
+        
+        // For students: Check if there's an approved faculty in the same college/department
+        if (role === 'student') {
+            const approvedFaculty = await User.findOne({
+                college: college,
+                role: 'faculty',
+                approvalStatus: 'approved',
+                isActive: true,
+                ...(department ? { department: department } : {})
+            });
+            
+            if (!approvedFaculty) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'No approved faculty found for your college/department. A faculty member must be registered and approved first.' 
+                });
+            }
+        }
+        
+        // For faculty: Check if there's an approved principal in the same college
+        if (role === 'faculty') {
+            const approvedPrincipal = await User.findOne({
+                college: college,
+                role: 'principal',
+                approvalStatus: 'approved',
+                isActive: true
+            });
+            
+            if (!approvedPrincipal) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'No approved principal found for your college. A principal must be registered and approved first.' 
+                });
+            }
+        }
+        
+        // For principal: Check if there's already a principal for this college (only one allowed)
+        if (role === 'principal') {
+            const existingPrincipal = await User.findOne({
+                college: college,
+                role: 'principal',
+                approvalStatus: { $in: ['pending', 'approved'] },
+                isActive: true
+            });
+            
+            if (existingPrincipal) {
+                const statusMsg = existingPrincipal.approvalStatus === 'approved' 
+                    ? 'A principal is already registered and approved for this college.'
+                    : 'A principal registration is already pending for this college.';
+                return res.status(409).json({ 
+                    success: false, 
+                    error: `${statusMsg} Only one principal is allowed per college. If the previous principal has transferred, please contact them to transfer the account credentials or ask the super-admin to remove the old account.`
+                });
+            }
+        }
 
         // Check if user already exists by register number
         const existingUser = await User.findOne({ rgno });
         if (existingUser) {
-            return res.status(409).json({ 
-                success: false, 
-                error: 'This register number is already registered.' 
-            });
+            // If the existing user was rejected, allow re-registration by deleting the old account
+            if (existingUser.approvalStatus === 'rejected') {
+                console.log(`Deleting rejected account for rgno ${rgno} to allow re-registration`);
+                await User.deleteOne({ _id: existingUser._id });
+                // Also delete any sessions for this user
+                await Session.deleteMany({ userId: existingUser._id });
+            } else {
+                return res.status(409).json({ 
+                    success: false, 
+                    error: existingUser.approvalStatus === 'pending' 
+                        ? 'This register number has a pending registration. Please wait for approval.'
+                        : 'This register number is already registered.' 
+                });
+            }
+        }
+        
+        // Check if email already exists
+        if (email) {
+            const existingEmail = await User.findOne({ email: email });
+            if (existingEmail) {
+                // If the existing email belongs to a rejected user, allow re-registration
+                if (existingEmail.approvalStatus === 'rejected') {
+                    console.log(`Deleting rejected account for email ${email} to allow re-registration`);
+                    await User.deleteOne({ _id: existingEmail._id });
+                    await Session.deleteMany({ userId: existingEmail._id });
+                } else {
+                    return res.status(409).json({ 
+                        success: false, 
+                        error: existingEmail.approvalStatus === 'pending'
+                            ? 'This email has a pending registration. Please wait for approval.'
+                            : 'This email is already registered.' 
+                    });
+                }
+            }
         }
 
-        // Hash password
-        const hashedPassword = hashPassword(password);
+        // Hash password with bcrypt
+        const hashedPassword = await hashPassword(password);
 
+        // Determine approval status based on role
+        // Super-admin approved users or principals approved by super-admin
+        let approvalStatus = 'pending';
+        
+        // Generate email verification token
+        const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+        const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        
         // Create new user
         const newUser = new User({
             name,
-            email: email || null,
+            email: email,
             password: hashedPassword,
             rollno: rollno || null,
             rgno,
             role: role || 'student',
             department: department || null,
-            semester: semester || null
+            semester: semester || null,
+            college: college,
+            approvalStatus: approvalStatus,
+            emailVerified: false,
+            emailVerificationToken: emailVerificationToken,
+            emailVerificationExpires: emailVerificationExpires,
+            emailVerificationSentAt: new Date()
         });
 
         await newUser.save();
+        
+        // Send verification email
+        try {
+            const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
+            
+            await transporter.sendMail({
+                from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: '📧 Verify Your Email - LOGI Registration',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0;">📧 Verify Your Email</h1>
+                            <p style="margin: 10px 0 0; opacity: 0.9;">Welcome to LOGI - Digital Lab Logbook System</p>
+                        </div>
+                        
+                        <div style="padding: 30px; border: 1px solid #ddd; border-top: none;">
+                            <p>Hello <strong>${name}</strong>,</p>
+                            <p>Thank you for registering with LOGI. Please verify your email address to complete your registration.</p>
+                            
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="${verificationUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                                    ✓ Verify Email Address
+                                </a>
+                            </div>
+                            
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p style="margin: 0; font-size: 14px; color: #666;">
+                                    <strong>Registration Details:</strong><br>
+                                    Name: ${name}<br>
+                                    RGNO: ${rgno}<br>
+                                    Role: ${role || 'student'}<br>
+                                    College: ${college}
+                                </p>
+                            </div>
+                            
+                            <p style="color: #d32f2f; font-size: 14px;">⏰ This link expires in 24 hours.</p>
+                            
+                            <p style="font-size: 13px; color: #666;">If you didn't create this account, please ignore this email.</p>
+                            
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                            <p style="font-size: 12px; color: #999;">If the button doesn't work, copy and paste this link into your browser:<br>
+                            <span style="color: #667eea; word-break: break-all;">${verificationUrl}</span></p>
+                        </div>
+                        
+                        <div style="background: #f5f5f5; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; border: 1px solid #ddd; border-top: none;">
+                            <p style="margin: 0; color: #666; font-size: 12px;">LOGI - Digital Lab Logbook Management System</p>
+                        </div>
+                    </div>
+                `
+            });
+        } catch (emailError) {
+            console.error('[REGISTRATION] Failed to send verification email:', emailError.message);
+            // Don't fail registration if email fails - user can request resend later
+        }
 
         // Create server-side session and generate token with session id (sid)
         const sid = crypto.randomBytes(16).toString('hex');
@@ -294,17 +715,29 @@ app.post('/api/auth/register', async (req, res) => {
         // Generate token using rgno + sid
         const token = generateToken(newUser._id, newUser.rgno, newUser.role, sid);
 
+        // For principals, include super-admin contact info
+        let additionalMessage = '';
+        if (role === 'principal') {
+            additionalMessage = '\n\nTo get your account approved, please contact the Super Admin:\n📧 Email: your.personal.email@gmail.com\n📞 Phone: +91 XXXXXXXXXX\n\nPlease provide your college name and registration details for verification.';
+        }
+        
         res.status(201).json({
             success: true,
-            message: 'Registration successful',
+            message: 'Registration successful! Please check your email to verify your account.' + additionalMessage,
+            requiresEmailVerification: true,
             token,
             user: {
                 id: newUser._id,
                 name: newUser.name,
                 rgno: newUser.rgno,
                 role: newUser.role,
-                rollno: newUser.rollno
-            }
+                rollno: newUser.rollno,
+                college: newUser.college,
+                department: newUser.department,
+                approvalStatus: newUser.approvalStatus,
+                emailVerified: false
+            },
+            showSuperAdminContact: role === 'principal'
         });
 
     } catch (error) {
@@ -326,10 +759,10 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// Login Route - using Register Number
+// Login Route - using Register Number with approval check
 app.post('/api/auth/login', async (req, res) => {
     try {
-        const { rgno, password } = req.body;
+        const { rgno, password, twoFactorCode, stayLoggedIn } = req.body;
 
         // Validation
         if (!rgno || !password) {
@@ -355,34 +788,298 @@ app.post('/api/auth/login', async (req, res) => {
                 error: 'Account is inactive' 
             });
         }
-
-        // Verify password
-        const isPasswordValid = verifyPassword(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(401).json({ 
+        
+        // Check if account is frozen (requires admin verification)
+        if (user.accountFrozen) {
+            let contactMsg = '';
+            if (user.role === 'student') {
+                contactMsg = 'Please contact your faculty or principal to unfreeze your account.';
+            } else if (user.role === 'faculty') {
+                contactMsg = 'Please contact your principal or super-admin to unfreeze your account.';
+            } else {
+                contactMsg = 'Please contact the super-admin to unfreeze your account.';
+            }
+            return res.status(403).json({ 
                 success: false, 
-                error: 'Invalid register number or password' 
+                error: `Your account has been frozen due to too many failed login attempts. ${contactMsg}`,
+                accountFrozen: true
+            });
+        }
+        
+        // Check temporary lockout (if any)
+        if (user.lockoutUntil && user.lockoutUntil > new Date()) {
+            const remainingMinutes = Math.ceil((user.lockoutUntil - new Date()) / 60000);
+            return res.status(403).json({ 
+                success: false, 
+                error: `Account is temporarily locked. Try again in ${remainingMinutes} minutes.` 
             });
         }
 
+        // Verify password with bcrypt
+        const isPasswordValid = await verifyPassword(password, user.password);
+        if (!isPasswordValid) {
+            // Increment failed login attempts
+            user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+            const remainingAttempts = 5 - user.failedLoginAttempts;
+            
+            if (user.failedLoginAttempts >= 5) {
+                // FREEZE the account - requires admin to unfreeze
+                user.accountFrozen = true;
+                user.frozenAt = new Date();
+                user.frozenReason = 'Too many failed login attempts';
+                await user.save();
+                
+                let contactMsg = '';
+                if (user.role === 'student') {
+                    contactMsg = 'Please contact your faculty or principal to unfreeze your account.';
+                } else if (user.role === 'faculty') {
+                    contactMsg = 'Please contact your principal or super-admin to unfreeze your account.';
+                } else {
+                    contactMsg = 'Please contact the super-admin to unfreeze your account.';
+                }
+                
+                return res.status(403).json({ 
+                    success: false, 
+                    error: `Your account has been frozen due to too many failed login attempts. ${contactMsg}`,
+                    accountFrozen: true,
+                    remainingAttempts: 0
+                });
+            }
+            await user.save();
+            return res.status(401).json({ 
+                success: false, 
+                error: `Invalid register number or password. ${remainingAttempts} attempt${remainingAttempts !== 1 ? 's' : ''} remaining before account freeze.`,
+                remainingAttempts: remainingAttempts
+            });
+        }
+        
+        // Upgrade legacy SHA-256 password to bcrypt on successful login
+        if (user.password && !user.password.startsWith('$2')) {
+            const newBcryptHash = await hashPassword(password);
+            user.password = newBcryptHash;
+            console.log(`✅ Upgraded password to bcrypt for user: ${user.rgno}`);
+        }
+        
+        // Check email verification (only for users who registered after email verification was implemented)
+        // Existing users (who don't have emailVerified field set at all) are grandfathered in
+        // Only block users who explicitly have emailVerified === false (meaning they registered with this feature)
+        if (user.role !== 'super-admin' && user.email && user.emailVerified === false) {
+            const maskedEmail = user.email ? user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'your email';
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Please verify your email address before logging in. Check your inbox for the verification link.',
+                emailNotVerified: true,
+                email: maskedEmail
+            });
+        }
+        
+        // Check approval status (except for super-admin)
+        if (user.role !== 'super-admin' && user.approvalStatus !== 'approved') {
+            if (user.approvalStatus === 'pending') {
+                return res.status(403).json({ 
+                    success: false,
+                    error: 'Your account is pending approval. Please wait for approval from your administrator.',
+                    approvalStatus: 'pending'
+                });
+            } else if (user.approvalStatus === 'rejected') {
+                return res.status(403).json({ 
+                    success: false, 
+                    error: `Your account registration was rejected. ${user.rejectionReason ? 'Reason: ' + user.rejectionReason : ''}`,
+                    approvalStatus: 'rejected'
+                });
+            }
+        }
+        
+        // Variables for backup code tracking (need to be outside 2FA block for response)
+        let usedBackupCode = false;
+        let remainingBackupCodes = 0;
+        
+        // Check 2FA for super-admin
+        if (user.role === 'super-admin' && user.twoFactorEnabled) {
+            if (!twoFactorCode) {
+                return res.status(200).json({ 
+                    success: false, 
+                    requiresTwoFactor: true,
+                    hasBackupCodes: user.twoFactorBackupCodes && user.twoFactorBackupCodes.some(bc => !bc.used),
+                    error: 'Two-factor authentication code required' 
+                });
+            }
+            
+            // Check if it's a backup code (8 characters) or TOTP code (6 digits)
+            const isBackupCode = twoFactorCode.length === 8;
+            let verified = false;
+            
+            if (isBackupCode) {
+                // Check backup codes
+                const backupCodeIndex = user.twoFactorBackupCodes.findIndex(
+                    bc => bc.code === twoFactorCode.toUpperCase() && !bc.used
+                );
+                if (backupCodeIndex !== -1) {
+                    // Mark backup code as used
+                    user.twoFactorBackupCodes[backupCodeIndex].used = true;
+                    const usedCode = user.twoFactorBackupCodes[backupCodeIndex].code;
+                    remainingBackupCodes = user.twoFactorBackupCodes.filter(bc => !bc.used).length;
+                    usedBackupCode = true;
+                    await user.save();
+                    verified = true;
+                    
+                    // Create audit log for backup code usage
+                    await createAuditLog('2FA_BACKUP_CODE_USED', user, null, { 
+                        codeIndex: backupCodeIndex,
+                        remainingCodes: remainingBackupCodes 
+                    }, req);
+                    
+                    // 🔔 SECURITY ALERT: Send email notification about backup code usage
+                    try {
+                        const loginIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+                        const userAgent = req.headers['user-agent'] || 'Unknown device';
+                        const loginTime = new Date().toLocaleString('en-IN', { 
+                            timeZone: 'Asia/Kolkata',
+                            dateStyle: 'full',
+                            timeStyle: 'long'
+                        });
+                        const maskedCode = usedCode.substring(0, 2) + '****' + usedCode.substring(6);
+                        
+                        if (user.email) {
+                            await transporter.sendMail({
+                                from: `"LOGI Security Alert" <${process.env.EMAIL_USER}>`,
+                                to: user.email,
+                                subject: '⚠️ SECURITY ALERT: Backup Code Used for Login',
+                                html: `
+                                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                        <div style="background: #d32f2f; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                                            <h2 style="margin: 0;">⚠️ Security Alert</h2>
+                                            <p style="margin: 10px 0 0;">Backup Code Login Detected</p>
+                                        </div>
+                                        
+                                        <div style="background: #fff3cd; padding: 20px; border: 1px solid #ffc107;">
+                                            <p style="color: #856404; margin: 0; font-weight: bold;">
+                                                A backup code was just used to access your account. If this wasn't you, your account may be compromised!
+                                            </p>
+                                        </div>
+                                        
+                                        <div style="padding: 20px; border: 1px solid #ddd; border-top: none;">
+                                            <h3 style="color: #333; margin-top: 0;">Login Details:</h3>
+                                            <table style="width: 100%; border-collapse: collapse;">
+                                                <tr>
+                                                    <td style="padding: 8px 0; color: #666;">Time:</td>
+                                                    <td style="padding: 8px 0; font-weight: bold;">${loginTime}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 8px 0; color: #666;">Backup Code Used:</td>
+                                                    <td style="padding: 8px 0; font-family: monospace; font-weight: bold;">${maskedCode}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 8px 0; color: #666;">IP Address:</td>
+                                                    <td style="padding: 8px 0; font-family: monospace;">${loginIP}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 8px 0; color: #666;">Device:</td>
+                                                    <td style="padding: 8px 0; font-size: 12px;">${userAgent}</td>
+                                                </tr>
+                                            </table>
+                                            
+                                            <div style="background: ${remainingBackupCodes <= 2 ? '#f8d7da' : '#e8f5e9'}; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid ${remainingBackupCodes <= 2 ? '#f5c6cb' : '#c8e6c9'};">
+                                                <p style="margin: 0; color: ${remainingBackupCodes <= 2 ? '#721c24' : '#2e7d32'}; font-weight: bold;">
+                                                    📊 Remaining Backup Codes: ${remainingBackupCodes} of 10
+                                                </p>
+                                                ${remainingBackupCodes <= 2 ? '<p style="margin: 10px 0 0; color: #721c24;">⚠️ You are running low! Generate new backup codes soon.</p>' : ''}
+                                            </div>
+                                            
+                                            <div style="background: #ffebee; padding: 15px; border-radius: 8px; border: 1px solid #ef9a9a;">
+                                                <p style="color: #c62828; font-weight: bold; margin: 0 0 10px;">🚨 If this wasn't you:</p>
+                                                <ol style="color: #c62828; margin: 0; padding-left: 20px;">
+                                                    <li>Change your password immediately</li>
+                                                    <li>Regenerate new backup codes</li>
+                                                    <li>Check your active sessions and revoke unknown ones</li>
+                                                    <li>Contact support if needed</li>
+                                                </ol>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="background: #f5f5f5; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; border: 1px solid #ddd; border-top: none;">
+                                            <p style="margin: 0; color: #666; font-size: 12px;">
+                                                This is an automated security notification from LOGI.<br>
+                                                Do not reply to this email.
+                                            </p>
+                                        </div>
+                                    </div>
+                                `
+                            });
+                        }
+                    } catch (emailError) {
+                        console.error('[BACKUP CODE ALERT] Failed to send email notification:', emailError.message);
+                        // Don't fail login if email fails
+                    }
+                }
+            } else {
+                // Verify 2FA code (using TOTP)
+                const speakeasy = require('speakeasy');
+                verified = speakeasy.totp.verify({
+                    secret: user.twoFactorSecret,
+                    encoding: 'base32',
+                    token: twoFactorCode,
+                    window: 1
+                });
+            }
+            
+            if (!verified) {
+                return res.status(401).json({ 
+                    success: false, 
+                    error: isBackupCode ? 'Invalid or already used backup code' : 'Invalid two-factor authentication code' 
+                });
+            }
+        }
+        
+        // Reset failed login attempts on successful login
+        user.failedLoginAttempts = 0;
+        user.lockoutUntil = null;
+        user.lastLoginAt = new Date();
+        user.lastLoginIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+        await user.save();
+
         // Create server-side session and generate token with session id (sid)
         const sid = crypto.randomBytes(16).toString('hex');
-        await new Session({ sid, userId: user._id, rgno: user.rgno, role: user.role }).save();
+        const sessionData = { 
+            sid, 
+            userId: user._id, 
+            rgno: user.rgno, 
+            role: user.role,
+            stayLoggedIn: !!stayLoggedIn // Store "stay logged in" preference
+        };
+        
+        // Set 7-day expiry if stay logged in is enabled
+        if (stayLoggedIn) {
+            sessionData.stayLoggedInExpiry = new Date(Date.now() + STAY_LOGGED_IN_DURATION_MS);
+        }
+        
+        await new Session(sessionData).save();
 
         // Generate token using rgno + sid
         const token = generateToken(user._id, user.rgno, user.role, sid);
+        
+        // Create audit log for super-admin login
+        if (user.role === 'super-admin') {
+            await createAuditLog('SUPER_ADMIN_LOGIN', user, null, { ip: user.lastLoginIP, stayLoggedIn: !!stayLoggedIn }, req);
+        }
 
         res.json({
             success: true,
             message: 'Login successful',
             token,
+            stayLoggedIn: !!stayLoggedIn, // Return this so client knows
+            usedBackupCode: usedBackupCode, // Flag if backup code was used
+            remainingBackupCodes: usedBackupCode ? remainingBackupCodes : undefined, // Only include if backup code was used
             user: {
                 id: user._id,
                 name: user.name,
                 rgno: user.rgno,
                 role: user.role,
                 rollno: user.rollno,
-                email: user.email
+                email: user.email,
+                college: user.college,
+                department: user.department,
+                approvalStatus: user.approvalStatus
             }
         });
 
@@ -492,20 +1189,103 @@ app.put('/api/auth/profile', authenticateAndTouchSession, async (req, res) => {
     }
 });
 
+// Get Navbar Preferences (for principals and super-admins)
+app.get('/api/auth/navbar-preferences', authenticateSessionNoTouch, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Default preferences if not set
+        const defaultPrefs = {
+            home: true,
+            logbook: true,
+            resources: true,
+            about: true,
+            profile: true,
+            masterTemplates: true,
+            viewLogbooks: true,
+            admin: true
+        };
+        
+        // Merge defaults with user's saved preferences
+        const prefs = user.navbarPreferences || defaultPrefs;
+        
+        res.json({
+            success: true,
+            navbarPreferences: prefs,
+            canCustomize: ['principal', 'super-admin'].includes(user.role)
+        });
+    } catch (error) {
+        console.error('Get navbar preferences error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update Navbar Preferences (for principals and super-admins only)
+app.put('/api/auth/navbar-preferences', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Only principals and super-admins can customize navbar
+        if (!['principal', 'super-admin'].includes(user.role)) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Only principals and super-admins can customize navbar preferences' 
+            });
+        }
+        
+        const { navbarPreferences } = req.body;
+        
+        // Validate preferences structure
+        const validKeys = ['home', 'logbook', 'resources', 'about', 'profile', 'masterTemplates', 'viewLogbooks', 'admin'];
+        const sanitizedPrefs = {};
+        
+        for (const key of validKeys) {
+            if (typeof navbarPreferences[key] === 'boolean') {
+                sanitizedPrefs[key] = navbarPreferences[key];
+            } else {
+                sanitizedPrefs[key] = true; // Default to visible
+            }
+        }
+        
+        // Principals should NOT be able to see super-admin-specific items
+        // (Currently 'admin' is the only one, but we keep it accessible for both)
+        
+        user.navbarPreferences = sanitizedPrefs;
+        await user.save();
+        
+        res.json({
+            success: true,
+            message: 'Navbar preferences updated',
+            navbarPreferences: sanitizedPrefs
+        });
+    } catch (error) {
+        console.error('Update navbar preferences error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Change Password Route
 app.post('/api/auth/change-password', authenticateAndTouchSession, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
         const user = await User.findById(req.auth.decoded.userId);
 
-        // Verify current password
-        const isValid = verifyPassword(currentPassword, user.password);
+        // Verify current password with bcrypt
+        const isValid = await verifyPassword(currentPassword, user.password);
         if (!isValid) {
             return res.status(401).json({ success: false, error: 'Current password is incorrect' });
         }
 
-        // Hash new password
-        const hashedPassword = hashPassword(newPassword);
+        // Hash new password with bcrypt
+        const hashedPassword = await hashPassword(newPassword);
 
         // Update password
         user.password = hashedPassword;
@@ -537,6 +1317,97 @@ app.post('/api/auth/logout', async (req, res) => {
         // ignore and return success
     }
     res.json({ success: true, message: 'Logout successful' });
+});
+
+// Delete Account Route - Cascades to delete all templates and logbooks
+app.delete('/api/auth/delete-account', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { password, twoFactorCode } = req.body;
+        const userId = req.auth.decoded.userId;
+        
+        // Verify user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Super-admin cannot delete account - must transfer first
+        if (user.role === 'super-admin') {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Super-admin cannot delete their account. You must first transfer super-admin privileges to another user using the succession system.',
+                requiresSuccessor: true
+            });
+        }
+        
+        // Verify password
+        if (!password) {
+            return res.status(400).json({ success: false, error: 'Password is required to delete account' });
+        }
+        
+        const isValid = await verifyPassword(password, user.password);
+        if (!isValid) {
+            return res.status(401).json({ success: false, error: 'Incorrect password' });
+        }
+        
+        // If user is faculty/admin, cascade delete their templates and associated student logbooks
+        if (user.role === 'faculty' || user.role === 'admin') {
+            try {
+                // Call logbook service to delete all templates and logbooks created by this user
+                const logbookServiceUrl = process.env.LOGBOOK_SERVICE_URL || 'http://localhost:3005';
+                const cascadeResponse = await fetch(`${logbookServiceUrl}/api/logbook/cascade-delete-by-teacher`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': req.headers.authorization
+                    },
+                    body: JSON.stringify({ teacherRgno: user.rgno })
+                });
+                
+                const cascadeResult = await cascadeResponse.json();
+                console.log('[DELETE ACCOUNT] Cascade delete result:', cascadeResult);
+            } catch (cascadeError) {
+                console.error('[DELETE ACCOUNT] Cascade delete error:', cascadeError.message);
+                // Continue with account deletion even if cascade fails
+            }
+        }
+        
+        // If user is student, delete their logbooks
+        if (user.role === 'student') {
+            try {
+                const logbookServiceUrl = process.env.LOGBOOK_SERVICE_URL || 'http://localhost:3005';
+                const deleteResponse = await fetch(`${logbookServiceUrl}/api/logbook/delete-by-student`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': req.headers.authorization
+                    },
+                    body: JSON.stringify({ studentRgno: user.rgno })
+                });
+                
+                const deleteResult = await deleteResponse.json();
+                console.log('[DELETE ACCOUNT] Student logbooks delete result:', deleteResult);
+            } catch (deleteError) {
+                console.error('[DELETE ACCOUNT] Student logbooks delete error:', deleteError.message);
+            }
+        }
+        
+        // Invalidate all sessions for this user
+        await Session.updateMany(
+            { userId: userId },
+            { isExpired: true, expiredAt: new Date() }
+        );
+        
+        // Delete the user
+        await User.findByIdAndDelete(userId);
+        
+        console.log('[DELETE ACCOUNT] Account deleted successfully:', user.rgno);
+        res.json({ success: true, message: 'Account and all associated data deleted successfully' });
+        
+    } catch (error) {
+        console.error('[DELETE ACCOUNT] Error:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete account. Please try again.' });
+    }
 });
 
 // Filter students by department and semester
@@ -619,6 +1490,396 @@ if (EMAIL_USER && EMAIL_PASS) {
         }
     });
 }
+
+// ==================== EMAIL VERIFICATION ENDPOINTS ====================
+
+// Verify Email - User clicks link in email
+app.get('/api/auth/verify-email', async (req, res) => {
+    try {
+        const { token } = req.query;
+        
+        if (!token) {
+            return res.status(400).json({ success: false, error: 'Verification token is required' });
+        }
+        
+        const user = await User.findOne({
+            emailVerificationToken: token,
+            emailVerificationExpires: { $gt: new Date() }
+        });
+        
+        if (!user) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid or expired verification link. Please request a new one.',
+                expired: true
+            });
+        }
+        
+        // Check if already verified
+        if (user.emailVerified) {
+            return res.json({ 
+                success: true, 
+                message: 'Email is already verified. You can now log in.',
+                alreadyVerified: true
+            });
+        }
+        
+        // Verify the email
+        user.emailVerified = true;
+        user.emailVerificationToken = null;
+        user.emailVerificationExpires = null;
+        await user.save();
+        
+        res.json({
+            success: true,
+            message: 'Email verified successfully! You can now log in.',
+            user: {
+                name: user.name,
+                rgno: user.rgno,
+                email: user.email
+            }
+        });
+        
+    } catch (error) {
+        console.error('Email verification error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Resend Verification Email
+app.post('/api/auth/resend-verification', async (req, res) => {
+    try {
+        const { rgno, email } = req.body;
+        
+        if (!rgno && !email) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Register number or email is required' 
+            });
+        }
+        
+        // Find user
+        const query = rgno ? { rgno: parseInt(rgno) } : { email: email.toLowerCase().trim() };
+        const user = await User.findOne(query);
+        
+        if (!user) {
+            // Don't reveal if user exists
+            return res.json({ 
+                success: true, 
+                message: 'If an account exists with this information, a verification email will be sent.' 
+            });
+        }
+        
+        // Check if already verified
+        if (user.emailVerified) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Email is already verified. You can log in now.' 
+            });
+        }
+        
+        // Rate limit: Check if last email was sent less than 2 minutes ago
+        if (user.emailVerificationSentAt) {
+            const timeSinceLastEmail = Date.now() - new Date(user.emailVerificationSentAt).getTime();
+            const cooldownMs = 2 * 60 * 1000; // 2 minutes
+            if (timeSinceLastEmail < cooldownMs) {
+                const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastEmail) / 1000);
+                return res.status(429).json({ 
+                    success: false, 
+                    error: `Please wait ${remainingSeconds} seconds before requesting another verification email.`,
+                    retryAfter: remainingSeconds
+                });
+            }
+        }
+        
+        // Generate new verification token
+        const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+        user.emailVerificationToken = emailVerificationToken;
+        user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        user.emailVerificationSentAt = new Date();
+        await user.save();
+        
+        // Send verification email
+        const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
+        
+        await transporter.sendMail({
+            from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+            to: user.email,
+            subject: '📧 Verify Your Email - LOGI',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                        <h1 style="margin: 0;">📧 Verify Your Email</h1>
+                        <p style="margin: 10px 0 0; opacity: 0.9;">LOGI - Digital Lab Logbook System</p>
+                    </div>
+                    
+                    <div style="padding: 30px; border: 1px solid #ddd; border-top: none;">
+                        <p>Hello <strong>${user.name}</strong>,</p>
+                        <p>Please verify your email address to access your LOGI account.</p>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${verificationUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                                ✓ Verify Email Address
+                            </a>
+                        </div>
+                        
+                        <p style="color: #d32f2f; font-size: 14px;">⏰ This link expires in 24 hours.</p>
+                        
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                        <p style="font-size: 12px; color: #999;">If the button doesn't work, copy this link:<br>
+                        <span style="color: #667eea; word-break: break-all;">${verificationUrl}</span></p>
+                    </div>
+                </div>
+            `
+        });
+        
+        res.json({ 
+            success: true, 
+            message: 'Verification email sent! Please check your inbox.' 
+        });
+        
+    } catch (error) {
+        console.error('Resend verification error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Force verify email for existing users (admin endpoint)
+app.post('/api/auth/admin/mark-email-verified/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        // Only super-admin can force verify
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        targetUser.emailVerified = true;
+        targetUser.emailVerificationToken = null;
+        targetUser.emailVerificationExpires = null;
+        await targetUser.save();
+        
+        await createAuditLog('EMAIL_VERIFIED_BY_ADMIN', admin, targetUser, {
+            verifiedBy: admin.name,
+            reason: 'Manual verification by super-admin'
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `Email verified for ${targetUser.name}` 
+        });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Send verification email to a specific user (admin can trigger)
+app.post('/api/auth/admin/send-verification-email/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        // Only super-admin or principal can send
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || !['super-admin', 'principal'].includes(admin.role)) {
+            return res.status(403).json({ success: false, error: 'Admin access required' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        if (!targetUser.email) {
+            return res.status(400).json({ success: false, error: 'User has no email address' });
+        }
+        
+        if (targetUser.emailVerified) {
+            return res.status(400).json({ success: false, error: 'Email is already verified' });
+        }
+        
+        // Generate new verification token
+        const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+        targetUser.emailVerificationToken = emailVerificationToken;
+        targetUser.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        targetUser.emailVerificationSentAt = new Date();
+        await targetUser.save();
+        
+        // Send verification email
+        const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
+        
+        await transporter.sendMail({
+            from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+            to: targetUser.email,
+            subject: '📧 Verify Your Email - LOGI',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                        <h1 style="margin: 0;">📧 Email Verification Required</h1>
+                    </div>
+                    <div style="padding: 30px; border: 1px solid #ddd; border-top: none;">
+                        <p>Hello <strong>${targetUser.name}</strong>,</p>
+                        <p>Your administrator has requested that you verify your email address.</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${verificationUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                                ✓ Verify Email Address
+                            </a>
+                        </div>
+                        <p style="color: #d32f2f; font-size: 14px;">⏰ This link expires in 24 hours.</p>
+                    </div>
+                </div>
+            `
+        });
+        
+        res.json({ 
+            success: true, 
+            message: `Verification email sent to ${targetUser.email}` 
+        });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Bulk send verification emails to all unverified users (super-admin only)
+app.post('/api/auth/admin/send-bulk-verification-emails', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        // Find all users with unverified emails (except super-admin)
+        const unverifiedUsers = await User.find({
+            email: { $exists: true, $ne: null },
+            emailVerified: { $ne: true },
+            role: { $ne: 'super-admin' }
+        });
+        
+        if (unverifiedUsers.length === 0) {
+            return res.json({ 
+                success: true, 
+                message: 'No unverified users found',
+                sent: 0 
+            });
+        }
+        
+        let sent = 0;
+        let failed = 0;
+        
+        for (const user of unverifiedUsers) {
+            try {
+                // Generate new verification token
+                const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+                user.emailVerificationToken = emailVerificationToken;
+                user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                user.emailVerificationSentAt = new Date();
+                await user.save();
+                
+                const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
+                
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: user.email,
+                    subject: '📧 Action Required: Verify Your Email - LOGI',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                                <h1 style="margin: 0;">📧 Email Verification Required</h1>
+                            </div>
+                            <div style="padding: 30px; border: 1px solid #ddd; border-top: none;">
+                                <p>Hello <strong>${user.name}</strong>,</p>
+                                <p>LOGI now requires email verification for all users. Please verify your email address to continue using your account.</p>
+                                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #ffc107;">
+                                    <p style="color: #856404; margin: 0;"><strong>⚠️ Important:</strong> You will not be able to log in until you verify your email.</p>
+                                </div>
+                                <div style="text-align: center; margin: 30px 0;">
+                                    <a href="${verificationUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                                        ✓ Verify Email Address
+                                    </a>
+                                </div>
+                                <p style="color: #d32f2f; font-size: 14px;">⏰ This link expires in 24 hours.</p>
+                            </div>
+                        </div>
+                    `
+                });
+                
+                sent++;
+                
+                // Small delay to avoid rate limits
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+            } catch (err) {
+                console.error(`Failed to send verification to ${user.email}:`, err.message);
+                failed++;
+            }
+        }
+        
+        await createAuditLog('BULK_VERIFICATION_EMAILS_SENT', admin, null, {
+            totalUsers: unverifiedUsers.length,
+            sent,
+            failed
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `Sent ${sent} verification emails (${failed} failed)`,
+            sent,
+            failed,
+            total: unverifiedUsers.length
+        });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get email verification stats (super-admin)
+app.get('/api/auth/admin/email-verification-stats', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const totalUsers = await User.countDocuments({ role: { $ne: 'super-admin' } });
+        const verifiedCount = await User.countDocuments({ 
+            role: { $ne: 'super-admin' },
+            emailVerified: true 
+        });
+        const unverifiedCount = await User.countDocuments({ 
+            role: { $ne: 'super-admin' },
+            $or: [
+                { emailVerified: { $ne: true } },
+                { emailVerified: { $exists: false } }
+            ]
+        });
+        const noEmailCount = await User.countDocuments({ 
+            role: { $ne: 'super-admin' },
+            $or: [
+                { email: { $exists: false } },
+                { email: null }
+            ]
+        });
+        
+        res.json({
+            success: true,
+            stats: {
+                total: totalUsers,
+                verified: verifiedCount,
+                unverified: unverifiedCount,
+                noEmail: noEmailCount
+            }
+        });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== END EMAIL VERIFICATION ====================
 
 // Forgot Password Endpoint
 app.post('/api/auth/forgot-password', async (req, res) => {
@@ -724,8 +1985,8 @@ app.post('/api/auth/reset-password/:token', async (req, res) => {
 
         console.log('[RESET PASSWORD] User found:', user);
 
-        // Hash the new password
-        const hashedPassword = hashPassword(password);
+        // Hash the new password with bcrypt
+        const hashedPassword = await hashPassword(password);
         user.password = hashedPassword;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpires = undefined;
@@ -744,6 +2005,1761 @@ app.post('/api/auth/reset-password/:token', async (req, res) => {
 // Health check
 app.get('/health', (req, res) => {
     res.json({ status: 'Auth Server running on port 3002' });
+});
+
+// ==================== APPROVAL WORKFLOW ENDPOINTS ====================
+
+// Get pending approvals (for principals: faculty, for faculty: students, for super-admin: all)
+app.get('/api/auth/pending-approvals', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        let query = { approvalStatus: 'pending', isActive: true };
+        
+        if (user.role === 'super-admin') {
+            // Super-admin can see all pending (primarily principals)
+            query.role = { $in: ['principal', 'faculty', 'student'] };
+        } else if (user.role === 'principal') {
+            // Principal can only see pending faculty in their college
+            query.role = 'faculty';
+            query.college = user.college;
+        } else if (user.role === 'faculty') {
+            // Faculty can only see pending students in their college/department
+            query.role = 'student';
+            query.college = user.college;
+            if (user.department) {
+                query.department = user.department;
+            }
+        } else {
+            return res.status(403).json({ success: false, error: 'Not authorized to view pending approvals' });
+        }
+        
+        const pendingUsers = await User.find(query)
+            .select('-password -resetPasswordToken -resetPasswordExpires -twoFactorSecret')
+            .sort({ createdAt: -1 });
+        
+        res.json({ success: true, pendingUsers, count: pendingUsers.length });
+    } catch (error) {
+        console.error('Get pending approvals error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Approve a user
+app.post('/api/auth/approve-user/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const approver = await User.findById(req.auth.decoded.userId);
+        if (!approver) {
+            return res.status(404).json({ success: false, error: 'Approver not found' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Authorization checks
+        let authorized = false;
+        if (approver.role === 'super-admin') {
+            authorized = true; // Super-admin can approve anyone
+        } else if (approver.role === 'principal' && targetUser.role === 'faculty') {
+            // Principal can approve faculty in their college
+            authorized = approver.college === targetUser.college;
+        } else if (approver.role === 'faculty' && targetUser.role === 'student') {
+            // Faculty can approve students in their college/department
+            authorized = approver.college === targetUser.college;
+            if (approver.department && targetUser.department) {
+                authorized = authorized && approver.department === targetUser.department;
+            }
+        }
+        
+        if (!authorized) {
+            return res.status(403).json({ success: false, error: 'Not authorized to approve this user' });
+        }
+        
+        // Update approval status
+        targetUser.approvalStatus = 'approved';
+        targetUser.approvedBy = approver._id;
+        targetUser.approvedAt = new Date();
+        await targetUser.save();
+        
+        // Create audit log
+        await createAuditLog('USER_APPROVED', approver, targetUser, {
+            targetRole: targetUser.role,
+            college: targetUser.college
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `${targetUser.name} has been approved`,
+            user: {
+                id: targetUser._id,
+                name: targetUser.name,
+                rgno: targetUser.rgno,
+                role: targetUser.role,
+                college: targetUser.college,
+                approvalStatus: targetUser.approvalStatus
+            }
+        });
+    } catch (error) {
+        console.error('Approve user error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Reject a user
+app.post('/api/auth/reject-user/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { reason } = req.body;
+        const approver = await User.findById(req.auth.decoded.userId);
+        if (!approver) {
+            return res.status(404).json({ success: false, error: 'Approver not found' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Authorization checks (same as approve)
+        let authorized = false;
+        if (approver.role === 'super-admin') {
+            authorized = true;
+        } else if (approver.role === 'principal' && targetUser.role === 'faculty') {
+            authorized = approver.college === targetUser.college;
+        } else if (approver.role === 'faculty' && targetUser.role === 'student') {
+            authorized = approver.college === targetUser.college;
+        }
+        
+        if (!authorized) {
+            return res.status(403).json({ success: false, error: 'Not authorized to reject this user' });
+        }
+        
+        // Update rejection status
+        targetUser.approvalStatus = 'rejected';
+        targetUser.rejectionReason = reason || 'No reason provided';
+        targetUser.approvedBy = approver._id;
+        targetUser.approvedAt = new Date();
+        await targetUser.save();
+        
+        // Create audit log
+        await createAuditLog('USER_REJECTED', approver, targetUser, {
+            targetRole: targetUser.role,
+            reason: reason,
+            college: targetUser.college
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `${targetUser.name} has been rejected`,
+            user: {
+                id: targetUser._id,
+                name: targetUser.name,
+                rgno: targetUser.rgno,
+                approvalStatus: targetUser.approvalStatus
+            }
+        });
+    } catch (error) {
+        console.error('Reject user error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Unfreeze a frozen account (admin action)
+app.post('/api/auth/unfreeze-user/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin) {
+            return res.status(404).json({ success: false, error: 'Admin not found' });
+        }
+        
+        // Only principal or super-admin can unfreeze accounts
+        if (!['principal', 'super-admin'].includes(admin.role)) {
+            return res.status(403).json({ success: false, error: 'Not authorized to unfreeze accounts' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Check if the user is actually frozen
+        if (!targetUser.accountFrozen) {
+            return res.status(400).json({ success: false, error: 'This account is not frozen' });
+        }
+        
+        // Principals can only unfreeze users in their college (not other principals)
+        if (admin.role === 'principal') {
+            if (targetUser.college !== admin.college) {
+                return res.status(403).json({ success: false, error: 'You can only unfreeze users in your college' });
+            }
+            if (targetUser.role === 'principal') {
+                return res.status(403).json({ success: false, error: 'Only super-admin can unfreeze principal accounts' });
+            }
+        }
+        
+        // Unfreeze the account
+        targetUser.accountFrozen = false;
+        targetUser.failedLoginAttempts = 0;
+        targetUser.lockoutUntil = null;
+        targetUser.unfrozenBy = admin._id;
+        targetUser.unfrozenAt = new Date();
+        await targetUser.save();
+        
+        // Create audit log
+        await createAuditLog('USER_UNFROZEN', admin, targetUser, {
+            targetRole: targetUser.role,
+            frozenReason: targetUser.frozenReason,
+            frozenAt: targetUser.frozenAt,
+            college: targetUser.college
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `${targetUser.name}'s account has been unfrozen. They can now log in again.`,
+            user: {
+                id: targetUser._id,
+                name: targetUser.name,
+                rgno: targetUser.rgno,
+                accountFrozen: false
+            }
+        });
+    } catch (error) {
+        console.error('Unfreeze user error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get frozen users (for admins)
+app.get('/api/auth/frozen-users', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin) {
+            return res.status(404).json({ success: false, error: 'Admin not found' });
+        }
+        
+        // Only principal or super-admin can view frozen accounts
+        if (!['principal', 'super-admin'].includes(admin.role)) {
+            return res.status(403).json({ success: false, error: 'Not authorized' });
+        }
+        
+        let query = { accountFrozen: true, isActive: true };
+        
+        if (admin.role === 'principal') {
+            // Principals can only see frozen users in their college (excluding other principals)
+            query.college = admin.college;
+            query.role = { $ne: 'principal' };
+        }
+        // Super-admin can see all frozen users
+        
+        const frozenUsers = await User.find(query)
+            .select('name email rgno role college department frozenAt frozenReason')
+            .sort({ frozenAt: -1 });
+        
+        res.json({ 
+            success: true, 
+            frozenUsers: frozenUsers,
+            count: frozenUsers.length
+        });
+    } catch (error) {
+        console.error('Get frozen users error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get users in my college (college-scoped)
+app.get('/api/auth/college-users', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Only principal, faculty, or super-admin can view college users
+        if (!['principal', 'faculty', 'super-admin'].includes(user.role)) {
+            return res.status(403).json({ success: false, error: 'Not authorized' });
+        }
+        
+        let query = { isActive: true };
+        
+        if (user.role === 'super-admin') {
+            // Super-admin can see all users, optionally filter by college
+            if (req.query.college) {
+                query.college = req.query.college;
+            }
+        } else {
+            // Others can only see users in their college
+            query.college = user.college;
+        }
+        
+        // Filter by role if specified
+        if (req.query.role) {
+            query.role = req.query.role;
+        }
+        
+        // Filter by approval status if specified
+        if (req.query.approvalStatus) {
+            query.approvalStatus = req.query.approvalStatus;
+        }
+        
+        // Filter by department if specified (for faculty viewing students)
+        if (req.query.department) {
+            query.department = req.query.department;
+        }
+        
+        const users = await User.find(query)
+            .select('-password -resetPasswordToken -resetPasswordExpires -twoFactorSecret')
+            .sort({ role: 1, name: 1 });
+        
+        res.json({ success: true, users, count: users.length });
+    } catch (error) {
+        console.error('Get college users error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== SUPER-ADMIN ENDPOINTS ====================
+
+// Super-admin: Get all users across all colleges
+app.get('/api/auth/admin/all-users', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const users = await User.find()
+            .select('-password -resetPasswordToken -resetPasswordExpires -twoFactorSecret')
+            .sort({ college: 1, role: 1, name: 1 });
+        
+        // Group by college
+        const byCollege = {};
+        users.forEach(u => {
+            if (!byCollege[u.college]) {
+                byCollege[u.college] = { principals: [], faculty: [], students: [] };
+            }
+            if (u.role === 'principal') byCollege[u.college].principals.push(u);
+            else if (u.role === 'faculty') byCollege[u.college].faculty.push(u);
+            else if (u.role === 'student') byCollege[u.college].students.push(u);
+        });
+        
+        res.json({ success: true, users, byCollege, totalCount: users.length });
+    } catch (error) {
+        console.error('Admin get all users error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Delete any user
+app.delete('/api/auth/admin/delete-user/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Prevent deleting self
+        if (targetUser._id.toString() === admin._id.toString()) {
+            return res.status(400).json({ success: false, error: 'Cannot delete your own account' });
+        }
+        
+        // Create audit log before deletion
+        await createAuditLog('USER_DELETED_BY_ADMIN', admin, targetUser, {
+            deletedUserName: targetUser.name,
+            deletedUserRole: targetUser.role,
+            deletedUserCollege: targetUser.college
+        }, req);
+        
+        // Invalidate all sessions
+        await Session.updateMany(
+            { userId: targetUser._id },
+            { isExpired: true, expiredAt: new Date() }
+        );
+        
+        // Delete user
+        await User.findByIdAndDelete(req.params.userId);
+        
+        res.json({ success: true, message: `User ${targetUser.name} deleted successfully` });
+    } catch (error) {
+        console.error('Admin delete user error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Revoke all sessions for a user (emergency kick out)
+app.post('/api/auth/admin/revoke-sessions/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Revoke all sessions
+        const result = await Session.updateMany(
+            { userId: targetUser._id, isExpired: false },
+            { isExpired: true, expiredAt: new Date() }
+        );
+        
+        // Create audit log
+        await createAuditLog('SESSIONS_REVOKED', admin, targetUser, {
+            revokedCount: result.modifiedCount
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `All sessions for ${targetUser.name} have been revoked`,
+            revokedCount: result.modifiedCount
+        });
+    } catch (error) {
+        console.error('Admin revoke sessions error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Revoke ALL sessions system-wide (emergency)
+app.post('/api/auth/admin/revoke-all-sessions', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const { excludeSelf } = req.body;
+        
+        let query = { isExpired: false };
+        if (excludeSelf) {
+            query.userId = { $ne: admin._id };
+        }
+        
+        const result = await Session.updateMany(query, { 
+            isExpired: true, 
+            expiredAt: new Date() 
+        });
+        
+        // Create audit log
+        await createAuditLog('ALL_SESSIONS_REVOKED', admin, null, {
+            revokedCount: result.modifiedCount,
+            excludedSelf: excludeSelf
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `${result.modifiedCount} sessions have been revoked`,
+            revokedCount: result.modifiedCount
+        });
+    } catch (error) {
+        console.error('Admin revoke all sessions error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Get audit logs
+app.get('/api/auth/admin/audit-logs', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const limit = parseInt(req.query.limit) || 100;
+        const skip = parseInt(req.query.skip) || 0;
+        
+        let query = {};
+        if (req.query.action) {
+            query.action = req.query.action;
+        }
+        
+        const logs = await AuditLog.find(query)
+            .sort({ timestamp: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('performedBy', 'name rgno role')
+            .populate('targetUser', 'name rgno role college');
+        
+        const total = await AuditLog.countDocuments(query);
+        
+        res.json({ success: true, logs, total, limit, skip });
+    } catch (error) {
+        console.error('Get audit logs error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Setup 2FA
+app.post('/api/auth/admin/setup-2fa', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const speakeasy = require('speakeasy');
+        const qrcode = require('qrcode');
+        
+        // Generate secret
+        const secret = speakeasy.generateSecret({
+            name: `LOGI Super Admin (${admin.rgno})`,
+            issuer: 'LOGI'
+        });
+        
+        // Store secret temporarily (not enabled until verified)
+        admin.twoFactorSecret = secret.base32;
+        await admin.save();
+        
+        // Generate QR code
+        const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+        
+        res.json({ 
+            success: true, 
+            secret: secret.base32,
+            qrCode: qrCodeUrl,
+            message: 'Scan the QR code with your authenticator app, then verify with a code'
+        });
+    } catch (error) {
+        console.error('Setup 2FA error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Verify and enable 2FA
+app.post('/api/auth/admin/verify-2fa', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { code } = req.body;
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        if (!admin.twoFactorSecret) {
+            return res.status(400).json({ success: false, error: '2FA setup not initiated' });
+        }
+        
+        const speakeasy = require('speakeasy');
+        const verified = speakeasy.totp.verify({
+            secret: admin.twoFactorSecret,
+            encoding: 'base32',
+            token: code,
+            window: 1
+        });
+        
+        if (!verified) {
+            return res.status(400).json({ success: false, error: 'Invalid verification code' });
+        }
+        
+        admin.twoFactorEnabled = true;
+        await admin.save();
+        
+        // Create audit log
+        await createAuditLog('2FA_ENABLED', admin, null, {}, req);
+        
+        res.json({ success: true, message: 'Two-factor authentication enabled successfully' });
+    } catch (error) {
+        console.error('Verify 2FA error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Generate backup codes
+app.post('/api/auth/admin/generate-backup-codes', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        if (!admin.twoFactorEnabled) {
+            return res.status(400).json({ success: false, error: '2FA must be enabled first' });
+        }
+        
+        // Generate 10 backup codes (8 characters each)
+        const backupCodes = [];
+        for (let i = 0; i < 10; i++) {
+            const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+            backupCodes.push({ code, used: false });
+        }
+        
+        admin.twoFactorBackupCodes = backupCodes;
+        await admin.save();
+        
+        // Create audit log
+        await createAuditLog('2FA_BACKUP_CODES_GENERATED', admin, null, { count: 10 }, req);
+        
+        res.json({ 
+            success: true, 
+            backupCodes: backupCodes.map(bc => bc.code),
+            message: 'Backup codes generated. Save these codes in a safe place - they will only be shown once!'
+        });
+    } catch (error) {
+        console.error('Generate backup codes error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Get backup codes status (how many remaining)
+app.get('/api/auth/admin/backup-codes-status', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const totalCodes = admin.twoFactorBackupCodes?.length || 0;
+        const usedCodes = admin.twoFactorBackupCodes?.filter(bc => bc.used).length || 0;
+        const remainingCodes = totalCodes - usedCodes;
+        
+        res.json({ 
+            success: true, 
+            totalCodes,
+            usedCodes,
+            remainingCodes,
+            hasBackupCodes: totalCodes > 0
+        });
+    } catch (error) {
+        console.error('Backup codes status error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: View backup codes (requires password verification)
+app.post('/api/auth/admin/view-backup-codes', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { password } = req.body;
+        const admin = await User.findById(req.auth.decoded.userId);
+        
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        if (!admin.twoFactorEnabled) {
+            return res.status(400).json({ success: false, error: '2FA is not enabled' });
+        }
+        
+        // Password is required to view sensitive backup codes
+        if (!password) {
+            return res.status(400).json({ success: false, error: 'Password is required to view backup codes' });
+        }
+        
+        const isPasswordValid = await verifyPassword(password, admin.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ success: false, error: 'Invalid password' });
+        }
+        
+        // Return backup codes with their usage status
+        const backupCodes = admin.twoFactorBackupCodes?.map(bc => ({
+            code: bc.code,
+            used: bc.used
+        })) || [];
+        
+        res.json({ 
+            success: true, 
+            backupCodes,
+            message: 'Backup codes retrieved successfully'
+        });
+    } catch (error) {
+        console.error('View backup codes error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Disable 2FA
+app.post('/api/auth/admin/disable-2fa', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { code, password } = req.body;
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        // Verify password with bcrypt
+        if (!await verifyPassword(password, admin.password)) {
+            return res.status(401).json({ success: false, error: 'Invalid password' });
+        }
+        
+        // Verify 2FA code if enabled
+        if (admin.twoFactorEnabled && admin.twoFactorSecret) {
+            const speakeasy = require('speakeasy');
+            const verified = speakeasy.totp.verify({
+                secret: admin.twoFactorSecret,
+                encoding: 'base32',
+                token: code,
+                window: 1
+            });
+            if (!verified) {
+                return res.status(400).json({ success: false, error: 'Invalid 2FA code' });
+            }
+        }
+        
+        admin.twoFactorEnabled = false;
+        admin.twoFactorSecret = null;
+        admin.twoFactorBackupCodes = []; // Clear backup codes when 2FA is disabled
+        await admin.save();
+        
+        // Create audit log
+        await createAuditLog('2FA_DISABLED', admin, null, {}, req);
+        
+        res.json({ success: true, message: 'Two-factor authentication disabled' });
+    } catch (error) {
+        console.error('Disable 2FA error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Super-admin: Reassign user to different college
+app.post('/api/auth/admin/reassign-user/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { newCollege, newDepartment, newRole } = req.body;
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Validate new college
+        if (newCollege && !VALID_COLLEGES.includes(newCollege)) {
+            return res.status(400).json({ success: false, error: 'Invalid college' });
+        }
+        
+        const oldValues = {
+            college: targetUser.college,
+            department: targetUser.department,
+            role: targetUser.role
+        };
+        
+        if (newCollege) targetUser.college = newCollege;
+        if (newDepartment) targetUser.department = newDepartment;
+        if (newRole && ['student', 'faculty', 'principal'].includes(newRole)) {
+            targetUser.role = newRole;
+        }
+        
+        await targetUser.save();
+        
+        // Create audit log
+        await createAuditLog('USER_REASSIGNED', admin, targetUser, {
+            oldValues,
+            newValues: { college: targetUser.college, department: targetUser.department, role: targetUser.role }
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `User ${targetUser.name} has been reassigned`,
+            user: {
+                id: targetUser._id,
+                name: targetUser.name,
+                college: targetUser.college,
+                department: targetUser.department,
+                role: targetUser.role
+            }
+        });
+    } catch (error) {
+        console.error('Reassign user error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get list of valid colleges
+app.get('/api/auth/colleges', (req, res) => {
+    res.json({ success: true, colleges: VALID_COLLEGES });
+});
+
+// ==================== SUPER-ADMIN SUCCESSION SYSTEM (INVITATION-BASED) ====================
+// Only ONE super-admin can exist at a time
+// Flow: Super-admin invites → User accepts → Super-admin completes with password + 2FA
+
+// Send invitation to become super-admin (super-admin only, principal/faculty only)
+app.post('/api/auth/invite-super-admin-successor/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        // Check if there's already a pending invitation
+        const existingInvitation = await User.findOne({
+            superAdminInviteToken: { $exists: true, $ne: null },
+            superAdminInviteExpires: { $gt: new Date() },
+            superAdminInviteAccepted: { $ne: true }
+        });
+        
+        if (existingInvitation) {
+            return res.status(400).json({
+                success: false,
+                error: 'There is already a pending invitation. Cancel it first before inviting another user.',
+                pendingUser: existingInvitation.name
+            });
+        }
+        
+        // Check if there's a pending completion (user accepted, waiting for admin to complete)
+        const pendingCompletion = await User.findOne({
+            superAdminInviteAccepted: true,
+            superAdminTransferPendingCompletion: true
+        });
+        
+        if (pendingCompletion) {
+            return res.status(400).json({
+                success: false,
+                error: `${pendingCompletion.name} has already accepted an invitation. Complete or cancel the transfer first.`,
+                awaitingCompletion: true,
+                pendingUser: pendingCompletion.name
+            });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Only allow inviting principals and faculty
+        if (!['principal', 'faculty'].includes(targetUser.role)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Only principals and faculty can be invited as super-admin successors'
+            });
+        }
+        
+        // Generate secure invitation token (24 hours validity, one-time use)
+        const inviteToken = crypto.randomBytes(32).toString('hex');
+        const inviteExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        
+        targetUser.superAdminInviteToken = inviteToken;
+        targetUser.superAdminInviteExpires = inviteExpires;
+        targetUser.superAdminInviteAccepted = false;
+        targetUser.superAdminInvitedBy = admin._id;
+        targetUser.previousRole = targetUser.role;
+        await targetUser.save();
+        
+        // Create audit log
+        await createAuditLog('SUPER_ADMIN_INVITATION_SENT', admin, targetUser, {
+            invitedUser: targetUser.name,
+            invitedUserRgno: targetUser.rgno,
+            expiresAt: inviteExpires
+        }, req);
+        
+        // Send email notification to invited user
+        try {
+            if (targetUser.email) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: targetUser.email,
+                    subject: '👑 You have been invited to become Super-Admin',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #667eea;">Super-Admin Invitation</h2>
+                            <p>The current super-admin (<strong>${admin.name}</strong>) has invited you to become the new super-admin of the LOGI system.</p>
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                                <p><strong>⏰ This invitation expires in 24 hours</strong></p>
+                                <p><strong>📌 One-time use only</strong></p>
+                            </div>
+                            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #ffc107;">
+                                <p><strong>Important:</strong></p>
+                                <ul>
+                                    <li>You will gain full administrative control of the system</li>
+                                    <li>You will need to set up Two-Factor Authentication (2FA)</li>
+                                    <li>The current super-admin will be demoted to a regular user</li>
+                                </ul>
+                            </div>
+                            <p>To accept this invitation, log in to LOGI and check your notifications.</p>
+                            <p style="color: #d32f2f;">If you did not expect this invitation, please ignore it.</p>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailError) {
+            console.error('[SUPER-ADMIN INVITATION] Email notification failed:', emailError.message);
+        }
+        
+        res.json({
+            success: true,
+            message: `Invitation sent to ${targetUser.name}. They have 24 hours to accept.`,
+            expiresAt: inviteExpires
+        });
+        
+    } catch (error) {
+        console.error('Send invitation error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get pending invitation status (super-admin only)
+app.get('/api/auth/super-admin-invitation-status', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        // Find any pending invitation
+        const pendingInvitation = await User.findOne({
+            superAdminInviteToken: { $exists: true, $ne: null },
+            superAdminInviteExpires: { $gt: new Date() }
+        }).select('name email rgno role college superAdminInviteExpires superAdminInviteAccepted superAdminInviteAcceptedAt');
+        
+        // Find if someone has accepted and is waiting for completion
+        const awaitingCompletion = await User.findOne({
+            superAdminInviteAccepted: true,
+            superAdminTransferPendingCompletion: true
+        }).select('name email rgno role college superAdminInviteAcceptedAt');
+        
+        // Check if there's a grace period active (for reversal)
+        const gracePeriodActive = admin.superAdminTransferGracePeriodEnds && new Date() < admin.superAdminTransferGracePeriodEnds;
+        
+        res.json({
+            success: true,
+            pendingInvitation: pendingInvitation ? {
+                user: pendingInvitation,
+                expiresAt: pendingInvitation.superAdminInviteExpires,
+                accepted: pendingInvitation.superAdminInviteAccepted
+            } : null,
+            awaitingCompletion: awaitingCompletion ? {
+                user: awaitingCompletion,
+                acceptedAt: awaitingCompletion.superAdminInviteAcceptedAt
+            } : null,
+            gracePeriodActive
+        });
+        
+    } catch (error) {
+        console.error('Get invitation status error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Cancel pending invitation (super-admin only)
+app.post('/api/auth/cancel-super-admin-invitation', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        // Find and clear the invitation
+        const invitedUser = await User.findOne({
+            $or: [
+                { superAdminInviteToken: { $exists: true, $ne: null } },
+                { superAdminTransferPendingCompletion: true }
+            ]
+        });
+        
+        if (!invitedUser) {
+            return res.status(400).json({ success: false, error: 'No pending invitation found' });
+        }
+        
+        // Clear invitation fields
+        invitedUser.superAdminInviteToken = null;
+        invitedUser.superAdminInviteExpires = null;
+        invitedUser.superAdminInviteAccepted = false;
+        invitedUser.superAdminInviteAcceptedAt = null;
+        invitedUser.superAdminInvitedBy = null;
+        invitedUser.superAdminTransferPendingCompletion = false;
+        await invitedUser.save();
+        
+        // Create audit log
+        await createAuditLog('SUPER_ADMIN_INVITATION_CANCELLED', admin, invitedUser, {
+            cancelledFor: invitedUser.name
+        }, req);
+        
+        // Notify the user
+        try {
+            if (invitedUser.email) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: invitedUser.email,
+                    subject: '❌ Super-Admin Invitation Cancelled',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #d32f2f;">Invitation Cancelled</h2>
+                            <p>The super-admin invitation has been cancelled by the current administrator.</p>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailError) {
+            console.error('[SUPER-ADMIN INVITATION] Email notification failed:', emailError.message);
+        }
+        
+        res.json({ success: true, message: 'Invitation cancelled successfully' });
+        
+    } catch (error) {
+        console.error('Cancel invitation error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Check if current user has a pending invitation (for the invited user)
+app.get('/api/auth/my-super-admin-invitation', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId)
+            .populate('superAdminInvitedBy', 'name email rgno');
+        
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Check if user has a valid pending invitation
+        const hasValidInvitation = user.superAdminInviteToken && 
+                                   user.superAdminInviteExpires && 
+                                   new Date() < user.superAdminInviteExpires &&
+                                   !user.superAdminInviteAccepted;
+        
+        res.json({
+            success: true,
+            hasInvitation: hasValidInvitation,
+            invitation: hasValidInvitation ? {
+                expiresAt: user.superAdminInviteExpires,
+                invitedBy: user.superAdminInvitedBy ? {
+                    name: user.superAdminInvitedBy.name,
+                    email: user.superAdminInvitedBy.email
+                } : null
+            } : null
+        });
+        
+    } catch (error) {
+        console.error('Check invitation error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Accept super-admin invitation (for the invited user)
+app.post('/api/auth/accept-super-admin-invitation', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Verify invitation is valid
+        if (!user.superAdminInviteToken || !user.superAdminInviteExpires) {
+            return res.status(400).json({ success: false, error: 'You do not have a pending invitation' });
+        }
+        
+        if (new Date() > user.superAdminInviteExpires) {
+            // Clear expired invitation
+            user.superAdminInviteToken = null;
+            user.superAdminInviteExpires = null;
+            await user.save();
+            return res.status(400).json({ success: false, error: 'Invitation has expired' });
+        }
+        
+        if (user.superAdminInviteAccepted) {
+            return res.status(400).json({ success: false, error: 'You have already accepted this invitation. Waiting for super-admin to complete the transfer.' });
+        }
+        
+        // Mark as accepted
+        user.superAdminInviteAccepted = true;
+        user.superAdminInviteAcceptedAt = new Date();
+        user.superAdminTransferPendingCompletion = true;
+        await user.save();
+        
+        // Get current super-admin to notify
+        const currentAdmin = await User.findOne({ role: 'super-admin' });
+        
+        // Create audit log
+        await createAuditLog('SUPER_ADMIN_INVITATION_ACCEPTED', user, currentAdmin, {
+            acceptedBy: user.name,
+            acceptedByRgno: user.rgno
+        }, req);
+        
+        // Notify current super-admin
+        try {
+            if (currentAdmin && currentAdmin.email) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: currentAdmin.email,
+                    subject: '✅ Super-Admin Invitation Accepted - Action Required',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #667eea;">Invitation Accepted!</h2>
+                            <p><strong>${user.name}</strong> has accepted your super-admin succession invitation.</p>
+                            <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #28a745;">
+                                <p><strong>🔐 Action Required:</strong></p>
+                                <p>Log in to your admin dashboard and complete the transfer by entering your password and 2FA code.</p>
+                            </div>
+                            <p style="color: #666;">User Details:</p>
+                            <ul>
+                                <li>Name: ${user.name}</li>
+                                <li>RGNO: ${user.rgno}</li>
+                                <li>Role: ${user.role}</li>
+                                <li>College: ${user.college}</li>
+                            </ul>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailError) {
+            console.error('[SUPER-ADMIN INVITATION] Email notification failed:', emailError.message);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Invitation accepted! The current super-admin has been notified to complete the transfer.'
+        });
+        
+    } catch (error) {
+        console.error('Accept invitation error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Decline super-admin invitation (for the invited user)
+app.post('/api/auth/decline-super-admin-invitation', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        if (!user.superAdminInviteToken) {
+            return res.status(400).json({ success: false, error: 'You do not have a pending invitation' });
+        }
+        
+        const currentAdmin = await User.findOne({ role: 'super-admin' });
+        
+        // Clear invitation
+        user.superAdminInviteToken = null;
+        user.superAdminInviteExpires = null;
+        user.superAdminInviteAccepted = false;
+        user.superAdminInviteAcceptedAt = null;
+        user.superAdminInvitedBy = null;
+        user.superAdminTransferPendingCompletion = false;
+        await user.save();
+        
+        // Create audit log
+        await createAuditLog('SUPER_ADMIN_INVITATION_DECLINED', user, currentAdmin, {
+            declinedBy: user.name
+        }, req);
+        
+        // Notify current super-admin
+        try {
+            if (currentAdmin && currentAdmin.email) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: currentAdmin.email,
+                    subject: '❌ Super-Admin Invitation Declined',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #d32f2f;">Invitation Declined</h2>
+                            <p><strong>${user.name}</strong> has declined your super-admin succession invitation.</p>
+                            <p>You can invite another principal or faculty member from the admin dashboard.</p>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailError) {
+            console.error('[SUPER-ADMIN INVITATION] Email notification failed:', emailError.message);
+        }
+        
+        res.json({ success: true, message: 'Invitation declined' });
+        
+    } catch (error) {
+        console.error('Decline invitation error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Complete super-admin transfer (requires password + 2FA from current super-admin)
+app.post('/api/auth/complete-super-admin-transfer', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { password, twoFactorCode } = req.body;
+        
+        // Verify current super-admin
+        const currentAdmin = await User.findById(req.auth.decoded.userId);
+        if (!currentAdmin || currentAdmin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        // Find user who accepted the invitation
+        const newAdmin = await User.findOne({
+            superAdminInviteAccepted: true,
+            superAdminTransferPendingCompletion: true
+        });
+        
+        if (!newAdmin) {
+            return res.status(400).json({
+                success: false,
+                error: 'No user has accepted an invitation yet'
+            });
+        }
+        
+        // Verify password
+        if (!password) {
+            return res.status(400).json({ success: false, error: 'Password is required' });
+        }
+        const isPasswordValid = await verifyPassword(password, currentAdmin.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ success: false, error: 'Invalid password' });
+        }
+        
+        // Verify 2FA if enabled
+        if (currentAdmin.twoFactorEnabled) {
+            if (!twoFactorCode) {
+                return res.status(400).json({
+                    success: false,
+                    requiresTwoFactor: true,
+                    error: '2FA code is required for this high-security operation'
+                });
+            }
+            
+            const isBackupCode = twoFactorCode.length === 8;
+            let verified = false;
+            
+            if (isBackupCode) {
+                const backupCodeIndex = currentAdmin.twoFactorBackupCodes.findIndex(
+                    bc => bc.code === twoFactorCode.toUpperCase() && !bc.used
+                );
+                if (backupCodeIndex !== -1) {
+                    currentAdmin.twoFactorBackupCodes[backupCodeIndex].used = true;
+                    verified = true;
+                }
+            } else {
+                const speakeasy = require('speakeasy');
+                verified = speakeasy.totp.verify({
+                    secret: currentAdmin.twoFactorSecret,
+                    encoding: 'base32',
+                    token: twoFactorCode,
+                    window: 1
+                });
+            }
+            
+            if (!verified) {
+                return res.status(401).json({ success: false, error: 'Invalid 2FA code' });
+            }
+        }
+        
+        // Store old admin's info for email
+        const oldAdminEmail = currentAdmin.email;
+        const oldAdminName = currentAdmin.name;
+        
+        // === PERFORM THE TRANSFER ===
+        
+        // 1. Demote current super-admin to regular user (student role)
+        currentAdmin.role = 'student';
+        currentAdmin.demotedFromSuperAdmin = true;
+        currentAdmin.demotedAt = new Date();
+        currentAdmin.superAdminTransferGracePeriodEnds = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        // Revoke all 2FA settings
+        currentAdmin.twoFactorEnabled = false;
+        currentAdmin.twoFactorSecret = null;
+        currentAdmin.twoFactorBackupCodes = [];
+        currentAdmin.department = null;
+        await currentAdmin.save();
+        
+        // 2. Promote new user to super-admin
+        // Save their previous college/department so we can restore if reclaimed
+        newAdmin.previousRole = newAdmin.role;
+        newAdmin.previousCollege = newAdmin.college;
+        newAdmin.previousDepartment = newAdmin.department;
+        newAdmin.role = 'super-admin';
+        newAdmin.college = 'SYSTEM';
+        newAdmin.department = 'Administration';
+        newAdmin.approvalStatus = 'approved';
+        // Clear invitation fields
+        newAdmin.superAdminInviteToken = null;
+        newAdmin.superAdminInviteExpires = null;
+        newAdmin.superAdminInviteAccepted = false;
+        newAdmin.superAdminInviteAcceptedAt = null;
+        newAdmin.superAdminInvitedBy = null;
+        newAdmin.superAdminTransferPendingCompletion = false;
+        await newAdmin.save();
+        
+        // 3. Invalidate all sessions for old admin
+        await Session.updateMany(
+            { userId: currentAdmin._id },
+            { isExpired: true, expiredAt: new Date() }
+        );
+        
+        // 4. Create audit log
+        await createAuditLog('SUPER_ADMIN_TRANSFER_COMPLETED', currentAdmin, newAdmin, {
+            oldAdminName: oldAdminName,
+            oldAdminRgno: currentAdmin.rgno,
+            newAdminName: newAdmin.name,
+            newAdminRgno: newAdmin.rgno,
+            gracePeriodEnds: currentAdmin.superAdminTransferGracePeriodEnds
+        }, req);
+        
+        // 5. Send email notifications
+        try {
+            // Email to old admin
+            if (oldAdminEmail) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: oldAdminEmail,
+                    subject: '⚠️ Super-Admin Transfer Completed',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #d32f2f;">Super-Admin Transfer Completed</h2>
+                            <p>You have completed the transfer of super-admin privileges to:</p>
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                                <p><strong>New Super-Admin:</strong> ${newAdmin.name}</p>
+                                <p><strong>RGNO:</strong> ${newAdmin.rgno}</p>
+                            </div>
+                            <p><strong>Your account changes:</strong></p>
+                            <ul>
+                                <li>Your role has been changed to: <strong>Student</strong></li>
+                                <li>Your 2FA settings have been revoked</li>
+                                <li>All your active sessions have been invalidated</li>
+                            </ul>
+                            <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #28a745;">
+                                <p style="color: #155724; font-weight: bold;">🔐 24-Hour Safety Period</p>
+                                <p style="color: #155724; margin: 10px 0 0;">If this was a mistake or if the new super-admin is not cooperating, you can <strong>RECLAIM</strong> your super-admin access within 24 hours.</p>
+                                <p style="color: #155724; margin: 10px 0 0;">Simply log in and go to your Profile page - you'll see the reclaim option.</p>
+                            </div>
+                        </div>
+                    `
+                });
+            }
+            
+            // Email to new admin
+            if (newAdmin.email) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: newAdmin.email,
+                    subject: '🎉 You are now the Super-Admin',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #667eea;">Congratulations! You are now the Super-Admin</h2>
+                            <p>The transfer has been completed by ${oldAdminName}.</p>
+                            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #ffc107;">
+                                <p><strong>🔐 Important Security Steps:</strong></p>
+                                <ol>
+                                    <li>Log in to the system immediately</li>
+                                    <li>Set up Two-Factor Authentication (2FA)</li>
+                                    <li>Review and update your password if needed</li>
+                                </ol>
+                            </div>
+                            <p style="color: #d32f2f;">⚠️ There is a 24-hour grace period during which the transfer can be reversed.</p>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailError) {
+            console.error('[SUPER-ADMIN TRANSFER] Email notification failed:', emailError.message);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Super-admin transfer completed successfully. You have been logged out.',
+            newAdminName: newAdmin.name,
+            gracePeriodEnds: currentAdmin.superAdminTransferGracePeriodEnds
+        });
+        
+    } catch (error) {
+        console.error('Complete transfer error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Reverse super-admin transfer (within 24-hour grace period, by new super-admin)
+app.post('/api/auth/reverse-super-admin-transfer', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { password, twoFactorCode } = req.body;
+        
+        // Current user must be the NEW super-admin
+        const currentAdmin = await User.findById(req.auth.decoded.userId);
+        if (!currentAdmin || currentAdmin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+        
+        // Verify password
+        if (!password) {
+            return res.status(400).json({ success: false, error: 'Password is required' });
+        }
+        const isPasswordValid = await verifyPassword(password, currentAdmin.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ success: false, error: 'Invalid password' });
+        }
+        
+        // Verify 2FA if enabled
+        if (currentAdmin.twoFactorEnabled) {
+            if (!twoFactorCode) {
+                return res.status(400).json({
+                    success: false,
+                    requiresTwoFactor: true,
+                    error: '2FA code is required for this high-security operation'
+                });
+            }
+            
+            const isBackupCode = twoFactorCode.length === 8;
+            let verified = false;
+            
+            if (isBackupCode) {
+                const backupCodeIndex = currentAdmin.twoFactorBackupCodes.findIndex(
+                    bc => bc.code === twoFactorCode.toUpperCase() && !bc.used
+                );
+                if (backupCodeIndex !== -1) {
+                    currentAdmin.twoFactorBackupCodes[backupCodeIndex].used = true;
+                    verified = true;
+                }
+            } else {
+                const speakeasy = require('speakeasy');
+                verified = speakeasy.totp.verify({
+                    secret: currentAdmin.twoFactorSecret,
+                    encoding: 'base32',
+                    token: twoFactorCode,
+                    window: 1
+                });
+            }
+            
+            if (!verified) {
+                return res.status(401).json({ success: false, error: 'Invalid 2FA code' });
+            }
+        }
+        
+        // Find the old admin (who was demoted)
+        const oldAdmin = await User.findOne({
+            demotedFromSuperAdmin: true,
+            superAdminTransferGracePeriodEnds: { $gt: new Date() }
+        });
+        
+        if (!oldAdmin) {
+            return res.status(400).json({
+                success: false,
+                error: 'No eligible previous super-admin found or grace period has expired'
+            });
+        }
+        
+        // === PERFORM THE REVERSAL ===
+        
+        const currentAdminName = currentAdmin.name;
+        
+        // 1. Demote current (new) super-admin back to their previous role
+        currentAdmin.role = currentAdmin.previousRole || 'student';
+        // Restore their original college and department
+        currentAdmin.college = currentAdmin.previousCollege || currentAdmin.college;
+        currentAdmin.department = currentAdmin.previousDepartment || currentAdmin.department;
+        // Clear previous fields
+        currentAdmin.previousRole = null;
+        currentAdmin.previousCollege = null;
+        currentAdmin.previousDepartment = null;
+        // Revoke 2FA
+        currentAdmin.twoFactorEnabled = false;
+        currentAdmin.twoFactorSecret = null;
+        currentAdmin.twoFactorBackupCodes = [];
+        await currentAdmin.save();
+        
+        // 2. Restore old admin to super-admin
+        oldAdmin.role = 'super-admin';
+        oldAdmin.demotedFromSuperAdmin = false;
+        oldAdmin.superAdminTransferGracePeriodEnds = null;
+        oldAdmin.college = 'SYSTEM';
+        oldAdmin.department = 'Administration';
+        await oldAdmin.save();
+        
+        // 3. Invalidate sessions for the demoted admin
+        await Session.updateMany(
+            { userId: currentAdmin._id },
+            { isExpired: true, expiredAt: new Date() }
+        );
+        
+        // 4. Create audit log
+        await createAuditLog('SUPER_ADMIN_TRANSFER_REVERSED', currentAdmin, oldAdmin, {
+            reversedBy: currentAdminName,
+            restoredAdmin: oldAdmin.name,
+            restoredAdminRgno: oldAdmin.rgno
+        }, req);
+        
+        // 5. Send email notification
+        try {
+            if (oldAdmin.email) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: oldAdmin.email,
+                    subject: '🔄 Super-Admin Transfer Reversed',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #667eea;">Transfer Reversed - You are Super-Admin Again</h2>
+                            <p>The super-admin transfer has been reversed by ${currentAdminName}.</p>
+                            <p>You have been restored as the super-admin.</p>
+                            <p style="color: #d32f2f; font-weight: bold;">⚠️ Important: Your 2FA settings were cleared. Please set up 2FA again immediately.</p>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailError) {
+            console.error('[SUPER-ADMIN TRANSFER] Email notification failed:', emailError.message);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Super-admin transfer reversed successfully. The previous admin has been restored.',
+            restoredAdminName: oldAdmin.name
+        });
+        
+    } catch (error) {
+        console.error('Reverse transfer error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Reclaim super-admin (within 24-hour grace period, by OLD/demoted super-admin)
+// This is the SAFETY MECHANISM if the new super-admin is malicious or transfer was a mistake
+app.post('/api/auth/reclaim-super-admin', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const { password } = req.body;
+        
+        // Current user must be the OLD demoted super-admin
+        const oldAdmin = await User.findById(req.auth.decoded.userId);
+        if (!oldAdmin) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Check if this user was recently demoted from super-admin
+        if (!oldAdmin.demotedFromSuperAdmin) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'You were not recently demoted from super-admin' 
+            });
+        }
+        
+        // Check if within grace period
+        if (!oldAdmin.superAdminTransferGracePeriodEnds || new Date() > oldAdmin.superAdminTransferGracePeriodEnds) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '24-hour grace period has expired. You can no longer reclaim super-admin access.' 
+            });
+        }
+        
+        // Verify password
+        if (!password) {
+            return res.status(400).json({ success: false, error: 'Password is required' });
+        }
+        const isPasswordValid = await verifyPassword(password, oldAdmin.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ success: false, error: 'Invalid password' });
+        }
+        
+        // Find current super-admin (the one who was promoted)
+        const currentAdmin = await User.findOne({ role: 'super-admin' });
+        if (!currentAdmin) {
+            return res.status(500).json({ success: false, error: 'No current super-admin found - system error' });
+        }
+        
+        // === PERFORM THE RECLAIM ===
+        
+        const oldAdminName = oldAdmin.name;
+        const currentAdminName = currentAdmin.name;
+        
+        // 1. Demote current super-admin back to their previous role
+        currentAdmin.role = currentAdmin.previousRole || 'student';
+        // Restore their original college and department
+        currentAdmin.college = currentAdmin.previousCollege || currentAdmin.college;
+        currentAdmin.department = currentAdmin.previousDepartment || currentAdmin.department;
+        // Clear previous fields
+        currentAdmin.previousRole = null;
+        currentAdmin.previousCollege = null;
+        currentAdmin.previousDepartment = null;
+        // Revoke their 2FA
+        currentAdmin.twoFactorEnabled = false;
+        currentAdmin.twoFactorSecret = null;
+        currentAdmin.twoFactorBackupCodes = [];
+        // Clear invitation fields
+        currentAdmin.superAdminInviteToken = null;
+        currentAdmin.superAdminInviteExpires = null;
+        currentAdmin.superAdminInviteAccepted = false;
+        currentAdmin.superAdminInvitedBy = null;
+        await currentAdmin.save();
+        
+        // 2. Restore old admin to super-admin
+        oldAdmin.role = 'super-admin';
+        oldAdmin.demotedFromSuperAdmin = false;
+        oldAdmin.superAdminTransferGracePeriodEnds = null;
+        oldAdmin.college = 'SYSTEM';
+        oldAdmin.department = 'Administration';
+        await oldAdmin.save();
+        
+        // 3. Invalidate ALL sessions for the demoted admin (security measure)
+        await Session.updateMany(
+            { userId: currentAdmin._id },
+            { isExpired: true, expiredAt: new Date() }
+        );
+        
+        // 4. Create audit log
+        await createAuditLog('SUPER_ADMIN_RECLAIMED', oldAdmin, currentAdmin, {
+            reclaimedBy: oldAdminName,
+            demotedAdmin: currentAdminName,
+            demotedAdminRgno: currentAdmin.rgno,
+            reason: 'Grace period reclaim by previous super-admin'
+        }, req);
+        
+        // 5. Send email notifications
+        try {
+            // Email to reclaiming admin
+            if (oldAdmin.email) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: oldAdmin.email,
+                    subject: '🔐 Super-Admin Access Reclaimed',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #667eea;">Super-Admin Access Restored</h2>
+                            <p>You have successfully reclaimed your super-admin privileges.</p>
+                            <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #28a745;">
+                                <p><strong>✓ You are now the super-admin again</strong></p>
+                                <p>${currentAdminName} has been demoted to ${currentAdmin.previousRole || 'student'}</p>
+                            </div>
+                            <p style="color: #d32f2f; font-weight: bold;">⚠️ Important: Please set up 2FA again immediately for security.</p>
+                        </div>
+                    `
+                });
+            }
+            
+            // Email to demoted admin
+            if (currentAdmin.email) {
+                await transporter.sendMail({
+                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                    to: currentAdmin.email,
+                    subject: '⚠️ Super-Admin Access Revoked',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #d32f2f;">Super-Admin Access Revoked</h2>
+                            <p>The previous super-admin (${oldAdminName}) has reclaimed their super-admin privileges within the 24-hour grace period.</p>
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                                <p><strong>Your new role:</strong> ${currentAdmin.previousRole || 'Student'}</p>
+                                <p><strong>Your 2FA settings have been cleared</strong></p>
+                                <p><strong>All your sessions have been invalidated</strong></p>
+                            </div>
+                        </div>
+                    `
+                });
+            }
+        } catch (emailError) {
+            console.error('[SUPER-ADMIN RECLAIM] Email notification failed:', emailError.message);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Super-admin access reclaimed successfully! Please set up 2FA again.',
+            demotedUser: currentAdminName
+        });
+        
+    } catch (error) {
+        console.error('Reclaim super-admin error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Check if current user can reclaim super-admin (for UI)
+app.get('/api/auth/can-reclaim-super-admin', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        const canReclaim = user.demotedFromSuperAdmin && 
+                          user.superAdminTransferGracePeriodEnds && 
+                          new Date() < user.superAdminTransferGracePeriodEnds;
+        
+        const remainingTime = canReclaim 
+            ? Math.max(0, user.superAdminTransferGracePeriodEnds - new Date()) 
+            : 0;
+        
+        res.json({
+            success: true,
+            canReclaim,
+            gracePeriodEnds: user.superAdminTransferGracePeriodEnds,
+            remainingMs: remainingTime,
+            remainingHours: Math.floor(remainingTime / (1000 * 60 * 60)),
+            remainingMinutes: Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60))
+        });
+        
+    } catch (error) {
+        console.error('Check reclaim status error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== SUPER ADMIN SEED ENDPOINT ====================
+// One-time use to create your super-admin account
+// Access: GET /api/auth/seed-super-admin?secret=YOUR_SECRET_KEY
+// After use, set SUPER_ADMIN_SEED_ENABLED=false in .env
+app.get('/api/auth/seed-super-admin', async (req, res) => {
+    try {
+        // Security: Require secret key and feature flag
+        const seedEnabled = process.env.SUPER_ADMIN_SEED_ENABLED === 'true';
+        const seedSecret = process.env.SUPER_ADMIN_SEED_SECRET;
+        
+        if (!seedEnabled) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Super admin seeding is disabled. Set SUPER_ADMIN_SEED_ENABLED=true in .env' 
+            });
+        }
+        
+        if (!seedSecret || req.query.secret !== seedSecret) {
+            return res.status(401).json({ 
+                success: false, 
+                error: 'Invalid seed secret. Pass ?secret=YOUR_SECRET' 
+            });
+        }
+        
+        // Check if super-admin already exists
+        const existingSuperAdmin = await User.findOne({ role: 'super-admin' });
+        if (existingSuperAdmin) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Super admin already exists',
+                superAdmin: {
+                    name: existingSuperAdmin.name,
+                    email: existingSuperAdmin.email,
+                    rgno: existingSuperAdmin.rgno
+                }
+            });
+        }
+        
+        // Create super-admin with values from environment or defaults
+        const superAdminData = {
+            name: process.env.SUPER_ADMIN_NAME || 'System Administrator',
+            email: process.env.SUPER_ADMIN_EMAIL || 'admin@logi.system',
+            rgno: parseInt(process.env.SUPER_ADMIN_RGNO) || 999999999,
+            password: await hashPassword(process.env.SUPER_ADMIN_PASSWORD || 'ChangeThisPassword123!'),
+            role: 'super-admin',
+            college: 'SYSTEM', // Super-admin is system-wide
+            department: 'Administration',
+            approvalStatus: 'approved', // Auto-approved
+            approvedAt: new Date(),
+            isActive: true
+        };
+        
+        const superAdmin = new User(superAdminData);
+        await superAdmin.save();
+        
+        console.log('✅ Super Admin created successfully!');
+        console.log(`   Email: ${superAdminData.email}`);
+        console.log(`   RGNO: ${superAdminData.rgno}`);
+        
+        res.json({
+            success: true,
+            message: 'Super admin created successfully! IMPORTANT: Set SUPER_ADMIN_SEED_ENABLED=false now!',
+            superAdmin: {
+                name: superAdminData.name,
+                email: superAdminData.email,
+                rgno: superAdminData.rgno,
+                college: superAdminData.college
+            },
+            loginWith: {
+                rgno: superAdminData.rgno,
+                password: 'The password you set in SUPER_ADMIN_PASSWORD env var'
+            }
+        });
+    } catch (error) {
+        console.error('Seed super admin error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 app.listen(PORT, () => {

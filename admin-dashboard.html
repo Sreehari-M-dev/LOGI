@@ -1,0 +1,3308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - LOGI</title>
+    <script>
+        // Auto-detect environment - LOCAL vs PRODUCTION
+        (function () {
+            const hostname = window.location.hostname;
+            const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
+            if (isLocal) {
+                const host = hostname === 'localhost' ? 'localhost' : hostname;
+                window.API_BASE = `http://${host}:3002`;
+            } else {
+                window.API_BASE = 'https://logi-auth-service-avbs.onrender.com';
+            }
+            console.log('[Admin Dashboard] API_BASE:', window.API_BASE);
+        })();
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0f1c;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1f2937;
+            --bg-card: linear-gradient(145deg, #1a2332 0%, #111827 100%);
+            --accent-primary: #6366f1;
+            --accent-secondary: #8b5cf6;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+            --accent-teal: #10b981;
+            --accent-cyan: #06b6d4;
+            --accent-blue: #3b82f6;
+            --accent-orange: #f59e0b;
+            --error-red: #ef4444;
+            --warning-amber: #fbbf24;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(99, 102, 241, 0.3);
+            --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            background-image: 
+                radial-gradient(ellipse at 20% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        table{
+            background: #474040;
+        }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-secondary);
+        }
+        
+        /* Admin Navigation Bar */
+        .admin-navbar {
+            background: linear-gradient(135deg, #1a2332 0%, #111827 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .admin-nav-container {
+            max-width: 1500px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            height: 65px;
+        }
+        
+        .admin-nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 1.3rem;
+        }
+        
+        .admin-nav-brand i {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 1.5rem;
+        }
+        
+        .admin-nav-brand span {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .admin-nav-menu {
+            display: flex;
+            list-style: none;
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .admin-nav-menu a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .admin-nav-menu a:hover {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+        
+        .admin-nav-menu a.active {
+            background: var(--accent-gradient);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+        
+        .admin-nav-menu a i {
+            font-size: 1rem;
+        }
+        
+        .admin-hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            padding: 8px;
+            gap: 5px;
+            background: transparent;
+            border: none;
+        }
+        
+        .admin-hamburger span {
+            width: 25px;
+            height: 3px;
+            background: var(--text-primary);
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .admin-hamburger.active span:nth-child(1) {
+            transform: rotate(-45deg) translate(-5px, 6px);
+        }
+        
+        .admin-hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+        
+        .admin-hamburger.active span:nth-child(3) {
+            transform: rotate(45deg) translate(-5px, -6px);
+        }
+        
+        @media (max-width: 900px) {
+            .admin-hamburger {
+                display: flex;
+            }
+            
+            .admin-nav-menu {
+                position: fixed;
+                top: 65px;
+                left: -100%;
+                width: 100%;
+                height: calc(100vh - 65px);
+                flex-direction: column;
+                background: linear-gradient(135deg, #1a2332 0%, #111827 100%);
+                padding: 20px;
+                gap: 10px;
+                transition: left 0.3s ease;
+                overflow-y: auto;
+            }
+            
+            .admin-nav-menu.active {
+                left: 0;
+            }
+            
+            .admin-nav-menu a {
+                padding: 15px 20px;
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
+        
+        .dashboard-container {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding: 24px 32px;
+            background: var(--bg-card);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg), var(--shadow-glow);
+            backdrop-filter: blur(10px);
+        }
+        
+        .dashboard-header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .dashboard-header h1 i {
+            -webkit-text-fill-color: initial;
+            color: var(--accent-primary);
+        }
+        
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .role-badge {
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .role-badge.super-admin { 
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        }
+        .role-badge.principal { 
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+        .role-badge.faculty { 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+        
+        .college-info {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .session-timer {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--warning-amber);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+        
+        .session-timer.warning {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error-red);
+            border-color: rgba(239, 68, 68, 0.3);
+            animation: pulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .logout-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: 2px solid var(--error-red);
+            color: var(--error-red);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logout-btn:hover {
+            background: var(--error-red);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .stat-card {
+            background: var(--bg-card);
+            padding: 28px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--accent-gradient);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-lg), var(--shadow-glow);
+        }
+        
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+        
+        .stat-card .icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin: 0 auto 16px;
+            background: var(--bg-tertiary);
+        }
+        
+        .stat-card .number {
+            font-size: 2.75rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+        }
+        
+        .stat-card .label {
+            color: var(--text-secondary);
+            margin-top: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        
+        .stat-card.pending .icon { background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.1)); color: var(--warning-amber); }
+        .stat-card.pending .number { background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; }
+        
+        .stat-card.success .icon { background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1)); color: var(--accent-teal); }
+        .stat-card.success .number { background: linear-gradient(135deg, #10b981, #059669); -webkit-background-clip: text; }
+        
+        .stat-card.error .icon { background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1)); color: var(--error-red); }
+        .stat-card.error .number { background: linear-gradient(135deg, #ef4444, #dc2626); -webkit-background-clip: text; }
+        
+        .stat-card.info .icon { background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1)); color: var(--accent-blue); }
+        .stat-card.info .number { background: linear-gradient(135deg, #3b82f6, #2563eb); -webkit-background-clip: text; }
+        
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            padding: 8px;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .tab-btn {
+            padding: 14px 28px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 0.95rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .tab-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .tab-btn.active {
+            background: var(--accent-gradient);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+        
+        .panel {
+            display: none;
+            background: var(--bg-card);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .panel.active {
+            display: block;
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 28px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.2);
+        }
+        h2{color:white}
+        .panel-header h2 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .filter-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-controls select,
+        .filter-controls input {
+            padding: 12px 18px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .filter-controls select:hover,
+        .filter-controls input:hover {
+            border-color: var(--accent-primary);
+        }
+        
+        .filter-controls select:focus,
+        .filter-controls input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .user-table th,
+        .user-table td {
+            padding: 18px 24px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .user-table th {
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .user-table tr {
+            transition: all 0.2s;
+        }
+        
+        .user-table tr:hover {
+            background: rgba(99, 102, 241, 0.05);
+        }
+        
+        .user-table td {
+            font-size: 0.95rem;
+        }
+        
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        .status-badge.pending { 
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.1));
+            color: var(--warning-amber);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+        .status-badge.approved { 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1));
+            color: var(--accent-teal);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .status-badge.rejected { 
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1));
+            color: var(--error-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        
+        .action-btns {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .action-btn.approve {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .action-btn.approve:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .action-btn.reject {
+            background: transparent;
+            border: 2px solid var(--error-red);
+            color: var(--error-red);
+        }
+        
+        .action-btn.reject:hover {
+            background: var(--error-red);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+        
+        .action-btn.revoke {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+        
+        .action-btn.revoke:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+        }
+        
+        .action-btn.delete {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        
+        .action-btn.delete:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+        
+        .empty-state {
+            padding: 80px 20px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.3;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .empty-state p {
+            font-size: 1.1rem;
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 24px;
+            padding: 36px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg), var(--shadow-glow);
+        }
+        h3{
+            color: white;
+        }
+        .modal h3 {
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        
+        .modal textarea,
+        .modal input {
+            width: 100%;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .modal input {
+            min-height: auto;
+        }
+        
+        .modal textarea:focus,
+        .modal input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        
+        .modal-btns {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .modal-btn {
+            padding: 14px 28px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+        
+        .modal-btn.cancel {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .modal-btn.cancel:hover {
+            background: var(--bg-primary);
+        }
+        
+        .modal-btn.confirm {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+        
+        .modal-btn.confirm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+        
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 18px 28px;
+            border-radius: 16px;
+            color: white;
+            font-weight: 600;
+            z-index: 1001;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast.success { 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .toast.error { 
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        .toast.warning { 
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        /* 2FA Section */
+        .twofa-section {
+            padding: 36px;
+        }
+        
+        .twofa-section h2 {
+            margin-bottom: 8px;
+        }
+        
+        .twofa-status {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin: 30px 0;
+            padding: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .twofa-status .icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+        }
+        
+        .twofa-status .icon.enabled { 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.1));
+            color: var(--accent-teal);
+        }
+        .twofa-status .icon.disabled { 
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+        }
+        
+        .qr-code {
+            text-align: center;
+            padding: 24px;
+            background: white;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 24px 0;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .qr-code img {
+            max-width: 200px;
+            border-radius: 8px;
+        }
+        
+        .secret-key {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-tertiary);
+            padding: 16px 24px;
+            border-radius: 12px;
+            margin: 20px 0;
+            word-break: break-all;
+            border: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+        
+        .verify-input {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        
+        .verify-input input {
+            flex: 1;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 12px;
+            font-size: 1.3rem;
+            letter-spacing: 8px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .verify-input input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        
+        /* Backup Codes Grid */
+        .backup-codes-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            max-width: 400px;
+        }
+        
+        .backup-code-item {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-tertiary);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            letter-spacing: 2px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+        
+        .backup-code-item.used {
+            text-decoration: line-through;
+            opacity: 0.5;
+            color: var(--text-muted);
+        }
+        
+        .backup-codes-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .backup-codes-status.available {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-teal);
+        }
+        
+        .backup-codes-status.low {
+            background: rgba(251, 191, 36, 0.1);
+            color: var(--warning-amber);
+        }
+        
+        .backup-codes-status.none {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-red);
+        }
+        
+        /* Audit Log */
+        .audit-log {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .audit-item {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            transition: all 0.2s;
+        }
+        
+        .audit-item:hover {
+            background: rgba(99, 102, 241, 0.05);
+        }
+        
+        .audit-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1.25rem;
+        }
+        
+        .audit-content {
+            flex: 1;
+        }
+        
+        .audit-action {
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 1rem;
+        }
+        
+        .audit-details {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .audit-time {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+        
+        /* Emergency panel */
+        .danger-zone {
+            background: linear-gradient(145deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05));
+            padding: 28px;
+            border-radius: 16px;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            margin-bottom: 24px;
+        }
+        
+        .danger-zone h3 {
+            color: var(--error-red);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .warning-zone {
+            background: linear-gradient(145deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.05));
+            padding: 28px;
+            border-radius: 16px;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            margin-bottom: 24px;
+        }
+        
+        .warning-zone h3 {
+            color: var(--warning-amber);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* Checkbox styling */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--accent-primary);
+            cursor: pointer;
+        }
+        
+        /* Loading spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-container {
+                padding: 16px;
+            }
+            
+            .dashboard-header {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+                padding: 20px;
+            }
+            
+            .user-badge {
+                flex-direction: column;
+            }
+            
+            .college-info {
+                max-width: 100%;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+            
+            .stat-card {
+                padding: 20px;
+            }
+            
+            .stat-card .number {
+                font-size: 2rem;
+            }
+            
+            .tabs {
+                padding: 4px;
+                gap: 8px;
+            }
+            
+            .tab-btn {
+                padding: 12px 16px;
+                font-size: 0.85rem;
+                flex: 1;
+                justify-content: center;
+            }
+            
+            .tab-btn span {
+                display: none;
+            }
+            
+            .user-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .user-table th,
+            .user-table td {
+                padding: 12px 16px;
+            }
+            
+            .filter-controls {
+                width: 100%;
+            }
+            
+            .filter-controls select {
+                flex: 1;
+            }
+            
+            .panel-header {
+                flex-direction: column;
+                gap: 16px;
+                padding: 20px;
+            }
+            
+            .action-btns {
+                justify-content: center;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Crown (Super-Admin Successor) Button */
+        .action-btn.crown {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+        
+        .action-btn.crown:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+        }
+        
+        .crown-tooltip {
+            position: relative;
+        }
+        
+        .crown-tooltip::after {
+            content: 'Invite as Super-Admin';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+            z-index: 100;
+            border: 1px solid var(--border-color);
+        }
+        
+        .crown-tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body>
+    <!-- Admin Navigation Bar -->
+    <nav class="admin-navbar">
+        <div class="admin-nav-container">
+            <a href="index.html" class="admin-nav-brand">
+                <i class="fas fa-flask"></i>
+                <span>LOGI Portal</span>
+            </a>
+            <button class="admin-hamburger" id="adminHamburger" onclick="toggleAdminMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="admin-nav-menu" id="adminNavMenu">
+                <li><a href="index.html"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="Log_Book1.html"><i class="fas fa-book"></i> Logbook</a></li>
+                <li><a href="Studyresources.html"><i class="fas fa-folder-open"></i> Resources</a></li>
+                <li><a href="About.html"><i class="fas fa-info-circle"></i> About</a></li>
+                <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+                <li><a href="admin-dashboard.html" class="active"><i class="fas fa-shield-halved"></i> Admin</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1><i class="fas fa-shield-halved"></i> Admin Dashboard</h1>
+            <div class="user-badge">
+                <span class="role-badge" id="roleDisplay"></span>
+                <span class="college-info" id="collegeDisplay"></span>
+                <!-- Session Timer (shown for non-super-admin only) -->
+                <span class="session-timer" id="sessionTimerContainer" style="display: none;">
+                    <i class="fas fa-clock"></i> <span id="inactivityTimer">--:--</span>
+                </span>
+            </div>
+            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </header>
+        
+        <!-- Stats -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card pending">
+                <div class="icon"><i class="fas fa-clock"></i></div>
+                <div class="number" id="pendingCount">-</div>
+                <div class="label">Pending Approvals</div>
+            </div>
+            <div class="stat-card success">
+                <div class="icon"><i class="fas fa-user-check"></i></div>
+                <div class="number" id="approvedCount">-</div>
+                <div class="label">Approved Users</div>
+            </div>
+            <div class="stat-card error">
+                <div class="icon"><i class="fas fa-user-xmark"></i></div>
+                <div class="number" id="rejectedCount">-</div>
+                <div class="label">Rejected</div>
+            </div>
+            <div class="stat-card info">
+                <div class="icon"><i class="fas fa-users"></i></div>
+                <div class="number" id="totalCount">-</div>
+                <div class="label">Total Users</div>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="pending"><i class="fas fa-hourglass-half"></i> <span>Pending Approvals</span></button>
+            <button class="tab-btn" data-tab="users"><i class="fas fa-users"></i> <span>All Users</span></button>
+            <button class="tab-btn superadmin-only" data-tab="emailverify"><i class="fas fa-envelope-circle-check"></i> <span>Email Verify</span></button>
+            <button class="tab-btn superadmin-only" data-tab="audit"><i class="fas fa-clipboard-list"></i> <span>Audit Log</span></button>
+            <button class="tab-btn superadmin-only" data-tab="2fa"><i class="fas fa-shield"></i> <span>Two-Factor Auth</span></button>
+            <button class="tab-btn superadmin-only" data-tab="emergency"><i class="fas fa-triangle-exclamation"></i> <span>Emergency</span></button>
+        </div>
+        
+        <!-- Pending Approvals Panel -->
+        <div class="panel active" id="pending-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-hourglass-half"></i> Pending Approvals</h2>
+                <button class="action-btn approve" onclick="loadPendingApprovals()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            </div>
+            <div id="pendingList">
+                <div class="empty-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading pending approvals...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- All Users Panel -->
+        <div class="panel" id="users-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-users"></i> All Users</h2>
+                <div class="filter-controls">
+                    <select id="filterRole" onchange="loadCollegeUsers()">
+                        <option value="">All Roles</option>
+                        <option value="principal">Principal</option>
+                        <option value="faculty">Faculty</option>
+                        <option value="student">Student</option>
+                    </select>
+                    <select id="filterStatus" onchange="loadCollegeUsers()">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                    <select id="filterCollege" class="superadmin-only" onchange="loadCollegeUsers()">
+                        <option value="">All Colleges</option>
+                    </select>
+                </div>
+            </div>
+            <div id="usersList">
+                <div class="empty-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading users...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Email Verification Panel -->
+        <div class="panel" id="emailverify-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-envelope-circle-check"></i> Email Verification Management</h2>
+                <button class="action-btn approve" onclick="loadEmailVerificationStats()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            </div>
+            
+            <div class="email-verify-content" style="padding: 20px;">
+                <!-- Stats Cards -->
+                <div class="stats-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 36px; font-weight: bold;" id="verifiedCount">-</div>
+                        <div style="opacity: 0.9;"><i class="fas fa-check-circle"></i> Verified</div>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #ffc107, #fd7e14); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 36px; font-weight: bold;" id="unverifiedCount">-</div>
+                        <div style="opacity: 0.9;"><i class="fas fa-clock"></i> Unverified</div>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 36px; font-weight: bold;" id="noEmailCount">-</div>
+                        <div style="opacity: 0.9;"><i class="fas fa-exclamation-triangle"></i> No Email</div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+                    <h3 style="margin: 0 0 15px; color: #333;"><i class="fas fa-paper-plane"></i> Send Verification Emails</h3>
+                    <p style="color: #666; margin-bottom: 20px;">
+                        Send verification emails to all users who haven't verified their email addresses yet. 
+                        This is required for existing users after enabling email verification.
+                    </p>
+                    <button class="action-btn" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px 30px; font-size: 16px; border-radius: 10px; cursor: pointer; border: none;" onclick="sendBulkVerificationEmails()">
+                        <i class="fas fa-envelope"></i> Send Verification to All Unverified Users
+                    </button>
+                    <p style="font-size: 13px; color: #999; margin-top: 10px;">
+                        <i class="fas fa-info-circle"></i> Emails are sent with a small delay to avoid rate limits. This may take a few minutes for many users.
+                    </p>
+                </div>
+                
+                <!-- Info Box -->
+                <div style="background: #e8f5e9; padding: 20px; border-radius: 12px; border: 1px solid #4caf50;">
+                    <h4 style="margin: 0 0 10px; color: #2e7d32;"><i class="fas fa-shield-alt"></i> Email Verification Security</h4>
+                    <ul style="margin: 0; padding-left: 20px; color: #2e7d32;">
+                        <li>Users must verify their email before logging in</li>
+                        <li>Verification links expire after 24 hours</li>
+                        <li>Users can request new verification emails from the login page</li>
+                        <li>You can manually verify users or send individual verification emails</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Audit Log Panel -->
+        <div class="panel" id="audit-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-clipboard-list"></i> Audit Log</h2>
+                <div class="filter-controls">
+                    <select id="filterAction" onchange="loadAuditLogs()">
+                        <option value="">All Actions</option>
+                        <option value="USER_APPROVED">User Approved</option>
+                        <option value="USER_REJECTED">User Rejected</option>
+                        <option value="SESSIONS_REVOKED">Sessions Revoked</option>
+                        <option value="USER_DELETED_BY_ADMIN">User Deleted</option>
+                        <option value="2FA_ENABLED">2FA Enabled</option>
+                        <option value="2FA_DISABLED">2FA Disabled</option>
+                    </select>
+                </div>
+            </div>
+            <div class="audit-log" id="auditLogList">
+                <div class="empty-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading audit logs...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 2FA Panel -->
+        <div class="panel" id="2fa-panel">
+            <div class="twofa-section">
+                <h2><i class="fas fa-shield-halved"></i> Two-Factor Authentication</h2>
+                <p style="color: var(--text-secondary); margin: 10px 0 20px;">Add an extra layer of security to your super-admin account</p>
+                
+                <div class="twofa-status" id="twofaStatus">
+                    <div class="icon disabled"><i class="fas fa-lock-open"></i></div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 1.1rem;">2FA Status</div>
+                        <div style="color: var(--text-secondary);" id="twofaStatusText">Loading...</div>
+                    </div>
+                </div>
+                
+                <div id="twofaSetup" style="display: none;">
+                    <h3 style="margin-bottom: 12px;"><i class="fas fa-qrcode"></i> Setup Two-Factor Authentication</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 24px;">Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)</p>
+                    
+                    <div class="qr-code" id="qrCodeContainer">
+                        <!-- QR code will be inserted here -->
+                    </div>
+                    
+                    <p style="margin-top: 24px; color: var(--text-secondary);">Or enter this secret key manually:</p>
+                    <div class="secret-key" id="secretKey"></div>
+                    
+                    <div class="verify-input">
+                        <input type="text" id="verifyCode" placeholder="000000" maxlength="6">
+                        <button class="action-btn approve" onclick="verify2FA()"><i class="fas fa-check"></i> Verify & Enable</button>
+                    </div>
+                </div>
+                
+                <div id="twofaEnabled" style="display: none;">
+                    <div class="twofa-status">
+                        <div class="icon enabled"><i class="fas fa-lock"></i></div>
+                        <div>
+                            <div style="font-weight: 600; color: var(--accent-teal); font-size: 1.1rem;">2FA is Enabled</div>
+                            <div style="color: var(--text-secondary);">Your account is protected with two-factor authentication</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Backup Codes Section -->
+                    <div class="backup-codes-section" style="margin-top: 24px; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--border-light);">
+                        <h4 style="margin: 0 0 12px 0; color: var(--text-primary);"><i class="fas fa-key"></i> Backup Codes</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 16px;">
+                            Backup codes can be used to access your account if you lose access to your authenticator app.
+                        </p>
+                        
+                        <div id="backupCodesStatus" style="margin-bottom: 16px;">
+                            <span style="color: var(--text-secondary);">Checking backup codes status...</span>
+                        </div>
+                        
+                        <div id="backupCodesDisplay" style="display: none; margin-bottom: 16px;">
+                            <div class="backup-codes-warning" style="background: rgba(251, 191, 36, 0.1); border: 1px solid var(--warning-amber); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                <i class="fas fa-exclamation-triangle" style="color: var(--warning-amber);"></i>
+                                <span style="color: var(--warning-amber); font-weight: 500;"> Save these codes now!</span>
+                                <p style="color: var(--text-secondary); margin: 8px 0 0 0; font-size: 0.85rem;">
+                                    Each code can only be used once. Store them in a secure place like a password manager.
+                                </p>
+                            </div>
+                            <div id="backupCodesGrid" class="backup-codes-grid"></div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+                                <button class="action-btn" style="background: var(--glass-bg);" onclick="copyBackupCodes()">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <button class="action-btn" style="background: var(--accent-gradient);" onclick="downloadBackupCodes()">
+                                    <i class="fas fa-download"></i> Download
+                                </button>
+                                <button class="action-btn" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);" onclick="printBackupCodes()">
+                                    <i class="fas fa-print"></i> Print
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="action-btn" id="viewBackupCodesBtn" onclick="showViewBackupCodesModal()" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                                <i class="fas fa-eye"></i> View Backup Codes
+                            </button>
+                            <button class="action-btn" id="generateBackupCodesBtn" onclick="generateBackupCodes()">
+                                <i class="fas fa-rotate"></i> Generate New Codes
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button class="action-btn reject" style="margin-top: 24px;" onclick="showDisable2FAModal()"><i class="fas fa-shield-xmark"></i> Disable 2FA</button>
+                </div>
+                
+                <button class="action-btn approve" id="setup2FABtn" onclick="setup2FA()"><i class="fas fa-plus"></i> Setup 2FA</button>
+            </div>
+        </div>
+        
+        <!-- Emergency Actions Panel -->
+        <div class="panel" id="emergency-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-triangle-exclamation"></i> Emergency Actions</h2>
+            </div>
+            <div style="padding: 28px;">
+                <div class="warning-zone">
+                    <h3><i class="fas fa-ban"></i> Revoke All Sessions</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">Immediately log out all users from the system. Use this in case of security breach.</p>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="excludeSelf" checked>
+                        <span>Keep my session active</span>
+                    </label>
+                    <button class="action-btn delete" onclick="revokeAllSessions()"><i class="fas fa-power-off"></i> Revoke All Sessions</button>
+                </div>
+                
+                <div class="danger-zone">
+                    <h3><i class="fas fa-skull-crossbones"></i> Danger Zone</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">These actions are irreversible. Proceed with extreme caution.</p>
+                    <button class="action-btn delete" onclick="showDeleteUserModal()"><i class="fas fa-trash-alt"></i> Delete User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Rejection Modal -->
+    <div class="modal-overlay" id="rejectModal">
+        <div class="modal">
+            <h3><i class="fas fa-user-xmark" style="color: var(--error-red);"></i> Reject User</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Please provide a reason for rejection:</p>
+            <textarea id="rejectionReason" placeholder="Enter rejection reason..."></textarea>
+            <div class="modal-btns">
+                <button class="modal-btn cancel" onclick="closeRejectModal()">Cancel</button>
+                <button class="modal-btn confirm" onclick="confirmReject()"><i class="fas fa-times"></i> Reject User</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Disable 2FA Modal -->
+    <div class="modal-overlay" id="disable2FAModal">
+        <div class="modal">
+            <h3><i class="fas fa-shield-xmark" style="color: var(--error-red);"></i> Disable Two-Factor Authentication</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Enter your password and current 2FA code to disable:</p>
+            <input type="password" id="disablePassword" placeholder="Password" style="min-height: auto;">
+            <input type="text" id="disableCode" placeholder="000000" maxlength="6" style="min-height: auto; letter-spacing: 8px; text-align: center; font-size: 1.2rem;">
+            <div class="modal-btns">
+                <button class="modal-btn cancel" onclick="closeDisable2FAModal()">Cancel</button>
+                <button class="modal-btn confirm" onclick="confirmDisable2FA()"><i class="fas fa-lock-open"></i> Disable 2FA</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- View Backup Codes Modal -->
+    <div class="modal-overlay" id="viewBackupCodesModal">
+        <div class="modal" style="max-width: 500px;">
+            <h3><i class="fas fa-key" style="color: var(--accent-blue);"></i> View Backup Codes</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Enter your password to view your backup codes:</p>
+            <input type="password" id="viewCodesPassword" placeholder="Password" style="min-height: auto; width: 100%;">
+            <div id="viewCodesResult" style="display: none; margin-top: 16px;">
+                <div id="viewCodesGrid" class="backup-codes-grid" style="margin-bottom: 16px;"></div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="action-btn" style="background: var(--glass-bg);" onclick="copyViewedCodes()">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                    <button class="action-btn" style="background: var(--accent-gradient);" onclick="downloadViewedCodes()">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button class="action-btn" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);" onclick="printViewedCodes()">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </div>
+            </div>
+            <div class="modal-btns" style="margin-top: 16px;">
+                <button class="modal-btn cancel" onclick="closeViewBackupCodesModal()">Close</button>
+                <button class="modal-btn confirm" id="viewCodesBtn" style="background: var(--accent-gradient);" onclick="fetchBackupCodes()"><i class="fas fa-eye"></i> View Codes</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit User Modal (Super-admin only) -->
+    <div class="modal-overlay" id="editUserModal">
+        <div class="modal" style="max-width: 600px;">
+            <h3><i class="fas fa-user-pen" style="color: var(--accent-primary);"></i> Edit User</h3>
+            <div id="editUserContent">
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; color: var(--text-secondary); margin-bottom: 6px; font-size: 0.9rem;">Name</label>
+                    <input type="text" id="editUserName" readonly style="min-height: auto; background: var(--bg-primary); cursor: not-allowed;">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; color: var(--text-secondary); margin-bottom: 6px; font-size: 0.9rem;">Register Number</label>
+                    <input type="text" id="editUserRgno" readonly style="min-height: auto; background: var(--bg-primary); cursor: not-allowed;">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; color: var(--text-secondary); margin-bottom: 6px; font-size: 0.9rem;">Current Role</label>
+                    <input type="text" id="editUserCurrentRole" readonly style="min-height: auto; background: var(--bg-primary); cursor: not-allowed;">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; color: var(--text-secondary); margin-bottom: 6px; font-size: 0.9rem;"><i class="fas fa-user-tag"></i> Change Role To</label>
+                    <select id="editUserNewRole" style="width: 100%; padding: 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px; font-size: 1rem;">
+                        <option value="">-- Keep Current Role --</option>
+                        <option value="student">Student</option>
+                        <option value="faculty">Faculty</option>
+                        <option value="principal">Principal</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; color: var(--text-secondary); margin-bottom: 6px; font-size: 0.9rem;"><i class="fas fa-building"></i> Change College To</label>
+                    <select id="editUserNewCollege" style="width: 100%; padding: 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px; font-size: 1rem;">
+                        <option value="">-- Keep Current College --</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; color: var(--text-secondary); margin-bottom: 6px; font-size: 0.9rem;"><i class="fas fa-building-columns"></i> Change Department To</label>
+                    <input type="text" id="editUserNewDepartment" placeholder="Leave empty to keep current" style="min-height: auto;">
+                </div>
+            </div>
+            <div class="modal-btns">
+                <button class="modal-btn cancel" onclick="closeEditUserModal()">Cancel</button>
+                <button class="modal-btn confirm" style="background: var(--accent-gradient);" onclick="confirmEditUser()"><i class="fas fa-save"></i> Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete User Modal -->
+    <div class="modal-overlay" id="deleteUserModal">
+        <div class="modal">
+            <h3><i class="fas fa-trash-alt" style="color: var(--error-red);"></i> Delete User</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Search for a user to delete by Register Number:</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                <input type="number" id="deleteUserRgno" placeholder="Enter Register Number" style="flex: 1; min-height: auto;">
+                <button class="action-btn approve" onclick="searchUserToDelete()"><i class="fas fa-search"></i></button>
+            </div>
+            <div id="deleteUserInfo" style="display: none; background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <p><strong>Name:</strong> <span id="deleteUserName"></span></p>
+                <p><strong>Role:</strong> <span id="deleteUserRole"></span></p>
+                <p><strong>College:</strong> <span id="deleteUserCollege"></span></p>
+                <p style="color: var(--error-red); margin-top: 12px;"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone!</p>
+            </div>
+            <div class="modal-btns">
+                <button class="modal-btn cancel" onclick="closeDeleteUserModal()">Cancel</button>
+                <button class="modal-btn confirm" id="confirmDeleteBtn" style="display: none;" onclick="confirmDeleteUser()"><i class="fas fa-trash"></i> Delete Permanently</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Super-Admin Invitation Modal -->
+    <div class="modal-overlay" id="inviteSuccessorModal">
+        <div class="modal" style="max-width: 550px;">
+            <h3><i class="fas fa-crown" style="color: #f59e0b;"></i> Invite as Super-Admin Successor</h3>
+            <div id="inviteUserDetails" style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <p><strong>Name:</strong> <span id="inviteUserName"></span></p>
+                <p><strong>RGNO:</strong> <span id="inviteUserRgno"></span></p>
+                <p><strong>Role:</strong> <span id="inviteUserRole"></span></p>
+                <p><strong>College:</strong> <span id="inviteUserCollege"></span></p>
+            </div>
+            <div style="background: rgba(251, 191, 36, 0.1); padding: 16px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, 0.3); margin-bottom: 16px;">
+                <p style="color: var(--warning-amber); font-weight: 600;"><i class="fas fa-exclamation-triangle"></i> Important!</p>
+                <ul style="color: var(--text-secondary); margin: 10px 0 0 20px; font-size: 0.9rem;">
+                    <li>This user will receive an invitation to become the new super-admin</li>
+                    <li>The invitation is valid for <strong>24 hours</strong> and can only be used once</li>
+                    <li>Only ONE pending invitation can exist at a time</li>
+                    <li>When they accept, you'll need to enter your password + 2FA to complete the transfer</li>
+                    <li><strong>You will be demoted to a regular user</strong></li>
+                </ul>
+            </div>
+            <div class="modal-btns">
+                <button class="modal-btn cancel" onclick="closeInviteSuccessorModal()">Cancel</button>
+                <button class="modal-btn confirm" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);" onclick="confirmSendInvitation()"><i class="fas fa-paper-plane"></i> Send Invitation</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Complete Super-Admin Transfer Modal -->
+    <div class="modal-overlay" id="completeTransferModal">
+        <div class="modal" style="max-width: 500px;">
+            <h3><i class="fas fa-crown" style="color: #f59e0b;"></i> Complete Super-Admin Transfer</h3>
+            <div id="transferUserDetails" style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <p><strong>New Super-Admin:</strong> <span id="transferUserName"></span></p>
+                <p><strong>Accepted At:</strong> <span id="transferAcceptedAt"></span></p>
+            </div>
+            <div style="background: rgba(239, 68, 68, 0.1); padding: 16px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.3); margin-bottom: 16px;">
+                <p style="color: var(--error-red); font-weight: 600;"><i class="fas fa-skull-crossbones"></i> Final Warning!</p>
+                <ul style="color: var(--text-secondary); margin: 10px 0 0 20px; font-size: 0.9rem;">
+                    <li>This action will transfer ALL super-admin privileges</li>
+                    <li>You will be demoted to a student role</li>
+                    <li>Your 2FA will be disabled</li>
+                    <li>All your sessions will be invalidated</li>
+                    <li>You have a 24-hour grace period to reverse the transfer</li>
+                </ul>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; color: var(--text-secondary); margin-bottom: 6px;">Enter Your Password:</label>
+                <input type="password" id="transferPassword" placeholder="Password" style="width: 100%; min-height: auto;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; color: var(--text-secondary); margin-bottom: 6px;">Enter 2FA Code:</label>
+                <input type="text" id="transfer2FACode" placeholder="000000" maxlength="6" style="width: 100%; min-height: auto; letter-spacing: 8px; text-align: center; font-size: 1.2rem;">
+            </div>
+            <div class="modal-btns">
+                <button class="modal-btn cancel" onclick="closeCompleteTransferModal()">Cancel</button>
+                <button class="modal-btn confirm" onclick="confirmCompleteTransfer()"><i class="fas fa-check"></i> Complete Transfer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pending Invitation Alert Banner -->
+    <div id="pendingInvitationBanner" style="display: none; position: fixed; top: 65px; left: 0; right: 0; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 16px 24px; z-index: 999; text-align: center; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+        <i class="fas fa-crown"></i>
+        <span id="pendingInvitationText"></span>
+        <button onclick="showCompleteTransferModal()" style="margin-left: 16px; padding: 8px 16px; background: white; color: #d97706; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Complete Transfer</button>
+        <button onclick="cancelPendingInvitation()" style="margin-left: 8px; padding: 8px 16px; background: transparent; color: white; border: 1px solid white; border-radius: 8px; font-weight: 600; cursor: pointer;">Cancel</button>
+    </div>
+    
+    <!-- Toast -->
+    <div class="toast" id="toast"><i class="fas fa-check-circle"></i> <span id="toastMessage"></span></div>
+    
+    <script>
+        // Use the auto-detected API_BASE from the head script
+        const API_BASE = window.API_BASE || 'http://localhost:3002';
+        let currentUser = null;
+        let pendingRejectUserId = null;
+        let allUsersCache = []; // Cache for user management operations
+        
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(`${btn.dataset.tab}-panel`).classList.add('active');
+                
+                // Load data for the tab
+                switch(btn.dataset.tab) {
+                    case 'pending': loadPendingApprovals(); break;
+                    case 'users': loadCollegeUsers(); break;
+                    case 'emailverify': loadEmailVerificationStats(); break;
+                    case 'audit': loadAuditLogs(); break;
+                    case '2fa': check2FAStatus(); break;
+                }
+            });
+        });
+        
+        // Initialize
+        async function init() {
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
+            
+            if (!token || !userStr) {
+                window.location.href = 'login-page.html';
+                return;
+            }
+            
+            currentUser = JSON.parse(userStr);
+            
+            // Check role authorization
+            if (!['super-admin', 'principal', 'faculty'].includes(currentUser.role)) {
+                showToast('Access denied. Admin privileges required.', 'error');
+                setTimeout(() => window.location.href = 'index.html', 2000);
+                return;
+            }
+            
+            // Update UI
+            document.getElementById('roleDisplay').textContent = currentUser.role.replace('-', ' ');
+            document.getElementById('roleDisplay').classList.add(currentUser.role);
+            document.getElementById('collegeDisplay').textContent = currentUser.college || 'System Admin';
+            
+            // Show/hide super-admin only elements
+            if (currentUser.role !== 'super-admin') {
+                document.querySelectorAll('.superadmin-only').forEach(el => el.style.display = 'none');
+                
+                // Show session timer and start inactivity monitoring for non-super-admin
+                document.getElementById('sessionTimerContainer').style.display = 'flex';
+                startInactivityMonitoring();
+            } else {
+                loadCollegesList();
+                // Load backup codes status for super-admin
+                loadBackupCodesStatus();
+                // Check for pending super-admin invitation
+                checkPendingInvitation();
+            }
+            
+            // Load initial data
+            loadPendingApprovals();
+            loadStats();
+        }
+        
+        async function loadCollegesList() {
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/colleges`);
+                const data = await response.json();
+                if (data.success) {
+                    const select = document.getElementById('filterCollege');
+                    data.colleges.forEach(college => {
+                        const option = document.createElement('option');
+                        option.value = college;
+                        option.textContent = college.length > 40 ? college.substring(0, 40) + '...' : college;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load colleges:', error);
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const token = localStorage.getItem('token');
+                const endpoint = currentUser.role === 'super-admin' 
+                    ? `${API_BASE}/api/auth/admin/all-users`
+                    : `${API_BASE}/api/auth/college-users`;
+                    
+                const response = await fetch(endpoint, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    const users = data.users;
+                    document.getElementById('pendingCount').textContent = users.filter(u => u.approvalStatus === 'pending').length;
+                    document.getElementById('approvedCount').textContent = users.filter(u => u.approvalStatus === 'approved').length;
+                    document.getElementById('rejectedCount').textContent = users.filter(u => u.approvalStatus === 'rejected').length;
+                    document.getElementById('totalCount').textContent = users.length;
+                }
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+        
+        async function loadPendingApprovals() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/pending-approvals`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const container = document.getElementById('pendingList');
+                
+                if (!data.success || data.pendingUsers.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle"></i>
+                            <p>No pending approvals! All caught up.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>RG No / Email</th>
+                                <th>Role</th>
+                                <th>College</th>
+                                <th>Department</th>
+                                <th>Registered</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.pendingUsers.map(user => `
+                                <tr>
+                                    <td><strong>${user.name}</strong></td>
+                                    <td>${user.rgno}<br><small style="color: var(--text-muted)">${user.email}</small></td>
+                                    <td><span class="role-badge ${user.role}">${user.role}</span></td>
+                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${user.college || '-'}">${user.college || '-'}</td>
+                                    <td>${user.department || '-'}</td>
+                                    <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+                                    <td class="action-btns">
+                                        <button class="action-btn approve" onclick="approveUser('${user._id}')"><i class="fas fa-check"></i> Approve</button>
+                                        <button class="action-btn reject" onclick="showRejectModal('${user._id}')"><i class="fas fa-times"></i> Reject</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Failed to load pending approvals:', error);
+                showToast('Failed to load pending approvals', 'error');
+            }
+        }
+        
+        async function loadCollegeUsers() {
+            try {
+                const token = localStorage.getItem('token');
+                const params = new URLSearchParams();
+                
+                const role = document.getElementById('filterRole').value;
+                const status = document.getElementById('filterStatus').value;
+                const college = document.getElementById('filterCollege')?.value;
+                
+                if (role) params.append('role', role);
+                if (status) params.append('approvalStatus', status);
+                if (college) params.append('college', college);
+                
+                const endpoint = currentUser.role === 'super-admin' 
+                    ? `${API_BASE}/api/auth/admin/all-users`
+                    : `${API_BASE}/api/auth/college-users?${params}`;
+                
+                const response = await fetch(endpoint, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const container = document.getElementById('usersList');
+                
+                if (!data.success || data.users.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-users-slash"></i>
+                            <p>No users found matching your filters</p>
+                        </div>
+                    `;
+                    allUsersCache = [];
+                    return;
+                }
+                
+                // Apply filters for super-admin
+                let users = data.users;
+                if (currentUser.role === 'super-admin') {
+                    if (role) users = users.filter(u => u.role === role);
+                    if (status) users = users.filter(u => u.approvalStatus === status);
+                    if (college) users = users.filter(u => u.college === college);
+                }
+                
+                // Cache users for edit/delete operations
+                allUsersCache = data.users;
+                
+                container.innerHTML = `
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>RG No</th>
+                                <th>Role</th>
+                                <th>College</th>
+                                <th>Status</th>
+                                <th>Email</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${users.map(user => `
+                                <tr>
+                                    <td><strong>${user.name}</strong></td>
+                                    <td>${user.rgno}</td>
+                                    <td><span class="role-badge ${user.role}">${user.role}</span></td>
+                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${user.college || '-'}">${user.college || '-'}</td>
+                                    <td><span class="status-badge ${user.approvalStatus}">${user.approvalStatus}</span></td>
+                                    <td>
+                                        ${!user.email ? `<span style="color: #dc3545;" title="No email"><i class="fas fa-times-circle"></i></span>` :
+                                          user.emailVerified ? `<span style="color: #28a745;" title="Email verified"><i class="fas fa-check-circle"></i></span>` :
+                                          `<span style="color: #ffc107; cursor: pointer;" title="Click to send verification" onclick="sendVerificationEmail('${user._id}', '${user.name.replace(/'/g, "\\'")}', '${user.email}')"><i class="fas fa-clock"></i></span>`
+                                        }
+                                    </td>
+                                    <td class="action-btns">
+                                        ${user.approvalStatus === 'pending' ? `
+                                            <button class="action-btn approve" onclick="approveUser('${user._id}')"><i class="fas fa-check"></i></button>
+                                            <button class="action-btn reject" onclick="showRejectModal('${user._id}')"><i class="fas fa-times"></i></button>
+                                        ` : ''}
+                                        ${currentUser.role === 'super-admin' ? `
+                                            ${['principal', 'faculty'].includes(user.role) && user.approvalStatus === 'approved' ? `
+                                                <button class="action-btn crown crown-tooltip" onclick="showInviteSuccessorModal('${user._id}')" title="Invite as Super-Admin"><i class="fas fa-crown"></i></button>
+                                            ` : ''}
+                                            ${user.email && !user.emailVerified ? `
+                                                <button class="action-btn" style="background: #6c757d;" onclick="manuallyVerifyEmail('${user._id}', '${user.name.replace(/'/g, "\\'")}')" title="Manually Verify Email"><i class="fas fa-envelope-open-text"></i></button>
+                                            ` : ''}
+                                            <button class="action-btn" style="background: var(--accent-gradient);" onclick="showEditUserModal('${user._id}')" title="Edit User"><i class="fas fa-pen"></i></button>
+                                            <button class="action-btn revoke" onclick="revokeUserSessions('${user._id}')" title="Revoke Sessions"><i class="fas fa-ban"></i></button>
+                                            <button class="action-btn delete" onclick="deleteUser('${user._id}', '${user.name}')" title="Delete User"><i class="fas fa-trash"></i></button>
+                                        ` : ''}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Failed to load users:', error);
+                showToast('Failed to load users', 'error');
+            }
+        }
+        
+        async function approveUser(userId) {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/approve-user/${userId}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    loadPendingApprovals();
+                    loadStats();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Approve error:', error);
+                showToast('Failed to approve user', 'error');
+            }
+        }
+        
+        function showRejectModal(userId) {
+            pendingRejectUserId = userId;
+            document.getElementById('rejectionReason').value = '';
+            document.getElementById('rejectModal').classList.add('active');
+        }
+        
+        function closeRejectModal() {
+            pendingRejectUserId = null;
+            document.getElementById('rejectModal').classList.remove('active');
+        }
+        
+        async function confirmReject() {
+            if (!pendingRejectUserId) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const reason = document.getElementById('rejectionReason').value;
+                
+                const response = await fetch(`${API_BASE}/api/auth/reject-user/${pendingRejectUserId}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ reason })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    closeRejectModal();
+                    loadPendingApprovals();
+                    loadStats();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Reject error:', error);
+                showToast('Failed to reject user', 'error');
+            }
+        }
+        
+        async function revokeUserSessions(userId) {
+            if (!confirm('Are you sure you want to revoke all sessions for this user?')) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/revoke-sessions/${userId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Revoke sessions error:', error);
+                showToast('Failed to revoke sessions', 'error');
+            }
+        }
+        
+        async function deleteUser(userId, userName) {
+            if (!confirm(`Are you sure you want to permanently delete ${userName}? This action cannot be undone.`)) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/delete-user/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    loadCollegeUsers();
+                    loadStats();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showToast('Failed to delete user', 'error');
+            }
+        }
+        
+        async function revokeAllSessions() {
+            if (!confirm('⚠️ WARNING: This will log out ALL users from the system. Are you absolutely sure?')) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const excludeSelf = document.getElementById('excludeSelf').checked;
+                
+                const response = await fetch(`${API_BASE}/api/auth/admin/revoke-all-sessions`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ excludeSelf })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'warning');
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Revoke all sessions error:', error);
+                showToast('Failed to revoke sessions', 'error');
+            }
+        }
+        
+        async function loadAuditLogs() {
+            try {
+                const token = localStorage.getItem('token');
+                const action = document.getElementById('filterAction').value;
+                const params = action ? `?action=${action}` : '';
+                
+                const response = await fetch(`${API_BASE}/api/auth/admin/audit-logs${params}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const container = document.getElementById('auditLogList');
+                
+                if (!data.success || data.logs.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-clipboard-check"></i>
+                            <p>No audit logs found</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = data.logs.map(log => `
+                    <div class="audit-item">
+                        <div class="audit-icon">${getActionIcon(log.action)}</div>
+                        <div class="audit-content">
+                            <div class="audit-action">${formatAction(log.action)}</div>
+                            <div class="audit-details">
+                                <i class="fas fa-user" style="margin-right: 4px;"></i> By: ${log.performedBy?.name || 'System'} 
+                                ${log.targetUser ? `<i class="fas fa-arrow-right" style="margin: 0 6px;"></i> ${log.targetUser.name} (${log.targetUser.role})` : ''}
+                                ${log.details?.reason ? `<br><i class="fas fa-comment" style="margin-right: 4px;"></i> Reason: ${log.details.reason}` : ''}
+                            </div>
+                            <div class="audit-time"><i class="fas fa-clock" style="margin-right: 4px;"></i> ${new Date(log.timestamp).toLocaleString()} • <i class="fas fa-globe" style="margin: 0 4px;"></i> IP: ${log.ipAddress || 'N/A'}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load audit logs:', error);
+                showToast('Failed to load audit logs', 'error');
+            }
+        }
+        
+        function getActionIcon(action) {
+            const icons = {
+                'USER_APPROVED': '<i class="fas fa-user-check" style="color: var(--accent-teal);"></i>',
+                'USER_REJECTED': '<i class="fas fa-user-xmark" style="color: var(--error-red);"></i>',
+                'SESSIONS_REVOKED': '<i class="fas fa-ban" style="color: var(--warning-amber);"></i>',
+                'ALL_SESSIONS_REVOKED': '<i class="fas fa-power-off" style="color: var(--error-red);"></i>',
+                'USER_DELETED_BY_ADMIN': '<i class="fas fa-trash-alt" style="color: var(--error-red);"></i>',
+                '2FA_ENABLED': '<i class="fas fa-shield-halved" style="color: var(--accent-teal);"></i>',
+                '2FA_DISABLED': '<i class="fas fa-shield-xmark" style="color: var(--warning-amber);"></i>',
+                'USER_REASSIGNED': '<i class="fas fa-arrows-rotate" style="color: var(--accent-blue);"></i>'
+            };
+            return icons[action] || '<i class="fas fa-clipboard-list" style="color: var(--text-muted);"></i>';
+        }
+        
+        function formatAction(action) {
+            return action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+        }
+        
+        async function check2FAStatus() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/profile`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.user) {
+                    const is2FAEnabled = data.user.twoFactorEnabled;
+                    
+                    document.getElementById('twofaStatusText').textContent = is2FAEnabled ? 'Enabled' : 'Disabled';
+                    document.getElementById('twofaSetup').style.display = 'none';
+                    document.getElementById('twofaEnabled').style.display = is2FAEnabled ? 'block' : 'none';
+                    document.getElementById('setup2FABtn').style.display = is2FAEnabled ? 'none' : 'block';
+                    
+                    const icon = document.querySelector('#twofaStatus .icon');
+                    icon.classList.toggle('enabled', is2FAEnabled);
+                    icon.classList.toggle('disabled', !is2FAEnabled);
+                    icon.textContent = is2FAEnabled ? '🔐' : '🔓';
+                    
+                    // Load backup codes status if 2FA is enabled
+                    if (is2FAEnabled) {
+                        loadBackupCodesStatus();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to check 2FA status:', error);
+            }
+        }
+        
+        async function setup2FA() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/setup-2fa`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('qrCodeContainer').innerHTML = `<img src="${data.qrCode}" alt="QR Code">`;
+                    document.getElementById('secretKey').textContent = data.secret;
+                    document.getElementById('twofaSetup').style.display = 'block';
+                    document.getElementById('setup2FABtn').style.display = 'none';
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Setup 2FA error:', error);
+                showToast('Failed to setup 2FA', 'error');
+            }
+        }
+        
+        async function verify2FA() {
+            try {
+                const code = document.getElementById('verifyCode').value;
+                if (code.length !== 6) {
+                    showToast('Please enter a 6-digit code', 'warning');
+                    return;
+                }
+                
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/verify-2fa`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('2FA enabled successfully!', 'success');
+                    check2FAStatus();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Verify 2FA error:', error);
+                showToast('Failed to verify 2FA', 'error');
+            }
+        }
+        
+        function showDisable2FAModal() {
+            document.getElementById('disablePassword').value = '';
+            document.getElementById('disableCode').value = '';
+            document.getElementById('disable2FAModal').classList.add('active');
+        }
+        
+        function closeDisable2FAModal() {
+            document.getElementById('disable2FAModal').classList.remove('active');
+        }
+        
+        async function confirmDisable2FA() {
+            try {
+                const password = document.getElementById('disablePassword').value;
+                const code = document.getElementById('disableCode').value;
+                
+                if (!password || code.length !== 6) {
+                    showToast('Please enter password and 6-digit code', 'warning');
+                    return;
+                }
+                
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/disable-2fa`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password, code })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('2FA disabled', 'warning');
+                    closeDisable2FAModal();
+                    check2FAStatus();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Disable 2FA error:', error);
+                showToast('Failed to disable 2FA', 'error');
+            }
+        }
+        
+        // ==================== INACTIVITY TIMER (Non-Super-Admin) ====================
+        
+        let inactivityTimer = null;
+        let syncInterval = null;
+        let displayUpdateInterval = null;
+        let timeoutEndTime = null;
+        const INACTIVITY_TIMEOUT = 100 * 60 * 1000; // 100 minutes default
+        
+        async function startInactivityMonitoring() {
+            await syncRemainingWithServer();
+            
+            // Periodically resync with server
+            if (!syncInterval) {
+                syncInterval = setInterval(() => syncRemainingWithServer(), 60000);
+            }
+            
+            // Handle page visibility - sync when user returns
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && localStorage.getItem('token')) {
+                    syncRemainingWithServer();
+                }
+            });
+        }
+        
+        async function syncRemainingWithServer() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/session-remaining`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.status === 401) {
+                    console.log('[ADMIN] Session expired, logging out');
+                    logout();
+                    return;
+                }
+                
+                const data = await res.json();
+                if (data.success && typeof data.remainingMs === 'number') {
+                    console.log('[ADMIN] Remaining time:', Math.floor(data.remainingMs / 1000), 'seconds');
+                    resetInactivityTimer(data.remainingMs);
+                } else {
+                    resetInactivityTimer(INACTIVITY_TIMEOUT);
+                }
+            } catch (error) {
+                console.error('Failed to sync session time:', error);
+            }
+        }
+        
+        function resetInactivityTimer(remainingMs = INACTIVITY_TIMEOUT) {
+            if (inactivityTimer) {
+                clearTimeout(inactivityTimer);
+            }
+            
+            const safeRemaining = Math.max(0, remainingMs);
+            timeoutEndTime = Date.now() + safeRemaining;
+            
+            inactivityTimer = setTimeout(() => {
+                logout();
+            }, safeRemaining);
+            
+            updateTimerDisplay();
+        }
+        
+        function updateTimerDisplay() {
+            if (displayUpdateInterval) {
+                clearInterval(displayUpdateInterval);
+            }
+            
+            const updateDisplay = () => {
+                const el = document.getElementById('inactivityTimer');
+                if (!el || !timeoutEndTime) return;
+                
+                const remaining = Math.max(0, timeoutEndTime - Date.now());
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                
+                el.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                const timerContainer = document.getElementById('sessionTimerContainer');
+                if (remaining < 120000) {
+                    timerContainer.classList.add('warning');
+                } else {
+                    timerContainer.classList.remove('warning');
+                }
+                
+                if (remaining <= 0) {
+                    el.textContent = '0:00';
+                    clearInterval(displayUpdateInterval);
+                }
+            };
+            
+            updateDisplay();
+            displayUpdateInterval = setInterval(updateDisplay, 1000);
+        }
+        
+        // ==================== EMAIL VERIFICATION ====================
+        
+        async function loadEmailVerificationStats() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/email-verification-stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('verifiedCount').textContent = data.stats.verified;
+                    document.getElementById('unverifiedCount').textContent = data.stats.unverified;
+                    document.getElementById('noEmailCount').textContent = data.stats.noEmail;
+                } else {
+                    showToast(data.error || 'Failed to load stats', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to load email verification stats:', error);
+                showToast('Failed to load email verification stats', 'error');
+            }
+        }
+        
+        async function sendBulkVerificationEmails() {
+            const result = await Swal.fire({
+                title: 'Send Verification Emails?',
+                html: `
+                    <p>This will send verification emails to <strong>all unverified users</strong>.</p>
+                    <p style="color: #d32f2f; font-size: 14px; margin-top: 15px;">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        After sending, users won't be able to log in until they verify their email.
+                    </p>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Send to All',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#667eea',
+                cancelButtonColor: '#6c757d'
+            });
+            
+            if (!result.isConfirmed) return;
+            
+            // Show loading
+            Swal.fire({
+                title: 'Sending Emails...',
+                html: `
+                    <p>Please wait while verification emails are being sent.</p>
+                    <p style="font-size: 14px; color: #666;">This may take a few minutes for many users.</p>
+                `,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/send-bulk-verification-emails`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Emails Sent!',
+                        html: `
+                            <p><strong>${data.sent}</strong> verification emails sent successfully.</p>
+                            ${data.failed > 0 ? `<p style="color: #d32f2f;">${data.failed} emails failed to send.</p>` : ''}
+                        `,
+                        icon: 'success',
+                        confirmButtonColor: '#667eea'
+                    });
+                    loadEmailVerificationStats();
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.error || 'Failed to send emails',
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to send emails: ' + error.message,
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+        }
+        
+        async function sendVerificationEmail(userId, userName, userEmail) {
+            const result = await Swal.fire({
+                title: 'Send Verification Email?',
+                html: `<p>Send verification email to <strong>${userName}</strong> at <strong>${userEmail}</strong>?</p>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Send',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#667eea'
+            });
+            
+            if (!result.isConfirmed) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/send-verification-email/${userId}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('Verification email sent!', 'success');
+                } else {
+                    showToast(data.error || 'Failed to send email', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to send email', 'error');
+            }
+        }
+        
+        async function manuallyVerifyEmail(userId, userName) {
+            const result = await Swal.fire({
+                title: 'Manually Verify Email?',
+                html: `<p>Mark email as verified for <strong>${userName}</strong>?</p>
+                       <p style="font-size: 14px; color: #666;">This will allow them to log in without clicking the verification link.</p>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Verify',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#28a745'
+            });
+            
+            if (!result.isConfirmed) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/mark-email-verified/${userId}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('Email verified!', 'success');
+                    loadCollegeUsers();
+                    loadEmailVerificationStats();
+                } else {
+                    showToast(data.error || 'Failed to verify email', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to verify email', 'error');
+            }
+        }
+        
+        // ==================== BACKUP CODES ====================
+        
+        let generatedBackupCodes = [];
+        
+        async function loadBackupCodesStatus() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/backup-codes-status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('backupCodesStatus');
+                if (!statusEl) return;
+                
+                if (data.success) {
+                    const { remainingCodes, totalCodes, hasBackupCodes } = data;
+                    
+                    if (!hasBackupCodes || totalCodes === 0) {
+                        statusEl.innerHTML = `
+                            <div class="backup-codes-status none">
+                                <i class="fas fa-times-circle"></i>
+                                <span>No backup codes generated. Generate codes to have a recovery option.</span>
+                            </div>`;
+                    } else if (remainingCodes === 0) {
+                        statusEl.innerHTML = `
+                            <div class="backup-codes-status none">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>All backup codes have been used. Generate new codes.</span>
+                            </div>`;
+                    } else if (remainingCodes <= 3) {
+                        statusEl.innerHTML = `
+                            <div class="backup-codes-status low">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>${remainingCodes} of ${totalCodes} backup codes remaining. Consider generating new codes soon.</span>
+                            </div>`;
+                    } else {
+                        statusEl.innerHTML = `
+                            <div class="backup-codes-status available">
+                                <i class="fas fa-check-circle"></i>
+                                <span>${remainingCodes} of ${totalCodes} backup codes available.</span>
+                            </div>`;
+                    }
+                } else {
+                    statusEl.innerHTML = `<span style="color: var(--text-muted);">${data.error || 'Unable to load status'}</span>`;
+                }
+            } catch (error) {
+                console.error('Failed to load backup codes status:', error);
+            }
+        }
+        
+        async function generateBackupCodes() {
+            if (!confirm('Generating new backup codes will invalidate any existing codes. Continue?')) {
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const btn = document.getElementById('generateBackupCodesBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+                
+                const response = await fetch(`${API_BASE}/api/auth/admin/generate-backup-codes`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-rotate"></i> Generate New Backup Codes';
+                
+                if (data.success) {
+                    generatedBackupCodes = data.backupCodes;
+                    displayBackupCodes(data.backupCodes);
+                    showToast('Backup codes generated successfully!', 'success');
+                    loadBackupCodesStatus();
+                } else {
+                    showToast(data.error || 'Failed to generate backup codes', 'error');
+                }
+            } catch (error) {
+                console.error('Generate backup codes error:', error);
+                showToast('Failed to generate backup codes', 'error');
+                const btn = document.getElementById('generateBackupCodesBtn');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-rotate"></i> Generate New Backup Codes';
+            }
+        }
+        
+        function displayBackupCodes(codes) {
+            const displayEl = document.getElementById('backupCodesDisplay');
+            const gridEl = document.getElementById('backupCodesGrid');
+            
+            gridEl.innerHTML = codes.map(code => 
+                `<div class="backup-code-item">${code}</div>`
+            ).join('');
+            
+            displayEl.style.display = 'block';
+        }
+        
+        function copyBackupCodes() {
+            if (generatedBackupCodes.length === 0) {
+                showToast('No backup codes to copy', 'warning');
+                return;
+            }
+            
+            const codesText = `LOGI Backup Codes (${new Date().toLocaleDateString()})
+==============================================
+${generatedBackupCodes.join('\n')}
+==============================================
+Each code can only be used once.
+Store these codes in a secure place.`;
+            
+            navigator.clipboard.writeText(codesText).then(() => {
+                showToast('Backup codes copied to clipboard!', 'success');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = codesText;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showToast('Backup codes copied to clipboard!', 'success');
+            });
+        }
+        
+        // Download backup codes as text file
+        function downloadBackupCodes() {
+            if (generatedBackupCodes.length === 0) {
+                showToast('No backup codes to download', 'warning');
+                return;
+            }
+            
+            const codesText = `LOGI Backup Codes
+Generated: ${new Date().toLocaleString()}
+==============================================
+
+${generatedBackupCodes.map((code, i) => `${i + 1}. ${code}`).join('\n')}
+
+==============================================
+IMPORTANT:
+- Each code can only be used once
+- Store these codes in a secure place
+- Do not share these codes with anyone
+- Generate new codes if you suspect they are compromised`;
+            
+            const blob = new Blob([codesText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `LOGI_Backup_Codes_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Backup codes downloaded!', 'success');
+        }
+        
+        // Print backup codes
+        function printBackupCodes() {
+            if (generatedBackupCodes.length === 0) {
+                showToast('No backup codes to print', 'warning');
+                return;
+            }
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>LOGI Backup Codes</title>
+                    <style>
+                        body { font-family: 'Courier New', monospace; padding: 40px; }
+                        h1 { color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+                        .codes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+                        .code { background: #f5f5f5; padding: 10px 20px; border-radius: 5px; font-size: 16px; letter-spacing: 2px; }
+                        .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 20px; }
+                        .footer { margin-top: 30px; font-size: 12px; color: #666; }
+                    </style>
+                </head>
+                <body>
+                    <h1>🔐 LOGI Backup Codes</h1>
+                    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+                    <div class="codes">
+                        ${generatedBackupCodes.map((code, i) => `<div class="code">${i + 1}. ${code}</div>`).join('')}
+                    </div>
+                    <div class="warning">
+                        <strong>⚠️ Important:</strong>
+                        <ul>
+                            <li>Each code can only be used once</li>
+                            <li>Store these codes in a secure place</li>
+                            <li>Do not share these codes with anyone</li>
+                        </ul>
+                    </div>
+                    <div class="footer">
+                        <p>LOGI - Lab Operations & Guidance Interface</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+        
+        // ==================== VIEW BACKUP CODES (Password Required) ====================
+        
+        let viewedBackupCodes = [];
+        
+        function showViewBackupCodesModal() {
+            document.getElementById('viewCodesPassword').value = '';
+            document.getElementById('viewCodesResult').style.display = 'none';
+            document.getElementById('viewCodesBtn').style.display = 'inline-flex';
+            viewedBackupCodes = [];
+            document.getElementById('viewBackupCodesModal').classList.add('active');
+        }
+        
+        function closeViewBackupCodesModal() {
+            document.getElementById('viewBackupCodesModal').classList.remove('active');
+            viewedBackupCodes = [];
+        }
+        
+        async function fetchBackupCodes() {
+            const password = document.getElementById('viewCodesPassword').value;
+            if (!password) {
+                showToast('Please enter your password', 'warning');
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const btn = document.getElementById('viewCodesBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+                
+                const response = await fetch(`${API_BASE}/api/auth/admin/view-backup-codes`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await response.json();
+                
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-eye"></i> View Codes';
+                
+                if (data.success) {
+                    viewedBackupCodes = data.backupCodes;
+                    displayViewedBackupCodes(data.backupCodes);
+                    document.getElementById('viewCodesBtn').style.display = 'none';
+                    showToast('Backup codes retrieved', 'success');
+                } else {
+                    showToast(data.error || 'Failed to retrieve backup codes', 'error');
+                }
+            } catch (error) {
+                console.error('Fetch backup codes error:', error);
+                showToast('Failed to retrieve backup codes', 'error');
+                const btn = document.getElementById('viewCodesBtn');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-eye"></i> View Codes';
+            }
+        }
+        
+        function displayViewedBackupCodes(codes) {
+            const gridEl = document.getElementById('viewCodesGrid');
+            const resultEl = document.getElementById('viewCodesResult');
+            
+            if (!codes || codes.length === 0) {
+                gridEl.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1;">No backup codes found. Generate new codes.</p>';
+            } else {
+                gridEl.innerHTML = codes.map(bc => `
+                    <div class="backup-code-item ${bc.used ? 'used' : ''}" title="${bc.used ? 'Already used' : 'Available'}">
+                        ${bc.code} ${bc.used ? '✗' : '✓'}
+                    </div>
+                `).join('');
+            }
+            
+            resultEl.style.display = 'block';
+        }
+        
+        function copyViewedCodes() {
+            const unusedCodes = viewedBackupCodes.filter(bc => !bc.used).map(bc => bc.code);
+            if (unusedCodes.length === 0) {
+                showToast('No unused codes to copy', 'warning');
+                return;
+            }
+            
+            const codesText = `LOGI Backup Codes (${new Date().toLocaleDateString()})
+==============================================
+${unusedCodes.join('\n')}
+==============================================
+${unusedCodes.length} codes available. Each can only be used once.`;
+            
+            navigator.clipboard.writeText(codesText).then(() => {
+                showToast('Backup codes copied!', 'success');
+            }).catch(() => {
+                showToast('Failed to copy', 'error');
+            });
+        }
+        
+        function downloadViewedCodes() {
+            const unusedCodes = viewedBackupCodes.filter(bc => !bc.used).map(bc => bc.code);
+            if (unusedCodes.length === 0) {
+                showToast('No unused codes to download', 'warning');
+                return;
+            }
+            
+            const codesText = `LOGI Backup Codes
+Retrieved: ${new Date().toLocaleString()}
+==============================================
+
+${unusedCodes.map((code, i) => `${i + 1}. ${code}`).join('\n')}
+
+==============================================
+${unusedCodes.length} codes available
+Each code can only be used once`;
+            
+            const blob = new Blob([codesText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `LOGI_Backup_Codes_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Backup codes downloaded!', 'success');
+        }
+        
+        function printViewedCodes() {
+            const unusedCodes = viewedBackupCodes.filter(bc => !bc.used).map(bc => bc.code);
+            if (unusedCodes.length === 0) {
+                showToast('No unused codes to print', 'warning');
+                return;
+            }
+            
+            // Temporarily set for print
+            generatedBackupCodes = unusedCodes;
+            printBackupCodes();
+            generatedBackupCodes = [];
+        }
+        
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const iconClass = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-times-circle' : 'fa-exclamation-triangle';
+            toast.innerHTML = `<i class="fas ${iconClass}"></i> <span>${message}</span>`;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+        
+        // ==================== USER MANAGEMENT FUNCTIONS ====================
+        
+        let editingUserId = null;
+        let deletingUserId = null;
+        // allUsersCache is already declared above
+        
+        // Show edit user modal (for changing roles, college, department)
+        function showEditUserModal(userId) {
+            if (currentUser.role !== 'super-admin') {
+                showToast('Only super-admin can edit user details', 'error');
+                return;
+            }
+            
+            const user = allUsersCache.find(u => u._id === userId);
+            if (!user) {
+                showToast('User not found', 'error');
+                return;
+            }
+            
+            editingUserId = userId;
+            
+            document.getElementById('editUserName').value = user.name;
+            document.getElementById('editUserRgno').value = user.rgno;
+            document.getElementById('editUserCurrentRole').value = user.role;
+            document.getElementById('editUserNewRole').value = '';
+            document.getElementById('editUserNewDepartment').value = '';
+            
+            // Populate colleges dropdown
+            populateCollegesForEdit();
+            
+            document.getElementById('editUserModal').classList.add('active');
+        }
+        
+        async function populateCollegesForEdit() {
+            try {
+                const select = document.getElementById('editUserNewCollege');
+                select.innerHTML = '<option value="">-- Keep Current College --</option>';
+                
+                const response = await fetch(`${API_BASE}/api/auth/colleges`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    data.colleges.forEach(college => {
+                        const option = document.createElement('option');
+                        option.value = college;
+                        option.textContent = college.length > 50 ? college.substring(0, 50) + '...' : college;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load colleges for edit:', error);
+            }
+        }
+        
+        function closeEditUserModal() {
+            editingUserId = null;
+            document.getElementById('editUserModal').classList.remove('active');
+        }
+        
+        async function confirmEditUser() {
+            if (!editingUserId) return;
+            
+            const newRole = document.getElementById('editUserNewRole').value;
+            const newCollege = document.getElementById('editUserNewCollege').value;
+            const newDepartment = document.getElementById('editUserNewDepartment').value;
+            
+            if (!newRole && !newCollege && !newDepartment) {
+                showToast('No changes made', 'warning');
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/reassign-user/${editingUserId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        newRole: newRole || undefined,
+                        newCollege: newCollege || undefined,
+                        newDepartment: newDepartment || undefined
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    closeEditUserModal();
+                    loadCollegeUsers();
+                    loadStats();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Edit user error:', error);
+                showToast('Failed to update user', 'error');
+            }
+        }
+        
+        // Show delete user modal
+        function showDeleteUserModal() {
+            if (currentUser.role !== 'super-admin') {
+                showToast('Only super-admin can delete users', 'error');
+                return;
+            }
+            
+            document.getElementById('deleteUserRgno').value = '';
+            document.getElementById('deleteUserInfo').style.display = 'none';
+            document.getElementById('confirmDeleteBtn').style.display = 'none';
+            deletingUserId = null;
+            
+            document.getElementById('deleteUserModal').classList.add('active');
+        }
+        
+        function closeDeleteUserModal() {
+            deletingUserId = null;
+            document.getElementById('deleteUserModal').classList.remove('active');
+        }
+        
+        async function searchUserToDelete() {
+            const rgno = document.getElementById('deleteUserRgno').value;
+            if (!rgno) {
+                showToast('Please enter a register number', 'warning');
+                return;
+            }
+            
+            // Find user in cache or fetch
+            let user = allUsersCache.find(u => u.rgno == rgno);
+            
+            if (!user) {
+                showToast('User not found', 'error');
+                document.getElementById('deleteUserInfo').style.display = 'none';
+                document.getElementById('confirmDeleteBtn').style.display = 'none';
+                return;
+            }
+            
+            // Prevent deleting self
+            if (user._id === currentUser.id || user.rgno === currentUser.rgno) {
+                showToast('Cannot delete your own account from here', 'error');
+                return;
+            }
+            
+            deletingUserId = user._id;
+            document.getElementById('deleteUserName').textContent = user.name;
+            document.getElementById('deleteUserRole').textContent = user.role;
+            document.getElementById('deleteUserCollege').textContent = user.college || 'N/A';
+            document.getElementById('deleteUserInfo').style.display = 'block';
+            document.getElementById('confirmDeleteBtn').style.display = 'inline-flex';
+        }
+        
+        async function confirmDeleteUser() {
+            if (!deletingUserId) return;
+            
+            if (!confirm('Are you ABSOLUTELY sure you want to delete this user? This action cannot be undone!')) {
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/admin/delete-user/${deletingUserId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    closeDeleteUserModal();
+                    loadCollegeUsers();
+                    loadStats();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Delete user error:', error);
+                showToast('Failed to delete user', 'error');
+            }
+        }
+        
+        // ==================== SUPER-ADMIN SUCCESSION INVITATION SYSTEM ====================
+        
+        let invitingUserId = null;
+        let pendingTransferUser = null;
+        
+        // Check for pending invitation on page load (super-admin only)
+        async function checkPendingInvitation() {
+            if (currentUser.role !== 'super-admin') return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/super-admin-invitation-status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.awaitingCompletion) {
+                    // Someone has accepted - show banner
+                    pendingTransferUser = data.awaitingCompletion.user;
+                    const banner = document.getElementById('pendingInvitationBanner');
+                    const text = document.getElementById('pendingInvitationText');
+                    text.textContent = ` ${pendingTransferUser.name} has accepted your super-admin invitation! `;
+                    banner.style.display = 'block';
+                } else if (data.success && data.pendingInvitation && !data.pendingInvitation.accepted) {
+                    // Invitation pending, not yet accepted - can show status somewhere
+                    console.log('[SUPER-ADMIN] Pending invitation for:', data.pendingInvitation.user.name);
+                }
+            } catch (error) {
+                console.error('Check pending invitation error:', error);
+            }
+        }
+        
+        // Show invite successor modal
+        function showInviteSuccessorModal(userId) {
+            if (currentUser.role !== 'super-admin') {
+                showToast('Only super-admin can invite successors', 'error');
+                return;
+            }
+            
+            const user = allUsersCache.find(u => u._id === userId);
+            if (!user) {
+                showToast('User not found', 'error');
+                return;
+            }
+            
+            if (!['principal', 'faculty'].includes(user.role)) {
+                showToast('Only principals and faculty can be invited as super-admin', 'error');
+                return;
+            }
+            
+            invitingUserId = userId;
+            
+            document.getElementById('inviteUserName').textContent = user.name;
+            document.getElementById('inviteUserRgno').textContent = user.rgno;
+            document.getElementById('inviteUserRole').textContent = user.role;
+            document.getElementById('inviteUserCollege').textContent = user.college || 'N/A';
+            
+            document.getElementById('inviteSuccessorModal').classList.add('active');
+        }
+        
+        function closeInviteSuccessorModal() {
+            invitingUserId = null;
+            document.getElementById('inviteSuccessorModal').classList.remove('active');
+        }
+        
+        async function confirmSendInvitation() {
+            if (!invitingUserId) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/invite-super-admin-successor/${invitingUserId}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    closeInviteSuccessorModal();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Send invitation error:', error);
+                showToast('Failed to send invitation', 'error');
+            }
+        }
+        
+        // Cancel pending invitation
+        async function cancelPendingInvitation() {
+            if (!confirm('Are you sure you want to cancel the pending invitation?')) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/cancel-super-admin-invitation`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    document.getElementById('pendingInvitationBanner').style.display = 'none';
+                    pendingTransferUser = null;
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Cancel invitation error:', error);
+                showToast('Failed to cancel invitation', 'error');
+            }
+        }
+        
+        // Show complete transfer modal
+        function showCompleteTransferModal() {
+            if (!pendingTransferUser) {
+                showToast('No pending transfer found', 'error');
+                return;
+            }
+            
+            document.getElementById('transferUserName').textContent = pendingTransferUser.name;
+            document.getElementById('transferAcceptedAt').textContent = pendingTransferUser.superAdminInviteAcceptedAt 
+                ? new Date(pendingTransferUser.superAdminInviteAcceptedAt).toLocaleString() 
+                : 'Just now';
+            document.getElementById('transferPassword').value = '';
+            document.getElementById('transfer2FACode').value = '';
+            
+            document.getElementById('completeTransferModal').classList.add('active');
+        }
+        
+        function closeCompleteTransferModal() {
+            document.getElementById('completeTransferModal').classList.remove('active');
+        }
+        
+        async function confirmCompleteTransfer() {
+            const password = document.getElementById('transferPassword').value;
+            const twoFactorCode = document.getElementById('transfer2FACode').value;
+            
+            if (!password) {
+                showToast('Please enter your password', 'warning');
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/complete-super-admin-transfer`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password, twoFactorCode })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // Log out since user is no longer super-admin
+                    setTimeout(() => {
+                        logout();
+                    }, 2000);
+                } else if (data.requiresTwoFactor) {
+                    showToast('Please enter your 2FA code', 'warning');
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Complete transfer error:', error);
+                showToast('Failed to complete transfer', 'error');
+            }
+        }
+        
+        // ==================== END SUPER-ADMIN SUCCESSION SYSTEM ====================
+        
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'login-page.html';
+        }
+        
+        // Admin navbar hamburger menu toggle
+        function toggleAdminMenu() {
+            const hamburger = document.getElementById('adminHamburger');
+            const navMenu = document.getElementById('adminNavMenu');
+            hamburger.classList.toggle('active');
+            navMenu.classList.toggle('active');
+        }
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const hamburger = document.getElementById('adminHamburger');
+            const navMenu = document.getElementById('adminNavMenu');
+            if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
+                hamburger.classList.remove('active');
+                navMenu.classList.remove('active');
+            }
+        });
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

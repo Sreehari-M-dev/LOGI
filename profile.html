@@ -309,6 +309,140 @@
                 font-size: 24px;
             }
         }
+        
+        /* Navbar Customization Section */
+        .navbar-settings {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .navbar-settings h2 {
+            color: #667eea;
+            font-size: 22px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .navbar-settings p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .toggle-list {
+            background: none;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        body.dark-mode span {
+            color:white
+        }
+        
+        .toggle-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .toggle-item:last-child {
+            border-bottom: none;
+        }
+        
+        .toggle-item-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .toggle-item-info i {
+            color: #667eea;
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .toggle-item-label {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #5a4d4d;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+        
+        .save-navbar-btn {
+            margin-top: 20px;
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .save-navbar-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .save-navbar-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
     </style>
 </head>
 
@@ -452,6 +586,106 @@
                 </div>
             </form>
         </div>
+        
+        <!-- Navbar Customization Section (Principals & Super-Admins only) -->
+        <div id="navbarSettings" class="navbar-settings" style="display: none;">
+            <h2><i class="fas fa-sliders"></i> Navbar Customization</h2>
+            <p>Toggle visibility of navigation items. Hidden items won't appear in your navbar.</p>
+            
+            <div class="toggle-list">
+                <div class="toggle-item">
+                    <div class="toggle-item-info">
+                        <i class="fas fa-home"></i>
+                        <span class="toggle-item-label">Home</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="navToggleHome" checked onchange="markNavbarChanged()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-item">
+                    <div class="toggle-item-info">
+                        <i class="fas fa-book"></i>
+                        <span class="toggle-item-label">Log Book</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="navToggleLogbook" checked onchange="markNavbarChanged()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-item">
+                    <div class="toggle-item-info">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span class="toggle-item-label">Study Resources</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="navToggleResources" checked onchange="markNavbarChanged()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-item">
+                    <div class="toggle-item-info">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="toggle-item-label">About Us</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="navToggleAbout" checked onchange="markNavbarChanged()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-item">
+                    <div class="toggle-item-info">
+                        <i class="fas fa-user"></i>
+                        <span class="toggle-item-label">Profile</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="navToggleProfile" checked onchange="markNavbarChanged()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-item" id="toggleMasterTemplates">
+                    <div class="toggle-item-info">
+                        <i class="fas fa-file-alt"></i>
+                        <span class="toggle-item-label">Master Templates</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="navToggleMasterTemplates" checked onchange="markNavbarChanged()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-item" id="toggleViewLogbooks">
+                    <div class="toggle-item-info">
+                        <i class="fas fa-eye"></i>
+                        <span class="toggle-item-label">View Logbooks</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="navToggleViewLogbooks" checked onchange="markNavbarChanged()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-item" id="toggleAdmin" style="display: none;">
+                    <div class="toggle-item-info">
+                        <i class="fas fa-shield-halved"></i>
+                        <span class="toggle-item-label">Admin Dashboard</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="navToggleAdmin" checked onchange="markNavbarChanged()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <button class="save-navbar-btn" id="saveNavbarBtn" onclick="saveNavbarPreferences()" disabled>
+                <i class="fas fa-save"></i> Save Navbar Settings
+            </button>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
@@ -471,7 +705,318 @@
                 return;
             }
             await loadProfile();
+            // Check for super-admin invitation
+            await checkSuperAdminInvitation();
+            // Check if user can reclaim super-admin (was recently demoted)
+            await checkCanReclaimSuperAdmin();
         });
+        
+        // Check if user can reclaim super-admin access (within grace period)
+        async function checkCanReclaimSuperAdmin() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                
+                const response = await fetch(`${PROFILE_AUTH_API}/can-reclaim-super-admin`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.canReclaim) {
+                    showReclaimSuperAdminAlert(data);
+                }
+            } catch (error) {
+                console.error('Check reclaim status error:', error);
+            }
+        }
+        
+        // Show reclaim super-admin alert
+        function showReclaimSuperAdminAlert(data) {
+            const hoursLeft = data.remainingHours;
+            const minutesLeft = data.remainingMinutes;
+            const timeLeft = hoursLeft > 0 ? `${hoursLeft}h ${minutesLeft}m` : `${minutesLeft} minutes`;
+            
+            Swal.fire({
+                title: '🔐 Reclaim Super-Admin Access',
+                html: `
+                    <div style="text-align: left; padding: 0 10px;">
+                        <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #28a745;">
+                            <p style="color: #155724; font-weight: 600; margin: 0;">
+                                <i class="fas fa-shield-alt"></i> You were recently demoted from super-admin
+                            </p>
+                        </div>
+                        <p style="margin-bottom: 15px; color: #333;">
+                            You have <strong style="color: #d32f2f;">${timeLeft}</strong> left to reclaim your super-admin privileges.
+                        </p>
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ffc107;">
+                            <p style="color: #856404; margin: 0 0 10px;"><i class="fas fa-exclamation-triangle"></i> <strong>This is a safety feature</strong></p>
+                            <p style="color: #856404; margin: 0; font-size: 0.9rem;">
+                                If you transferred super-admin to someone by mistake, or if the new admin is not cooperating, you can reclaim your access.
+                            </p>
+                        </div>
+                        <p style="color: #666; font-size: 0.9rem;">
+                            Reclaiming will:
+                        </p>
+                        <ul style="text-align: left; color: #666; margin-bottom: 15px; padding-left: 20px; font-size: 0.9rem;">
+                            <li>Restore your super-admin role</li>
+                            <li>Demote the current super-admin</li>
+                            <li>Invalidate their sessions</li>
+                            <li>Revoke their 2FA</li>
+                        </ul>
+                    </div>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-crown"></i> Reclaim Now',
+                cancelButtonText: 'Not Now',
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                allowOutsideClick: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    showReclaimPasswordPrompt();
+                }
+            });
+        }
+        
+        // Show password prompt for reclaim
+        function showReclaimPasswordPrompt() {
+            Swal.fire({
+                title: '🔑 Verify Your Identity',
+                html: `
+                    <div style="text-align: left;">
+                        <p style="color: #666; margin-bottom: 15px;">Enter your password to reclaim super-admin access:</p>
+                        <input type="password" id="reclaimPassword" class="swal2-input" placeholder="Your Password" style="width: 100%;">
+                    </div>
+                `,
+                icon: 'lock',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-check"></i> Confirm Reclaim',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#28a745',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const password = Swal.getPopup().querySelector('#reclaimPassword').value;
+                    if (!password) {
+                        Swal.showValidationMessage('Password is required');
+                        return false;
+                    }
+                    return password;
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await executeReclaimSuperAdmin(result.value);
+                }
+            });
+        }
+        
+        // Execute reclaim super-admin
+        async function executeReclaimSuperAdmin(password) {
+            try {
+                Swal.fire({
+                    title: 'Processing...',
+                    text: 'Reclaiming super-admin access',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${PROFILE_AUTH_API}/reclaim-super-admin`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update local storage
+                    const user = JSON.parse(localStorage.getItem('user') || '{}');
+                    user.role = 'super-admin';
+                    localStorage.setItem('user', JSON.stringify(user));
+                    
+                    Swal.fire({
+                        title: '🎉 Success!',
+                        html: `
+                            <p>You have successfully reclaimed your super-admin access!</p>
+                            <p style="color: #666; margin-top: 15px;">${data.demotedUser} has been demoted.</p>
+                            <p style="color: #d32f2f; font-weight: 600; margin-top: 15px;">
+                                <i class="fas fa-shield-alt"></i> Please set up 2FA again immediately!
+                            </p>
+                        `,
+                        icon: 'success',
+                        confirmButtonColor: '#667eea',
+                        confirmButtonText: 'Go to Admin Dashboard'
+                    }).then(() => {
+                        window.location.href = 'admin-dashboard.html';
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.error || 'Failed to reclaim super-admin access',
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    });
+                }
+            } catch (error) {
+                console.error('Reclaim error:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to reclaim super-admin access. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+        }
+        
+        // Check if user has a pending super-admin invitation
+        async function checkSuperAdminInvitation() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                
+                const response = await fetch(`${PROFILE_AUTH_API}/my-super-admin-invitation`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.hasInvitation) {
+                    showSuperAdminInvitationAlert(data.invitation);
+                }
+            } catch (error) {
+                console.error('Check invitation error:', error);
+            }
+        }
+        
+        // Show super-admin invitation alert
+        function showSuperAdminInvitationAlert(invitation) {
+            const invitedBy = invitation.invitedBy ? invitation.invitedBy.name : 'The current super-admin';
+            const expiresAt = new Date(invitation.expiresAt).toLocaleString();
+            
+            Swal.fire({
+                title: '👑 Super-Admin Invitation',
+                html: `
+                    <div style="text-align: left; padding: 0 10px;">
+                        <p style="margin-bottom: 15px; color: #333;">
+                            <strong>${invitedBy}</strong> has invited you to become the new super-admin of the LOGI system.
+                        </p>
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ffc107;">
+                            <p style="color: #856404; margin: 0 0 10px;"><i class="fas fa-clock"></i> <strong>Expires:</strong> ${expiresAt}</p>
+                            <p style="color: #856404; margin: 0;"><i class="fas fa-info-circle"></i> This invitation can only be used once.</p>
+                        </div>
+                        <p style="margin-bottom: 15px; color: #666;">
+                            If you accept:
+                        </p>
+                        <ul style="text-align: left; color: #666; margin-bottom: 15px; padding-left: 20px;">
+                            <li>You will gain full super-admin privileges</li>
+                            <li>The current super-admin will be notified</li>
+                            <li>They must confirm with password + 2FA to complete the transfer</li>
+                            <li>You should set up 2FA for your account</li>
+                        </ul>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                showDenyButton: true,
+                confirmButtonText: '<i class="fas fa-check"></i> Accept Invitation',
+                denyButtonText: '<i class="fas fa-times"></i> Decline',
+                cancelButtonText: 'Decide Later',
+                confirmButtonColor: '#28a745',
+                denyButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: false,
+                allowOutsideClick: false
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await acceptSuperAdminInvitation();
+                } else if (result.isDenied) {
+                    await declineSuperAdminInvitation();
+                }
+            });
+        }
+        
+        // Accept super-admin invitation
+        async function acceptSuperAdminInvitation() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${PROFILE_AUTH_API}/accept-super-admin-invitation`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Invitation Accepted!',
+                        html: `
+                            <p>You have accepted the super-admin invitation.</p>
+                            <p style="color: #666; margin-top: 15px;">The current super-admin has been notified and must complete the transfer by entering their password and 2FA code.</p>
+                            <p style="color: #28a745; font-weight: 600; margin-top: 15px;"><i class="fas fa-clock"></i> You will receive full admin access once they confirm.</p>
+                        `,
+                        icon: 'success',
+                        confirmButtonColor: '#667eea'
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.error || 'Failed to accept invitation',
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    });
+                }
+            } catch (error) {
+                console.error('Accept invitation error:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to accept invitation. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+        }
+        
+        // Decline super-admin invitation
+        async function declineSuperAdminInvitation() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${PROFILE_AUTH_API}/decline-super-admin-invitation`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    Swal.fire({
+                        title: 'Invitation Declined',
+                        text: 'You have declined the super-admin invitation. The current super-admin has been notified.',
+                        icon: 'info',
+                        confirmButtonColor: '#667eea'
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.error || 'Failed to decline invitation',
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    });
+                }
+            } catch (error) {
+                console.error('Decline invitation error:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to decline invitation. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+        }
 
         // Fetch user profile from server
         async function loadProfile() {
@@ -817,6 +1362,47 @@
 
         // Delete account modal
         function openDeleteAccountModal() {
+            const user = AuthManager.getUser();
+            const isSuperAdmin = user && user.role === 'super-admin';
+            
+            // Super-admin cannot delete account - must transfer first
+            if (isSuperAdmin) {
+                Swal.fire({
+                    title: 'Cannot Delete Super-Admin Account',
+                    html: `
+                        <div style="text-align: left; padding: 0 20px;">
+                            <p style="margin-bottom: 15px; color: #d32f2f;">
+                                <i class="fas fa-shield-alt"></i> As the super-admin, you cannot delete your account directly.
+                            </p>
+                            <p style="margin-bottom: 15px; color: #666;">
+                                To ensure system continuity, you must first transfer your super-admin privileges to another user.
+                            </p>
+                            <p style="color: #333; font-weight: 600;">
+                                Steps to transfer super-admin:
+                            </p>
+                            <ol style="text-align: left; color: #666; margin-top: 10px; padding-left: 20px;">
+                                <li>Go to the Admin Dashboard → All Users tab</li>
+                                <li>Find a Principal or Faculty member you trust</li>
+                                <li>Click the <span style="color: #f59e0b;">👑 crown icon</span> next to their name</li>
+                                <li>They will receive an invitation (valid 24 hours)</li>
+                                <li>When they accept, confirm with your password + 2FA</li>
+                                <li>After transfer, you can delete your account</li>
+                            </ol>
+                        </div>
+                    `,
+                    icon: 'warning',
+                    confirmButtonText: 'Go to Admin Dashboard',
+                    showCancelButton: true,
+                    cancelButtonText: 'I Understand',
+                    confirmButtonColor: '#667eea'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = 'admin-dashboard.html';
+                    }
+                });
+                return;
+            }
+            
             Swal.fire({
                 title: 'Delete Account',
                 width: '550px',
@@ -873,13 +1459,15 @@
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     try {
+                        const requestBody = { password: result.value.password };
+                        
                         const response = await fetch(`${PROFILE_AUTH_API}/delete-account`, {
                             method: 'DELETE',
                             headers: {
                                 'Content-Type': 'application/json',
                                 'Authorization': `Bearer ${localStorage.getItem('token')}`
                             },
-                            body: JSON.stringify({ password: result.value.password })
+                            body: JSON.stringify(requestBody)
                         });
 
                         const data = await response.json();
@@ -899,16 +1487,23 @@
                             // Handle specific error messages
                             let errorMessage = 'Failed to delete account';
                             
+                            // Check if super-admin trying to delete (requires succession)
+                            if (data.requiresSuccessor) {
+                                Swal.fire({
+                                    title: 'Transfer Required',
+                                    text: data.error,
+                                    icon: 'warning',
+                                    confirmButtonColor: '#667eea'
+                                });
+                                return;
+                            }
+                            
                             if (response.status === 401) {
                                 errorMessage = 'Incorrect password. Please try again.';
                             } else if (response.status === 404) {
                                 errorMessage = 'Account not found.';
                             } else if (data.error) {
-                                if (data.error.includes('password')) {
-                                    errorMessage = 'Incorrect password. Please try again.';
-                                } else {
-                                    errorMessage = data.error;
-                                }
+                                errorMessage = data.error;
                             }
                             
                             Swal.fire({
@@ -930,6 +1525,134 @@
                 }
             });
         }
+        
+        // ==================== NAVBAR CUSTOMIZATION ====================
+        
+        let navbarPrefsChanged = false;
+        let currentUserRole = null;
+        
+        // Load navbar preferences for principals/super-admins
+        async function loadNavbarPreferences() {
+            const user = AuthManager.getUser();
+            if (!user) return;
+            
+            currentUserRole = user.role;
+            
+            // Only show navbar customization for principals and super-admins
+            if (!['principal', 'super-admin'].includes(user.role)) {
+                return;
+            }
+            
+            // Show the navbar settings section
+            document.getElementById('navbarSettings').style.display = 'block';
+            
+            // Show/hide admin toggle based on role
+            // Only super-admin can toggle admin dashboard
+            if (user.role === 'super-admin') {
+                document.getElementById('toggleAdmin').style.display = 'flex';
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${PROFILE_AUTH_API}/navbar-preferences`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.navbarPreferences) {
+                    const prefs = data.navbarPreferences;
+                    
+                    // Set toggle states
+                    document.getElementById('navToggleHome').checked = prefs.home !== false;
+                    document.getElementById('navToggleLogbook').checked = prefs.logbook !== false;
+                    document.getElementById('navToggleResources').checked = prefs.resources !== false;
+                    document.getElementById('navToggleAbout').checked = prefs.about !== false;
+                    document.getElementById('navToggleProfile').checked = prefs.profile !== false;
+                    document.getElementById('navToggleMasterTemplates').checked = prefs.masterTemplates !== false;
+                    document.getElementById('navToggleViewLogbooks').checked = prefs.viewLogbooks !== false;
+                    document.getElementById('navToggleAdmin').checked = prefs.admin !== false;
+                }
+            } catch (error) {
+                console.error('Failed to load navbar preferences:', error);
+            }
+        }
+        
+        // Mark that changes have been made
+        function markNavbarChanged() {
+            navbarPrefsChanged = true;
+            document.getElementById('saveNavbarBtn').disabled = false;
+        }
+        
+        // Save navbar preferences
+        async function saveNavbarPreferences() {
+            const btn = document.getElementById('saveNavbarBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            
+            const navbarPreferences = {
+                home: document.getElementById('navToggleHome').checked,
+                logbook: document.getElementById('navToggleLogbook').checked,
+                resources: document.getElementById('navToggleResources').checked,
+                about: document.getElementById('navToggleAbout').checked,
+                profile: document.getElementById('navToggleProfile').checked,
+                masterTemplates: document.getElementById('navToggleMasterTemplates').checked,
+                viewLogbooks: document.getElementById('navToggleViewLogbooks').checked,
+                admin: document.getElementById('navToggleAdmin').checked
+            };
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${PROFILE_AUTH_API}/navbar-preferences`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ navbarPreferences })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    navbarPrefsChanged = false;
+                    
+                    // Store in localStorage for immediate effect
+                    localStorage.setItem('navbarPreferences', JSON.stringify(navbarPreferences));
+                    
+                    Swal.fire({
+                        title: 'Saved!',
+                        text: 'Your navbar preferences have been updated. Changes will apply on page refresh.',
+                        icon: 'success',
+                        confirmButtonColor: '#667eea'
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.error || 'Failed to save navbar preferences',
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to save navbar preferences:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to save navbar preferences. Please try again.',
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Save Navbar Settings';
+            }
+        }
+        
+        // Load navbar preferences when profile loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait for profile to load first, then load navbar preferences
+            setTimeout(loadNavbarPreferences, 500);
+        });
     </script>
 </body>
 

@@ -1,6 +1,6 @@
-/* Global Styles */
+Global Styles
 * {
-    margin: 0;
+    margin: 10;
     padding: 0;
     box-sizing: border-box;
 }
@@ -449,12 +449,20 @@ html {
 .footer-content {
     max-width: 1200px;
     margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
     gap: 3rem;
     padding: 0 1rem;
     position: relative;
     z-index: 1;
+    text-align: left;
+}
+
+.footer-section {
+    flex: 0 0 auto;
+    min-width: 200px;
+    text-align: left;
 }
 
 .footer-section h3 {
@@ -505,10 +513,11 @@ html {
     margin-top: 3rem;
     padding-top: 1.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    text-align: center;
+    text-align: left;
     font-size: 0.9rem;
     position: relative;
     z-index: 1;
+    padding-left: 1rem;
 }
 
 #homeh1 {
@@ -773,7 +782,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 input {
-    width: 100px;
+    width: auto;
 }
 
 #no td {
@@ -811,7 +820,7 @@ table {
     border-collapse: collapse;
     background-color: #fff;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    border: 1px solid #333;
+    border: 1px solid #686363;
     border-width: 10;
     text-align: center;
 }
@@ -1734,6 +1743,78 @@ form input[type="submit"]:hover {
 }
 
 /* ================== */
+/* EXCEL EXPORT/IMPORT SECTION */
+/* ================== */
+
+.excel-actions {
+    text-align: center;
+    margin: 20px auto;
+    padding: 20px;
+    max-width: 600px;
+    background: linear-gradient(135deg, #1d6f42 0%, #28a745 100%);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.excel-actions h3 {
+    color: white;
+    margin: 0 0 10px 0;
+    font-weight: 600;
+    font-size: 18px;
+}
+
+.excel-info {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    margin: 0 0 15px 0;
+    line-height: 1.4;
+}
+
+.excel-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.btn-excel-export,
+.btn-excel-import {
+    padding: 12px 24px;
+    font-size: 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-excel-export {
+    background: linear-gradient(135deg, #ffffff, #e8e8e8);
+    color: #1d6f42;
+}
+
+.btn-excel-export:hover {
+    background: linear-gradient(135deg, #f0f0f0, #d8d8d8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.btn-excel-import {
+    background: linear-gradient(135deg, #0d47a1, #1565c0);
+    color: white;
+}
+
+.btn-excel-import:hover {
+    background: linear-gradient(135deg, #0a3d91, #1255a0);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13, 71, 161, 0.4);
+}
+
+/* ================== */
 /* RESPONSIVE DESIGN */
 /* ================== */
 
@@ -2053,6 +2134,23 @@ form input[type="submit"]:hover {
         display: block;
         width: 90%;
         margin: 8px auto;
+    }
+    
+    /* Excel actions responsive */
+    .excel-actions {
+        margin: 15px 10px;
+        padding: 15px;
+    }
+    
+    .excel-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .btn-excel-export,
+    .btn-excel-import {
+        width: 100%;
+        justify-content: center;
     }
 }
 
@@ -2502,5 +2600,316 @@ form input[type="submit"]:hover {
     
     .section-header h2 {
         font-size: 1.3rem;
+    }
+}
+
+/* ==================== DARK MODE / NIGHT THEME ==================== */
+
+/* Dark mode toggle button */
+.dark-mode-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #36ba86 0%, #2c9871 100%);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    z-index: 9999;
+}
+
+.dark-mode-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.dark-mode-toggle .sun-icon {
+    display: none;
+}
+
+.dark-mode-toggle .moon-icon {
+    display: block;
+}
+
+/* Dark mode active state */
+body.dark-mode {
+    background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%) !important;
+    color: #000000 !important;
+}
+
+body.dark-mode .dark-mode-toggle {
+    background: linear-gradient(135deg, #ffd93d 0%, #ff9500 100%);
+}
+
+body.dark-mode .dark-mode-toggle .sun-icon {
+    display: block;
+}
+
+body.dark-mode .dark-mode-toggle .moon-icon {
+    display: none;
+}
+
+/* Navbar dark mode */
+body.dark-mode .navbar {
+    background: linear-gradient(135deg, #2d2d44 0%, #3d3d5c 100%) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.dark-mode .nav-logo a {
+    color: #ffffff !important;
+}
+
+body.dark-mode .nav-menu a {
+    color: #000000 !important;
+}
+
+body.dark-mode .nav-menu a:hover,
+body.dark-mode .nav-menu a.active {
+    background: rgba(138, 132, 255, 0.2) !important;
+    color: #000000 !important;
+}
+
+/* Main content dark mode */
+body.dark-mode .container,
+body.dark-mode .profile-container,
+body.dark-mode .section,
+body.dark-mode .form-section,
+body.dark-mode .link-card,
+body.dark-mode .info-section {
+    background: #2a2a3d !important;
+    color: #e8e8f0 !important;
+    border-color: #3d3d5c !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+}
+
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+/* body.dark-mode h4, */
+body.dark-mode h5,
+body.dark-mode h6 {
+    color: #ffffff ;
+}
+
+/* body.dark-mode p, */
+body.dark-mode span,
+body.dark-mode label {
+    color: #000000 ;
+}
+body.dark-mode .section-content p{
+    color: #ffffff;
+}
+
+/* Tables dark mode */
+body.dark-mode table {
+    background: #2a2a3d !important;
+    border-color: #968f8f !important;
+    border-width: 2px;
+}
+
+body.dark-mode th,
+body.dark-mode td {
+    background: #252536 !important;
+    color: #e8e8f0 !important;
+    border-color: #908787 !important;
+}
+
+body.dark-mode tr:nth-child(even) td {
+    background: #2a2a3d !important;
+}
+
+body.dark-mode tr:hover td {
+    background: #353550 !important;
+}
+
+/* Form inputs dark mode */
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+    background: #353550 !important;
+    color: #e8e8f0 !important;
+    border-color: #4a4a6a !important;
+}
+
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+    color: #8888a0 !important;
+}
+
+body.dark-mode input:focus,
+body.dark-mode select:focus,
+body.dark-mode textarea:focus {
+    border-color: #a78bfa !important;
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.25) !important;
+}
+
+body.dark-mode input:disabled,
+body.dark-mode select:disabled {
+    background: #252536 !important;
+    color: #dcdce6 !important;
+}
+
+/* Buttons dark mode */
+body.dark-mode .btn-primary {
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%) !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .btn-secondary {
+    background: #3d3d5c !important;
+    color: #e8e8f0 !important;
+    border-color: #4a4a6a !important;
+}
+
+/* Cards and boxes dark mode */
+body.dark-mode .logbook-actions,
+body.dark-mode .excel-actions,
+body.dark-mode #logbookSelectionPanel {
+    background: #2a2a3d !important;
+    border-color: #3d3d5c !important;
+}
+
+body.dark-mode .section-card,
+body.dark-mode .feature-item,
+body.dark-mode .info-card {
+    background: #2a2a3d !important;
+    border-color: #3d3d5c !important;
+}
+
+/* Hero section dark mode */
+body.dark-mode .hero {
+    background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%) !important;
+}
+
+body.dark-mode .hero-content h1,
+body.dark-mode .hero-title {
+    color: #ffffff !important;
+}
+
+body.dark-mode .hero-content p,
+body.dark-mode .hero-subtitle {
+    color: #c5c5d8 !important;
+}
+
+/* Footer dark mode */
+body.dark-mode .footer {
+    background: #1a1a28 !important;
+}
+
+body.dark-mode .footer-section h3,
+body.dark-mode .footer-content {
+    color: #e8e8f0 !important;
+}
+
+body.dark-mode .footer a {
+    color: #a78bfa !important;
+}
+
+body.dark-mode .footer-bottom {
+    background: #141420 !important;
+    color: #8888a0 !important;
+}
+
+/* Notifications dark mode */
+body.dark-mode .notification.success {
+    background: #1a3528 !important;
+    border: 1px solid #22c55e !important;
+    color: #86efac !important;
+}
+
+body.dark-mode .notification.error {
+    background: #351a1a !important;
+    border: 1px solid #ef4444 !important;
+    color: #fca5a5 !important;
+}
+
+body.dark-mode .notification.info {
+    background: #1a2535 !important;
+    border: 1px solid #3b82f6 !important;
+    color: #93c5fd !important;
+}
+
+/* Scrollbar dark mode */
+body.dark-mode::-webkit-scrollbar-track {
+    background: #1e1e2f !important;
+}
+
+body.dark-mode::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%) !important;
+}
+
+/* Modal/Popup dark mode (SweetAlert2) */
+body.dark-mode .swal2-popup {
+    background: #2a2a3d !important;
+    color: #e8e8f0 !important;
+}
+
+body.dark-mode .swal2-title {
+    color: #ffffff !important;
+}
+
+body.dark-mode .swal2-html-container,
+body.dark-mode .swal2-content {
+    color: #c5c5d8 !important;
+}
+
+body.dark-mode .swal2-input {
+    background: #353550 !important;
+    color: #e8e8f0 !important;
+    border-color: #4a4a6a !important;
+}
+
+/* About page dark mode */
+body.dark-mode .about-hero {
+    background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%) !important;
+}
+
+body.dark-mode .about-section,
+body.dark-mode .aboutbox,
+body.dark-mode .about-table {
+    background: #2a2a3d !important;
+    border-color: #3d3d5c !important;
+}
+
+/* Resource page dark mode */
+body.dark-mode .resource-card,
+body.dark-mode .file-item {
+    background: #2a2a3d !important;
+    border-color: #3d3d5c !important;
+}
+
+/* Profile page dark mode */
+body.dark-mode .profile-header {
+    border-color: #3d3d5c !important;
+}
+
+body.dark-mode .info-row {
+    border-color: #3d3d5c !important;
+}
+
+body.dark-mode .info-label {
+    color: #ffffff !important;
+}
+
+body.dark-mode .info-value {
+    color: #c5c5d8 !important;
+}
+
+/* Mobile responsive adjustments for dark mode toggle */
+@media (max-width: 768px) {
+    .dark-mode-toggle {
+        bottom: 15px;
+        right: 15px;
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
     }
 }

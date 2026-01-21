@@ -217,6 +217,7 @@ const masterLogbookSchema = new mongoose.Schema({
     department: { type: String, required: true },
     semester: { type: Number, required: true },
     batch: { type: String, required: true },
+    college: { type: String, required: true }, // College scoping
     teacherRgno: { type: Number, required: true },
     teacherName: { type: String },
     experiments: [{
@@ -239,6 +240,10 @@ const masterLogbookSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now }
 });
 
+// Add college-based indexes for performance
+masterLogbookSchema.index({ college: 1, teacherRgno: 1 });
+masterLogbookSchema.index({ college: 1, department: 1, semester: 1 });
+
 // Student Logbook Schema - Individual instances linked to master
 const studentLogbookSchema = new mongoose.Schema({
     masterLogbookId: { type: mongoose.Schema.Types.ObjectId, ref: 'MasterLogbook', required: true },
@@ -250,6 +255,7 @@ const studentLogbookSchema = new mongoose.Schema({
     department: { type: String },
     semester: { type: Number },
     batch: { type: String },
+    college: { type: String }, // College scoping
     experiments: [{
         slNo: Number,
         date: String,
@@ -302,6 +308,10 @@ const studentLogbookSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now }
 });
 
+// Add college-based indexes
+studentLogbookSchema.index({ college: 1, rgno: 1 });
+studentLogbookSchema.index({ college: 1, department: 1, semester: 1 });
+
 const MasterLogbook = mongoose.model('MasterLogbook', masterLogbookSchema);
 const StudentLogbook = mongoose.model('StudentLogbook', studentLogbookSchema);
 
@@ -327,11 +337,36 @@ app.post('/api/logbook/master/create', authenticateToken, async (req, res) => {
             });
         }
 
+        // Get teacher's college from their profile
         const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:3002';
         const teacherResponse = await fetch(`${authServiceUrl}/api/auth/profile`, {
             headers: { 'Authorization': req.headers.authorization }
         });
         const teacherData = await teacherResponse.json();
+        
+        if (!teacherData.success || !teacherData.user.college) {
+            return res.status(400).json({
+                success: false,
+                error: 'Teacher college information not found'
+            });
+        }
+
+        const teacherCollege = teacherData.user.college;
+
+        // Check if this faculty already has a master template with same subject AND code in their college
+        const existingTemplate = await MasterLogbook.findOne({
+            teacherRgno: req.user.rgno,
+            subject: subject,
+            code: code,
+            college: teacherCollege
+        });
+
+        if (existingTemplate) {
+            return res.status(400).json({
+                success: false,
+                error: `You already have a master template for "${subject}" (${code}). Please edit the existing template instead.`
+            });
+        }
 
         const masterLogbook = new MasterLogbook({
             subject,
@@ -339,6 +374,7 @@ app.post('/api/logbook/master/create', authenticateToken, async (req, res) => {
             department,
             semester,
             batch,
+            college: teacherCollege, // College scoping
             teacherRgno: req.user.rgno,
             teacherName: teacherData.user.name,
             experiments: experiments || [],
@@ -387,6 +423,51 @@ app.get('/api/logbook/master/:id', authenticateToken, async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching master logbook:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get assigned students for a Master Template
+app.get('/api/logbook/master/:id/students', authenticateToken, async (req, res) => {
+    try {
+        const masterId = req.params.id;
+        
+        // Check if template exists
+        const masterLogbook = await MasterLogbook.findById(masterId);
+        if (!masterLogbook) {
+            return res.status(404).json({
+                success: false,
+                error: 'Master logbook not found'
+            });
+        }
+
+        // Authorization: Only the creator or admin can view assigned students
+        if (masterLogbook.teacherRgno !== req.user.rgno && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'You can only view students for templates you created'
+            });
+        }
+
+        // Find all student logbooks created from this master template
+        const studentLogbooks = await StudentLogbook.find({ masterLogbookId: masterId }).select('name email rollno rgno studentRgno createdAt');
+        
+        // Map to a cleaner format
+        const students = studentLogbooks.map(sl => ({
+            name: sl.name || 'N/A',
+            email: sl.email || 'N/A',
+            rollNo: sl.rollno || 'N/A',
+            rgno: sl.rgno || sl.studentRgno || 'N/A',
+            assignedAt: sl.createdAt
+        }));
+
+        res.json({
+            success: true,
+            students: students,
+            count: students.length
+        });
+    } catch (error) {
+        console.error('Error fetching assigned students:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -605,8 +686,35 @@ app.post('/api/logbook/master/:id/assign-students', authenticateToken, async (re
             });
         }
 
+        // Ensure faculty can only assign to templates they own
+        if (masterLogbook.teacherRgno !== req.user.rgno && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'You can only assign students to your own templates'
+            });
+        }
+
         const studentLogbooks = [];
+        const skippedStudents = [];
+        
         for (const student of students) {
+            // Check if student already has a logbook for same subject + code in same college
+            const existingLogbook = await StudentLogbook.findOne({
+                rgno: student.rgno,
+                subject: masterLogbook.subject,
+                code: masterLogbook.code,
+                college: masterLogbook.college
+            });
+
+            if (existingLogbook) {
+                skippedStudents.push({
+                    name: student.name,
+                    rollno: student.rollno,
+                    reason: `Already assigned to "${masterLogbook.subject}" (${masterLogbook.code})`
+                });
+                continue; // Skip this student
+            }
+            
             const studentLogbook = new StudentLogbook({
                 masterLogbookId: masterId,
                 name: student.name,
@@ -617,6 +725,7 @@ app.post('/api/logbook/master/:id/assign-students', authenticateToken, async (re
                 department: masterLogbook.department,
                 semester: masterLogbook.semester,
                 batch: masterLogbook.batch,
+                college: masterLogbook.college, // College scoping from master
                 experiments: masterLogbook.experiments.map(exp => ({
                     slNo: exp.slNo,
                     experimentName: exp.experimentName,
@@ -670,12 +779,16 @@ app.post('/api/logbook/master/:id/assign-students', authenticateToken, async (re
             studentLogbooks.push(studentLogbook);
         }
 
-        await StudentLogbook.insertMany(studentLogbooks);
+        if (studentLogbooks.length > 0) {
+            await StudentLogbook.insertMany(studentLogbooks);
+        }
 
         res.json({
             success: true,
             message: `Assigned ${studentLogbooks.length} students to master logbook`,
-            count: studentLogbooks.length
+            count: studentLogbooks.length,
+            skipped: skippedStudents,
+            skippedCount: skippedStudents.length
         });
     } catch (error) {
         console.error('Error assigning students:', error);
@@ -1303,6 +1416,67 @@ app.delete('/api/logbook/:id', async (req, res) => {
         if (!logBook) return res.status(404).json({ success: false, error: 'Not found' });
         res.json({ success: true, message: 'Deleted successfully' });
     } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Cascade delete all templates and student logbooks created by a teacher
+// Called when a faculty account is deleted
+app.delete('/api/logbook/cascade-delete-by-teacher', authenticateToken, async (req, res) => {
+    try {
+        const { teacherRgno } = req.body;
+        
+        if (!teacherRgno) {
+            return res.status(400).json({ success: false, error: 'Teacher register number required' });
+        }
+        
+        // Find all master templates created by this teacher
+        const masterTemplates = await MasterLogbook.find({ teacherRgno: teacherRgno });
+        const masterIds = masterTemplates.map(m => m._id);
+        
+        // Delete all student logbooks associated with these templates
+        const studentLogbooksDeleted = await StudentLogbook.deleteMany({ 
+            masterLogbookId: { $in: masterIds } 
+        });
+        
+        // Delete all master templates
+        const templatesDeleted = await MasterLogbook.deleteMany({ teacherRgno: teacherRgno });
+        
+        console.log(`[CASCADE DELETE] Teacher ${teacherRgno}: Deleted ${templatesDeleted.deletedCount} templates, ${studentLogbooksDeleted.deletedCount} student logbooks`);
+        
+        res.json({
+            success: true,
+            message: 'All templates and student logbooks deleted',
+            templatesDeleted: templatesDeleted.deletedCount,
+            studentLogbooksDeleted: studentLogbooksDeleted.deletedCount
+        });
+    } catch (error) {
+        console.error('[CASCADE DELETE] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Delete all logbooks for a specific student (when student account is deleted)
+app.delete('/api/logbook/delete-by-student', authenticateToken, async (req, res) => {
+    try {
+        const { studentRgno } = req.body;
+        
+        if (!studentRgno) {
+            return res.status(400).json({ success: false, error: 'Student register number required' });
+        }
+        
+        // Delete all student logbooks for this student
+        const result = await StudentLogbook.deleteMany({ rgno: studentRgno });
+        
+        console.log(`[DELETE STUDENT LOGBOOKS] Student ${studentRgno}: Deleted ${result.deletedCount} logbooks`);
+        
+        res.json({
+            success: true,
+            message: 'All student logbooks deleted',
+            deletedCount: result.deletedCount
+        });
+    } catch (error) {
+        console.error('[DELETE STUDENT LOGBOOKS] Error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

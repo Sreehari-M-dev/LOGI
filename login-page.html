@@ -297,6 +297,130 @@
             to { transform: rotate(360deg); }
         }
         
+        /* 2FA Section Styles */
+        .twofa-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .twofa-section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .twofa-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .twofa-header .icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #36ba86 0%, #1fb5a3 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 28px;
+            color: white;
+            box-shadow: 0 10px 30px rgba(54, 186, 134, 0.3);
+        }
+        
+        .twofa-header h2 {
+            color: #0f4335;
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+        
+        .twofa-header p {
+            color: #607274;
+            font-size: 14px;
+        }
+        
+        .twofa-input {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .twofa-input input {
+            width: 48px;
+            height: 56px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 700;
+            border: 2px solid #e6eef0;
+            border-radius: 12px;
+            background: #f9fbfc;
+            transition: all 0.25s ease;
+        }
+        
+        .twofa-input input:focus {
+            outline: none;
+            border-color: #36ba86;
+            box-shadow: 0 0 0 4px rgba(54, 186, 134, 0.15);
+            background: #fff;
+        }
+        
+        /* Backup Code Input Styles */
+        .backup-code-input {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .backup-code-input input {
+            width: 40px;
+            height: 48px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            border: 2px solid #e6eef0;
+            border-radius: 10px;
+            background: #f9fbfc;
+            transition: all 0.25s ease;
+            text-transform: uppercase;
+        }
+        
+        .backup-code-input input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+            background: #fff;
+        }
+        
+        .backup-code-input input.filled {
+            border-color: #36ba86;
+            background: rgba(54, 186, 134, 0.05);
+        }
+        
+        .back-to-login {
+            text-align: center;
+            margin-top: 16px;
+        }
+        
+        .back-to-login a {
+            color: #607274;
+            text-decoration: none;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s;
+        }
+        
+        .back-to-login a:hover {
+            color: #0f4335;
+        }
+        
         /* Responsive Styles */
         @media (max-width: 992px) {
             .auth-shell {
@@ -479,40 +603,145 @@
             
             <div id="loginError" class="error-message"></div>
             
-            <form onsubmit="handleLogin(event)" autocomplete="off">
-                <div class="form-group">
-                    <label for="loginRgno"><i class="fas fa-id-card"></i> Register Number</label>
-                    <input type="number" id="loginRgno" name="rgno" placeholder="Enter your register number" required autofocus autocomplete="off">
+            <!-- Login Form Section -->
+            <div id="loginFormSection">
+                <form onsubmit="handleLogin(event)" autocomplete="off">
+                    <div class="form-group">
+                        <label for="loginRgno"><i class="fas fa-id-card"></i> Register Number</label>
+                        <input type="number" id="loginRgno" name="rgno" placeholder="Enter your register number" required autofocus autocomplete="off">
+                    </div>
+                    
+                    <div class="form-group password-toggle">
+                        <label for="loginPassword"><i class="fas fa-lock"></i> Password</label>
+                        <input type="password" id="loginPassword" name="password" placeholder="Enter your password" required autocomplete="new-password">
+                        <span class="password-toggle-icon" onclick="togglePasswordVisibility('loginPassword')">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                    
+                    <!-- Stay Logged In Checkbox -->
+                    <div class="form-group" style="margin: 12px 0;">
+                        <label class="stay-logged-in-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 400;">
+                            <input type="checkbox" id="stayLoggedIn" name="stayLoggedIn" style="width: 18px; height: 18px; cursor: pointer;" onchange="toggleStayLoggedInWarning()">
+                            <span style="font-size: 14px;">Stay logged in on this device</span>
+                        </label>
+                        <div id="stayLoggedInWarning" style="display: none; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 13px; color: #856404;">
+                            <i class="fas fa-exclamation-triangle" style="margin-right: 6px;"></i>
+                            <strong>Note:</strong> Your session will remain active for up to 7 days without inactivity timeout. After 7 days, you'll need to log in again. Use only on trusted personal devices.
+                        </div>
+                    </div>
+                    
+                    <!-- Remaining Attempts Warning -->
+                    <div id="remainingAttemptsWarning" style="display: none; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; color: #721c24;">
+                        <i class="fas fa-exclamation-circle" style="margin-right: 6px;"></i>
+                        <span id="remainingAttemptsText"></span>
+                    </div>
+                    
+                    <div class="loading" id="loginLoading">
+                        <span class="spinner"></span> Logging in...
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="loginBtn">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+                <div class="form-footer" style="margin-top:12px;">
+                    <a href="forgot-password.html">Forgot Password?</a>
                 </div>
-                
-                <div class="form-group password-toggle">
-                    <label for="loginPassword"><i class="fas fa-lock"></i> Password</label>
-                    <input type="password" id="loginPassword" name="password" placeholder="Enter your password" required autocomplete="new-password">
-                    <span class="password-toggle-icon" onclick="togglePasswordVisibility('loginPassword')">
-                        <i class="fas fa-eye"></i>
-                    </span>
+                <div class="form-footer" style="margin-top:8px;">
+                    Don't have an account? <a href="register.html">Register here</a>
                 </div>
-                
-                <div class="loading" id="loginLoading">
-                    <span class="spinner"></span> Logging in...
-                </div>
-                
-                <button type="submit" class="submit-btn" id="loginBtn">
-                    <i class="fas fa-sign-in-alt"></i> Login
-                </button>
-            </form>
-            <div class="form-footer" style="margin-top:12px;">
-                <a href="forgot-password.html">Forgot Password?</a>
             </div>
-            <div class="form-footer" style="margin-top:8px;">
-                Don't have an account? <a href="register.html">Register here</a>
+            
+            <!-- 2FA Verification Section -->
+            <div id="twofaSection" class="twofa-section">
+                <div class="twofa-header">
+                    <div class="icon"><i class="fas fa-shield-halved"></i></div>
+                    <h2>Two-Factor Authentication</h2>
+                    <p id="twofaPrompt">Enter the 6-digit code from your authenticator app</p>
+                </div>
+                
+                <!-- Authenticator Code Input -->
+                <div id="authCodeSection">
+                    <div class="twofa-input">
+                        <input type="text" maxlength="1" class="twofa-digit" data-index="0" inputmode="numeric" pattern="[0-9]">
+                        <input type="text" maxlength="1" class="twofa-digit" data-index="1" inputmode="numeric" pattern="[0-9]">
+                        <input type="text" maxlength="1" class="twofa-digit" data-index="2" inputmode="numeric" pattern="[0-9]">
+                        <input type="text" maxlength="1" class="twofa-digit" data-index="3" inputmode="numeric" pattern="[0-9]">
+                        <input type="text" maxlength="1" class="twofa-digit" data-index="4" inputmode="numeric" pattern="[0-9]">
+                        <input type="text" maxlength="1" class="twofa-digit" data-index="5" inputmode="numeric" pattern="[0-9]">
+                    </div>
+                    
+                    <div class="backup-code-link" style="text-align: center; margin-top: 16px;">
+                        <a href="#" onclick="showBackupCodeInput(); return false;" style="color: #6366f1; text-decoration: none; font-size: 0.9rem;">
+                            <i class="fas fa-key"></i> Use a backup code instead
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Backup Code Input (hidden by default) - 8 separate boxes -->
+                <div id="backupCodeSection" style="display: none;">
+                    <div class="backup-code-input">
+                        <input type="text" maxlength="1" class="backup-digit" data-index="0" inputmode="text" autocomplete="off">
+                        <input type="text" maxlength="1" class="backup-digit" data-index="1" inputmode="text" autocomplete="off">
+                        <input type="text" maxlength="1" class="backup-digit" data-index="2" inputmode="text" autocomplete="off">
+                        <input type="text" maxlength="1" class="backup-digit" data-index="3" inputmode="text" autocomplete="off">
+                        <input type="text" maxlength="1" class="backup-digit" data-index="4" inputmode="text" autocomplete="off">
+                        <input type="text" maxlength="1" class="backup-digit" data-index="5" inputmode="text" autocomplete="off">
+                        <input type="text" maxlength="1" class="backup-digit" data-index="6" inputmode="text" autocomplete="off">
+                        <input type="text" maxlength="1" class="backup-digit" data-index="7" inputmode="text" autocomplete="off">
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="#" onclick="showAuthCodeInput(); return false;" style="color: #6366f1; text-decoration: none; font-size: 0.9rem;">
+                            <i class="fas fa-mobile-alt"></i> Use authenticator app instead
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="loading" id="twofaLoading">
+                    <span class="spinner"></span> Verifying...
+                </div>
+                
+                <button type="button" class="submit-btn" id="verifyTwofaBtn" onclick="verifyTwoFA()">
+                    <i class="fas fa-check-circle"></i> Verify Code
+                </button>
+                
+                <div class="back-to-login">
+                    <a href="#" onclick="showLoginForm(); return false;">
+                        <i class="fas fa-arrow-left"></i> Back to login
+                    </a>
+                </div>
             </div>
         </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
     <script>
-        const AUTH_API = window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth'; 
+        const AUTH_API = window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth';
+        
+        // Store pending 2FA login credentials
+        let pending2FALogin = null;
+        
+        // Toggle stay logged in warning
+        function toggleStayLoggedInWarning() {
+            const checkbox = document.getElementById('stayLoggedIn');
+            const warning = document.getElementById('stayLoggedInWarning');
+            warning.style.display = checkbox.checked ? 'block' : 'none';
+        }
+        
+        // Show remaining attempts warning
+        function showRemainingAttempts(remaining) {
+            const warningDiv = document.getElementById('remainingAttemptsWarning');
+            const textSpan = document.getElementById('remainingAttemptsText');
+            
+            if (remaining !== undefined && remaining <= 3) {
+                textSpan.textContent = `Warning: ${remaining} login attempt${remaining !== 1 ? 's' : ''} remaining before your account is frozen.`;
+                warningDiv.style.display = 'block';
+            } else {
+                warningDiv.style.display = 'none';
+            }
+        }
         
         function togglePasswordVisibility(inputId) {
             const input = document.getElementById(inputId);
@@ -527,11 +756,186 @@
             }
         }
         
+        // Show 2FA section
+        function showTwoFASection() {
+            document.getElementById('loginFormSection').style.display = 'none';
+            document.getElementById('twofaSection').classList.add('active');
+            document.getElementById('loginError').style.display = 'none';
+            
+            // Focus first input
+            const firstInput = document.querySelector('.twofa-digit[data-index="0"]');
+            if (firstInput) firstInput.focus();
+        }
+        
+        // Show login form
+        function showLoginForm() {
+            document.getElementById('loginFormSection').style.display = 'block';
+            document.getElementById('twofaSection').classList.remove('active');
+            pending2FALogin = null;
+            
+            // Clear 2FA inputs
+            document.querySelectorAll('.twofa-digit').forEach(input => input.value = '');
+            document.querySelectorAll('.backup-digit').forEach(input => {
+                input.value = '';
+                input.classList.remove('filled');
+            });
+            
+            // Reset to auth code view
+            showAuthCodeInput();
+        }
+        
+        // Show backup code input
+        function showBackupCodeInput() {
+            document.getElementById('authCodeSection').style.display = 'none';
+            document.getElementById('backupCodeSection').style.display = 'block';
+            document.getElementById('twofaPrompt').textContent = 'Enter one of your backup codes';
+            const firstBackupInput = document.querySelector('.backup-digit[data-index="0"]');
+            if (firstBackupInput) firstBackupInput.focus();
+        }
+        
+        // Show authenticator code input
+        function showAuthCodeInput() {
+            document.getElementById('authCodeSection').style.display = 'block';
+            document.getElementById('backupCodeSection').style.display = 'none';
+            document.getElementById('twofaPrompt').textContent = 'Enter the 6-digit code from your authenticator app';
+            const firstInput = document.querySelector('.twofa-digit[data-index="0"]');
+            if (firstInput) firstInput.focus();
+        }
+        
+        // Get backup code from 8 input boxes
+        function getBackupCode() {
+            let code = '';
+            document.querySelectorAll('.backup-digit').forEach(input => {
+                code += input.value.toUpperCase();
+            });
+            return code;
+        }
+        
+        // Setup backup code input handlers
+        function setupBackupCodeInputs() {
+            const inputs = document.querySelectorAll('.backup-digit');
+            
+            inputs.forEach((input, index) => {
+                // Handle input
+                input.addEventListener('input', (e) => {
+                    const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                    e.target.value = value;
+                    
+                    if (value) {
+                        e.target.classList.add('filled');
+                        // Move to next input
+                        if (index < inputs.length - 1) {
+                            inputs[index + 1].focus();
+                        }
+                    } else {
+                        e.target.classList.remove('filled');
+                    }
+                    
+                    // Auto-submit when all 8 characters are entered
+                    const fullCode = getBackupCode();
+                    if (fullCode.length === 8) {
+                        verifyTwoFA();
+                    }
+                });
+                
+                // Handle backspace
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !input.value && index > 0) {
+                        inputs[index - 1].focus();
+                        inputs[index - 1].value = '';
+                        inputs[index - 1].classList.remove('filled');
+                    }
+                });
+                
+                // Handle paste
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const pastedData = (e.clipboardData || window.clipboardData).getData('text').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                    
+                    // Fill all inputs starting from the current one
+                    for (let i = 0; i < pastedData.length && (index + i) < inputs.length; i++) {
+                        inputs[index + i].value = pastedData[i];
+                        inputs[index + i].classList.add('filled');
+                    }
+                    
+                    // Focus the next empty input or the last one
+                    const nextEmptyIndex = Math.min(index + pastedData.length, inputs.length - 1);
+                    inputs[nextEmptyIndex].focus();
+                    
+                    // Auto-submit if complete
+                    const fullCode = getBackupCode();
+                    if (fullCode.length === 8) {
+                        verifyTwoFA();
+                    }
+                });
+            });
+        }
+        
+        // Get 2FA code from inputs
+        function get2FACode() {
+            let code = '';
+            document.querySelectorAll('.twofa-digit').forEach(input => {
+                code += input.value;
+            });
+            return code;
+        }
+        
+        // Setup 2FA input handlers
+        function setup2FAInputs() {
+            const inputs = document.querySelectorAll('.twofa-digit');
+            
+            inputs.forEach((input, index) => {
+                // Handle input
+                input.addEventListener('input', (e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    e.target.value = value;
+                    
+                    if (value && index < inputs.length - 1) {
+                        inputs[index + 1].focus();
+                    }
+                    
+                    // Auto-submit when all filled
+                    if (get2FACode().length === 6) {
+                        verifyTwoFA();
+                    }
+                });
+                
+                // Handle backspace
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                        inputs[index - 1].focus();
+                    }
+                });
+                
+                // Handle paste
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6);
+                    
+                    pastedData.split('').forEach((char, i) => {
+                        if (inputs[i]) {
+                            inputs[i].value = char;
+                        }
+                    });
+                    
+                    // Focus last filled or next empty
+                    const nextIndex = Math.min(pastedData.length, inputs.length - 1);
+                    inputs[nextIndex].focus();
+                    
+                    // Auto-submit if complete
+                    if (pastedData.length === 6) {
+                        verifyTwoFA();
+                    }
+                });
+            });
+        }
+        
         async function handleLogin(e) {
             e.preventDefault();
             
             const rgno = document.getElementById('loginRgno').value;
             const password = document.getElementById('loginPassword').value;
+            const stayLoggedIn = document.getElementById('stayLoggedIn').checked;
             const errorDiv = document.getElementById('loginError');
             const loadingDiv = document.getElementById('loginLoading');
             const submitBtn = document.getElementById('loginBtn');
@@ -544,15 +948,97 @@
                 const response = await fetch(`${AUTH_API}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rgno: parseInt(rgno), password })
+                    body: JSON.stringify({ rgno: parseInt(rgno), password, stayLoggedIn })
                 });
                 
                 const result = await response.json();
                 
+                // Show remaining attempts warning if provided
+                if (result.remainingAttempts !== undefined) {
+                    showRemainingAttempts(result.remainingAttempts);
+                }
+                
+                // Handle frozen account
+                if (result.accountFrozen) {
+                    Swal.fire({
+                        title: 'Account Frozen',
+                        html: `<p style="color: #721c24;">${result.error}</p>`,
+                        icon: 'error',
+                        confirmButtonColor: '#dc3545'
+                    });
+                    errorDiv.textContent = result.error;
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Handle email not verified
+                if (result.emailNotVerified) {
+                    Swal.fire({
+                        title: '📧 Email Not Verified',
+                        html: `
+                            <p>Please verify your email address before logging in.</p>
+                            <p style="margin-top: 10px;">We sent a verification link to:<br>
+                            <strong>${result.email || 'your email'}</strong></p>
+                            <p style="margin-top: 15px; font-size: 14px; color: #666;">Can't find the email? Check your spam folder or click below to resend.</p>
+                        `,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Resend Verification Email',
+                        cancelButtonText: 'Close',
+                        confirmButtonColor: '#667eea',
+                        cancelButtonColor: '#6c757d'
+                    }).then(async (swalResult) => {
+                        if (swalResult.isConfirmed) {
+                            // Resend verification email
+                            try {
+                                const resendResponse = await fetch(`${AUTH_API}/resend-verification`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ rgno: parseInt(rgno) })
+                                });
+                                const resendResult = await resendResponse.json();
+                                
+                                if (resendResult.success) {
+                                    Swal.fire({
+                                        title: 'Email Sent!',
+                                        text: 'Please check your inbox for the verification link.',
+                                        icon: 'success',
+                                        confirmButtonColor: '#667eea'
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        title: 'Error',
+                                        text: resendResult.error || 'Failed to resend verification email',
+                                        icon: 'error',
+                                        confirmButtonColor: '#667eea'
+                                    });
+                                }
+                            } catch (err) {
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: 'Network error. Please try again.',
+                                    icon: 'error',
+                                    confirmButtonColor: '#667eea'
+                                });
+                            }
+                        }
+                    });
+                    return;
+                }
+                
                 if (result.success) {
-                    // Store token
+                    // Store token and stayLoggedIn preference
                     localStorage.setItem('token', result.token);
                     localStorage.setItem('user', JSON.stringify(result.user));
+                    localStorage.setItem('loginTime', Date.now().toString());
+                    if (stayLoggedIn) {
+                        localStorage.setItem('stayLoggedIn', 'true');
+                    } else {
+                        localStorage.removeItem('stayLoggedIn');
+                    }
+                    
+                    // Hide remaining attempts warning on success
+                    document.getElementById('remainingAttemptsWarning').style.display = 'none';
                     
                     Swal.fire({
                         title: 'Success!',
@@ -563,6 +1049,14 @@
                     }).then(() => {
                         window.location.href = 'Log_Book1.html';
                     });
+                } else if (result.requiresTwoFactor) {
+                    // 2FA is required - show 2FA input section
+                    pending2FALogin = {
+                        rgno: parseInt(rgno),
+                        password: password,
+                        stayLoggedIn: stayLoggedIn
+                    };
+                    showTwoFASection();
                 } else {
                     errorDiv.textContent = result.error;
                     errorDiv.style.display = 'block';
@@ -576,12 +1070,147 @@
             }
         }
         
+        async function verifyTwoFA() {
+            // Check if using backup code or authenticator code
+            const isBackupCodeMode = document.getElementById('backupCodeSection').style.display !== 'none';
+            let code;
+            
+            if (isBackupCodeMode) {
+                code = getBackupCode();
+                if (code.length !== 8) {
+                    Swal.fire({
+                        title: 'Invalid Backup Code',
+                        text: 'Please enter all 8 characters of your backup code',
+                        icon: 'warning',
+                        confirmButtonColor: '#36ba86'
+                    });
+                    return;
+                }
+            } else {
+                code = get2FACode();
+                if (code.length !== 6) {
+                    Swal.fire({
+                        title: 'Invalid Code',
+                        text: 'Please enter all 6 digits',
+                        icon: 'warning',
+                        confirmButtonColor: '#36ba86'
+                    });
+                    return;
+                }
+            }
+            
+            const loadingDiv = document.getElementById('twofaLoading');
+            const submitBtn = document.getElementById('verifyTwofaBtn');
+            const errorDiv = document.getElementById('loginError');
+            
+            loadingDiv.style.display = 'block';
+            submitBtn.disabled = true;
+            errorDiv.style.display = 'none';
+            
+            try {
+                // Send login with 2FA code (server detects if it's backup or TOTP by length)
+                const response = await fetch(`${AUTH_API}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rgno: pending2FALogin.rgno,
+                        password: pending2FALogin.password,
+                        twoFactorCode: code,
+                        stayLoggedIn: pending2FALogin.stayLoggedIn
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    localStorage.setItem('loginTime', Date.now().toString());
+                    if (pending2FALogin.stayLoggedIn) {
+                        localStorage.setItem('stayLoggedIn', 'true');
+                    } else {
+                        localStorage.removeItem('stayLoggedIn');
+                    }
+                    
+                    // Show success with special warning if backup code was used
+                    if (result.usedBackupCode) {
+                        const remaining = result.remainingBackupCodes;
+                        const isLow = remaining <= 2;
+                        
+                        Swal.fire({
+                            title: '⚠️ Backup Code Login',
+                            html: `
+                                <div style="text-align: left;">
+                                    <p>You logged in using a backup code.</p>
+                                    <div style="background: ${isLow ? '#fff3cd' : '#e8f5e9'}; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid ${isLow ? '#ffc107' : '#4caf50'};">
+                                        <strong style="color: ${isLow ? '#856404' : '#2e7d32'};">📊 Remaining codes: ${remaining} of 10</strong>
+                                        ${isLow ? '<p style="color: #856404; margin: 8px 0 0; font-size: 14px;">⚠️ Running low! Generate new codes in Settings.</p>' : ''}
+                                    </div>
+                                    <p style="font-size: 13px; color: #666;">A security notification has been sent to your email.</p>
+                                </div>
+                            `,
+                            icon: 'warning',
+                            confirmButtonText: 'Continue',
+                            confirmButtonColor: '#36ba86'
+                        }).then(() => {
+                            window.location.href = 'Log_Book1.html';
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'Success!',
+                            text: 'Login successful. Redirecting...',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = 'Log_Book1.html';
+                        });
+                    }
+                } else {
+                    // Clear inputs and show error
+                    if (isBackupCodeMode) {
+                        document.querySelectorAll('.backup-digit').forEach(input => {
+                            input.value = '';
+                            input.classList.remove('filled');
+                        });
+                        document.querySelector('.backup-digit[data-index="0"]').focus();
+                    } else {
+                        document.querySelectorAll('.twofa-digit').forEach(input => input.value = '');
+                        document.querySelector('.twofa-digit[data-index="0"]').focus();
+                    }
+                    
+                    Swal.fire({
+                        title: isBackupCodeMode ? 'Invalid Backup Code' : 'Invalid Code',
+                        text: result.error || 'The code you entered is incorrect. Please try again.',
+                        icon: 'error',
+                        confirmButtonColor: '#36ba86'
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to verify code: ' + error.message,
+                    icon: 'error',
+                    confirmButtonColor: '#36ba86'
+                });
+            } finally {
+                loadingDiv.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        }
+        
         // Check if already logged in
         window.addEventListener('load', () => {
             const token = localStorage.getItem('token');
             if (token) {
                 window.location.href = 'Log_Book1.html';
             }
+            
+            // Setup 2FA input handlers
+            setup2FAInputs();
+            
+            // Setup backup code input handlers
+            setupBackupCodeInputs();
             
             // Check for logout reason and display popup
             const logoutReason = sessionStorage.getItem('logoutReason');

@@ -189,7 +189,7 @@
             font-size: 14px;
             transition: all 0.25s ease;
             font-family: inherit;
-            text-align: center;
+            text-align: left;
             background: #f7f5ff;
         }
         
@@ -480,17 +480,170 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="registerRole"><i class="fas fa-user-tag"></i> Role</label>
-                    <select id="registerRole" name="role" onchange="toggleAdditionalFields()" required>
-                        <option value="">Select your role</option>
-                        <option value="student" selected>Student</option>
-                        <option value="faculty">Faculty</option>
+                    <label for="registerCollege"><i class="fas fa-university"></i> College <span style="color:red">*</span></label>
+                    <select id="registerCollege" name="college" required>
+                        <option value="">-- Select your College --</option>
+                        <!-- THIRUVANANTHAPURAM DISTRICT -->
+                        <optgroup label="📍 Thiruvananthapuram District">
+                            <option value="Central Polytechnic College, Thiruvananthapuram">Central Polytechnic College, Thiruvananthapuram</option>
+                            <option value="Government Women's Polytechnic College, Thiruvananthapuram">Government Women's Polytechnic College, Thiruvananthapuram</option>
+                            <option value="Government Polytechnic College, Neyyattinkara">Government Polytechnic College, Neyyattinkara</option>
+                            <option value="Government Polytechnic College, Nedumangad">Government Polytechnic College, Nedumangad</option>
+                            <option value="Government Polytechnic College, Attingal">Government Polytechnic College, Attingal</option>
+                        </optgroup>
+                        <!-- KOLLAM DISTRICT -->
+                        <optgroup label="📍 Kollam District">
+                            <option value="Government Polytechnic College, Punalur">Government Polytechnic College, Punalur</option>
+                            <option value="Government Polytechnic College, Ezhukone">Government Polytechnic College, Ezhukone</option>
+                            <option value="Sree Narayana Polytechnic College, Kottiyam">Sree Narayana Polytechnic College, Kottiyam</option>
+                        </optgroup>
+                        <!-- PATHANAMTHITTA DISTRICT -->
+                        <optgroup label="📍 Pathanamthitta District">
+                            <option value="MVGM Government Polytechnic College, Vennikulam">MVGM Government Polytechnic College, Vennikulam</option>
+                            <option value="Government Polytechnic College, Vechoochira">Government Polytechnic College, Vechoochira</option>
+                            <option value="Government Polytechnic College, Manakala (Adoor)">Government Polytechnic College, Manakala (Adoor)</option>
+                            <option value="N S S Polytechnic College, Pandalam">N S S Polytechnic College, Pandalam</option>
+                        </optgroup>
+                        <!-- ALAPPUZHA DISTRICT -->
+                        <optgroup label="📍 Alappuzha District">
+                            <option value="Government Polytechnic College, Cherthala">Government Polytechnic College, Cherthala</option>
+                            <option value="Government Women's Polytechnic College, Kayamkulam">Government Women's Polytechnic College, Kayamkulam</option>
+                            <option value="Carmel Polytechnic College, Alappuzha">Carmel Polytechnic College, Alappuzha</option>
+                        </optgroup>
+                        <!-- KOTTAYAM DISTRICT -->
+                        <optgroup label="📍 Kottayam District">
+                            <option value="Government Polytechnic College, Kottayam">Government Polytechnic College, Kottayam</option>
+                            <option value="Government Polytechnic College, Pala">Government Polytechnic College, Pala</option>
+                            <option value="Government Polytechnic College, Kaduthuruthy">Government Polytechnic College, Kaduthuruthy</option>
+                            <option value="Thiagarajar Polytechnic College, Alagappanagar">Thiagarajar Polytechnic College, Alagappanagar</option>
+                        </optgroup>
+                        <!-- IDUKKI DISTRICT -->
+                        <optgroup label="📍 Idukki District">
+                            <option value="Government Polytechnic College, Muttom Idukki">Government Polytechnic College, Muttom Idukki</option>
+                            <option value="Government Polytechnic College, Vandiperiyar">Government Polytechnic College, Vandiperiyar</option>
+                            <option value="Government Polytechnic College, Nedumkandam">Government Polytechnic College, Nedumkandam</option>
+                            <option value="Government Polytechnic College, Purappuzha">Government Polytechnic College, Purappuzha</option>
+                        </optgroup>
+                        <!-- ERNAKULAM DISTRICT -->
+                        <optgroup label="📍 Ernakulam District">
+                            <option value="Government Polytechnic College, Kalamassery">Government Polytechnic College, Kalamassery</option>
+                            <option value="Women's Polytechnic College, Ernakulam">Women's Polytechnic College, Ernakulam</option>
+                            <option value="Government Polytechnic College, Kothamangalam">Government Polytechnic College, Kothamangalam</option>
+                            <option value="Government Polytechnic College, Perumbavoor">Government Polytechnic College, Perumbavoor</option>
+                        </optgroup>
+                        <!-- THRISSUR DISTRICT -->
+                        <optgroup label="📍 Thrissur District">
+                            <option value="Maharaja's Technological Institute, Thrissur">Maharaja's Technological Institute, Thrissur</option>
+                            <option value="Government Women's Polytechnic College, Thrissur">Government Women's Polytechnic College, Thrissur</option>
+                            <option value="Government Polytechnic College, Chelakkara">Government Polytechnic College, Chelakkara</option>
+                            <option value="Government Polytechnic College, Kunnamkulam">Government Polytechnic College, Kunnamkulam</option>
+                            <option value="Government Polytechnic College, Koratty">Government Polytechnic College, Koratty</option>
+                            <option value="Sree Rama Government Polytechnic College, Thriprayar">Sree Rama Government Polytechnic College, Thriprayar</option>
+                        </optgroup>
+                        <!-- PALAKKAD DISTRICT -->
+                        <optgroup label="📍 Palakkad District">
+                            <option value="Government Polytechnic College, Palakkad">Government Polytechnic College, Palakkad</option>
+                            <option value="Institute of Printing Technology and Government Polytechnic College, Shoranur">Institute of Printing Technology and GPC, Shoranur</option>
+                        </optgroup>
+                        <!-- MALAPPURAM DISTRICT -->
+                        <optgroup label="📍 Malappuram District">
+                            <option value="Government Polytechnic College, Perinthalmanna">Government Polytechnic College, Perinthalmanna</option>
+                            <option value="AKNM Government Polytechnic College, Thirurangadi">AKNM Government Polytechnic College, Thirurangadi</option>
+                            <option value="Government Women's Polytechnic College, Kottakkal">Government Women's Polytechnic College, Kottakkal</option>
+                            <option value="Government Polytechnic College, Manjeri">Government Polytechnic College, Manjeri</option>
+                            <option value="Seethi Sahib Memorial Polytechnic College, Tirur">Seethi Sahib Memorial Polytechnic College, Tirur</option>
+                        </optgroup>
+                        <!-- KOZHIKODE DISTRICT -->
+                        <optgroup label="📍 Kozhikode District">
+                            <option value="Kerala Government Polytechnic College, Kozhikode">Kerala Government Polytechnic College, Kozhikode</option>
+                            <option value="Government Women's Polytechnic College, Kozhikode">Government Women's Polytechnic College, Kozhikode</option>
+                        </optgroup>
+                        <!-- WAYANAD DISTRICT -->
+                        <optgroup label="📍 Wayanad District">
+                            <option value="Government Polytechnic College, Meenangadi">Government Polytechnic College, Meenangadi</option>
+                            <option value="Government Polytechnic College, Meppadi">Government Polytechnic College, Meppadi</option>
+                            <option value="Government Polytechnic College, Mananthavady">Government Polytechnic College, Mananthavady</option>
+                        </optgroup>
+                        <!-- KANNUR DISTRICT -->
+                        <optgroup label="📍 Kannur District">
+                            <option value="Government Polytechnic College, Kannur (Thottada)">Government Polytechnic College, Kannur (Thottada)</option>
+                            <option value="Government Polytechnic College, Mattannur">Government Polytechnic College, Mattannur</option>
+                            <option value="Government Residential Women's Polytechnic College, Payyannur">Government Residential Women's Polytechnic College, Payyannur</option>
+                            <option value="Government Technical High School, Naduvil">Government Technical High School, Naduvil</option>
+                        </optgroup>
+                        <!-- KASARAGOD DISTRICT -->
+                        <optgroup label="📍 Kasaragod District">
+                            <option value="Government Polytechnic College, Kasaragod">Government Polytechnic College, Kasaragod</option>
+                            <option value="EKNM Government Polytechnic College, Trikaripur">EKNM Government Polytechnic College, Trikaripur</option>
+                            <option value="Swami Nithyananda Polytechnic, Kanhangad">Swami Nithyananda Polytechnic, Kanhangad</option>
+                        </optgroup>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="registerRgno"><i class="fas fa-id-card"></i> Register Number</label>
-                    <input type="number" id="registerRgno" name="rgno" placeholder="Register number" required>
+                    <label for="registerRole"><i class="fas fa-user-tag"></i> Role <span style="color:red">*</span></label>
+                    <select id="registerRole" name="role" onchange="toggleAdditionalFields()" required>
+                        <option value="">Select your role</option>
+                        <option value="student" selected>Student</option>
+                        <option value="faculty">Faculty</option>
+                        <option value="principal">Principal</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerDept"><i class="fas fa-building"></i> Department <span style="color:red">*</span></label>
+                    <select id="registerDept" name="department" required>
+                        <option value="">-- Select Department --</option>
+                        <option value="Architecture">Architecture</option>
+                        <option value="Artificial Intelligence">Artificial Intelligence</option>
+                        <option value="Artificial Intelligence & Machine Learning">Artificial Intelligence & Machine Learning</option>
+                        <option value="Automation and Robotics">Automation and Robotics</option>
+                        <option value="Automobile Engineering">Automobile Engineering</option>
+                        <option value="Biomedical Engineering">Biomedical Engineering</option>
+                        <option value="Chemical Engineering">Chemical Engineering</option>
+                        <option value="Civil & Environmental Engineering">Civil & Environmental Engineering</option>
+                        <option value="Civil & Rural Engineering">Civil & Rural Engineering</option>
+                        <option value="Civil (Public Health and Environment) Engineering">Civil (Public Health and Environment) Engineering</option>
+                        <option value="Civil Engineering">Civil Engineering</option>
+                        <option value="Civil Engineering & Planning">Civil Engineering & Planning</option>
+                        <option value="Cloud Computing and Big Data">Cloud Computing and Big Data</option>
+                        <option value="Commercial Practice">Commercial Practice</option>
+                        <option value="Communication & Computer Networking">Communication & Computer Networking</option>
+                        <option value="Computer Application & Business Management">Computer Application & Business Management</option>
+                        <option value="Computer Engineering">Computer Engineering</option>
+                        <option value="Computer Hardware Engineering">Computer Hardware Engineering</option>
+                        <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                        <option value="Cyber Forensics and Information Security">Cyber Forensics and Information Security</option>
+                        <option value="Electrical & Electronics Engineering">Electrical & Electronics Engineering</option>
+                        <option value="Electrical Engineering">Electrical Engineering</option>
+                        <option value="Electrical Engineering & Electric Vehicles Technology">Electrical Engineering & Electric Vehicles Technology</option>
+                        <option value="Electronics and Communication">Electronics and Communication</option>
+                        <option value="Electronics and Computer Engineering">Electronics and Computer Engineering</option>
+                        <option value="Electronics Engineering">Electronics Engineering</option>
+                        <option value="Fire Technology and Safety">Fire Technology and Safety</option>
+                        <option value="Food Processing Technology">Food Processing Technology</option>
+                        <option value="Hotel Management and Catering Technology">Hotel Management and Catering Technology</option>
+                        <option value="Information Technology">Information Technology</option>
+                        <option value="Instrumentation Engineering">Instrumentation Engineering</option>
+                        <option value="Integrated Circuit Design & Fabrication">Integrated Circuit Design & Fabrication</option>
+                        <option value="Manufacturing Technology">Manufacturing Technology</option>
+                        <option value="Mechanical Engineering">Mechanical Engineering</option>
+                        <option value="Mechatronics">Mechatronics</option>
+                        <option value="Micro Electronics">Micro Electronics</option>
+                        <option value="Polymer Technology">Polymer Technology</option>
+                        <option value="Printing Technology">Printing Technology</option>
+                        <option value="Renewable Energy">Renewable Energy</option>
+                        <option value="Robotic Process Automation">Robotic Process Automation</option>
+                        <option value="Textile Technology">Textile Technology</option>
+                        <option value="Tool & Die Engineering">Tool & Die Engineering</option>
+                        <option value="Wood and Paper Technology">Wood and Paper Technology</option>
+                        <option value="Office Administration">Office Administration (Principal Only)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerRgno"><i class="fas fa-id-card"></i> Register/Employee Number <span style="color:red">*</span></label>
+                    <input type="number" id="registerRgno" name="rgno" placeholder="Register/Employee number" required>
                 </div>
                 
                 <div class="additional-fields show" id="additionalFields">
@@ -499,17 +652,15 @@
                         <input type="number" id="registerRoll" name="rollno" placeholder="Roll number" required>
                     </div>
                     
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="registerDept"><i class="fas fa-building"></i> Department</label>
-                            <input type="text" id="registerDept" name="department" placeholder="Department">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="registerSem"><i class="fas fa-calendar"></i> Semester</label>
-                            <input type="number" id="registerSem" name="semester" placeholder="Semester" min="1" max="8">
-                        </div>
+                    <div class="form-group">
+                        <label for="registerSem"><i class="fas fa-calendar"></i> Semester</label>
+                        <input type="number" id="registerSem" name="semester" placeholder="Semester" min="1" max="8">
                     </div>
+                </div>
+                
+                <div class="approval-notice" id="approvalNotice" style="display:none; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin-bottom: 15px; color: #856404; font-size: 13px;">
+                    <i class="fas fa-info-circle"></i> <strong>Note:</strong> Your account will require approval before you can access all features.
+                    <span id="approvalRoleInfo"></span>
                 </div>
                 
                 <div class="form-group">
@@ -519,7 +670,7 @@
                 
                 <div class="form-group password-toggle">
                     <label for="registerPassword"><i class="fas fa-lock"></i> Password</label>
-                    <input type="password" id="registerPassword" name="password" placeholder="Create a password (min 6 characters)" required>
+                    <input type="password" id="registerPassword" name="password" placeholder="Create a password (min 8 characters)" required>
                     <span class="password-toggle-icon" onclick="togglePasswordVisibility('registerPassword')">
                         <i class="fas fa-eye"></i>
                     </span>
@@ -571,17 +722,57 @@
             const fields = document.getElementById('additionalFields');
             const rollInput = document.getElementById('registerRoll');
             const rgnoInput = document.getElementById('registerRgno');
+            const rgnoLabel = document.querySelector('label[for="registerRgno"]');
+            const semInput = document.getElementById('registerSem');
+            const deptSelect = document.getElementById('registerDept');
+            const approvalNotice = document.getElementById('approvalNotice');
+            const approvalRoleInfo = document.getElementById('approvalRoleInfo');
             
+            // Show/hide student-specific fields
             if (role === 'student') {
                 fields.classList.add('show');
                 rollInput.required = true;
-                rgnoInput.required = true;
+                rgnoLabel.innerHTML = '<i class="fas fa-id-card"></i> Register Number <span style="color:red">*</span>';
+                rgnoInput.placeholder = 'Student register number';
+                semInput.parentElement.style.display = 'block';
+                approvalNotice.style.display = 'block';
+                approvalRoleInfo.textContent = ' Students need faculty approval.';
+                // Hide Office Administration for students
+                Array.from(deptSelect.options).forEach(opt => {
+                    if (opt.value === 'Office Administration') opt.style.display = 'none';
+                });
+            } else if (role === 'faculty') {
+                fields.classList.remove('show');
+                rollInput.required = false;
+                rgnoLabel.innerHTML = '<i class="fas fa-id-card"></i> Employee Number <span style="color:red">*</span>';
+                rgnoInput.placeholder = 'Faculty employee number';
+                semInput.parentElement.style.display = 'none';
+                approvalNotice.style.display = 'block';
+                approvalRoleInfo.textContent = ' Faculty need Principal approval.';
+                // Hide Office Administration for faculty
+                Array.from(deptSelect.options).forEach(opt => {
+                    if (opt.value === 'Office Administration') opt.style.display = 'none';
+                });
+            } else if (role === 'principal') {
+                fields.classList.remove('show');
+                rollInput.required = false;
+                rgnoLabel.innerHTML = '<i class="fas fa-id-card"></i> Employee Number <span style="color:red">*</span>';
+                rgnoInput.placeholder = 'Principal employee number';
+                semInput.parentElement.style.display = 'none';
+                approvalNotice.style.display = 'block';
+                approvalRoleInfo.textContent = ' Principals need Super Admin approval.';
+                // Show Office Administration option for principals
+                Array.from(deptSelect.options).forEach(opt => {
+                    if (opt.value === 'Office Administration') opt.style.display = 'block';
+                });
+                deptSelect.value = 'Office Administration';
             } else {
                 fields.classList.remove('show');
                 rollInput.required = false;
-                // rgno is always required for login
-                rgnoInput.required = true;
+                approvalNotice.style.display = 'none';
             }
+            // rgno is always required for login
+            rgnoInput.required = true;
         }
         
         async function handleRegister(e) {
@@ -596,6 +787,7 @@
             const rgno = document.getElementById('registerRgno').value.trim();
             const department = document.getElementById('registerDept').value.trim();
             const semester = document.getElementById('registerSem').value.trim();
+            const college = document.getElementById('registerCollege').value.trim();
             
             const errorDiv = document.getElementById('registerError');
             const loadingDiv = document.getElementById('registerLoading');
@@ -603,13 +795,65 @@
             
             errorDiv.style.display = 'none';
             
-            // Validation
-            if (password.length < 6) {
-                const msg = 'Password must be at least 6 characters';
+            // Validation - College is required
+            if (!college) {
+                const msg = 'Please select your college';
                 if (typeof showAlertNotification === 'function') {
                     showAlertNotification(msg, 'error');
                 } else {
                     Swal.fire({ title: 'Validation Error', text: msg, icon: 'error', confirmButtonColor: '#667eea' });
+                }
+                errorDiv.textContent = msg;
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Validation - Department is required
+            if (!department) {
+                const msg = 'Please select your department';
+                if (typeof showAlertNotification === 'function') {
+                    showAlertNotification(msg, 'error');
+                } else {
+                    Swal.fire({ title: 'Validation Error', text: msg, icon: 'error', confirmButtonColor: '#667eea' });
+                }
+                errorDiv.textContent = msg;
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Validate Office Administration is only for principals
+            if (department.toLowerCase() === 'office administration' && role !== 'principal') {
+                const msg = 'Office Administration department is only available for principals.';
+                if (typeof showAlertNotification === 'function') {
+                    showAlertNotification(msg, 'error');
+                } else {
+                    Swal.fire({ title: 'Invalid Department', text: msg, icon: 'error', confirmButtonColor: '#667eea' });
+                }
+                errorDiv.textContent = msg;
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (password.length < 8) {
+                const msg = 'Password must be at least 8 characters';
+                if (typeof showAlertNotification === 'function') {
+                    showAlertNotification(msg, 'error');
+                } else {
+                    Swal.fire({ title: 'Validation Error', text: msg, icon: 'error', confirmButtonColor: '#667eea' });
+                }
+                errorDiv.textContent = msg;
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Strong password validation
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+            if (!passwordRegex.test(password)) {
+                const msg = 'Password must include: uppercase letter, lowercase letter, number, and special symbol (!@#$%^&*...)';
+                if (typeof showAlertNotification === 'function') {
+                    showAlertNotification(msg, 'error');
+                } else {
+                    Swal.fire({ title: 'Weak Password', text: msg, icon: 'error', confirmButtonColor: '#667eea' });
                 }
                 errorDiv.textContent = msg;
                 errorDiv.style.display = 'block';
@@ -629,7 +873,7 @@
             }
             
             if (!rgno) {
-                const msg = 'Register number is required';
+                const msg = 'Register/Employee number is required';
                 if (typeof showAlertNotification === 'function') {
                     showAlertNotification(msg, 'error');
                 } else {
@@ -655,7 +899,8 @@
                         rgno: rgno ? parseInt(rgno, 10) : null,
                         role,
                         department: department || null,
-                        semester: semester ? parseInt(semester, 10) : null
+                        semester: semester ? parseInt(semester, 10) : null,
+                        college: college
                     })
                 });
                 
@@ -665,18 +910,63 @@
                 console.log('[REGISTER] Response body:', result);
                 
                 if (result.success) {
-                    // Store token
-                    localStorage.setItem('token', result.token);
-                    localStorage.setItem('user', JSON.stringify(result.user));
+                    // Do NOT auto-login - user must wait for approval
+                    // Clear any existing auth data
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    
+                    // Show appropriate message based on approval status and email verification
+                    const isAutoApproved = result.user.approvalStatus === 'approved';
+                    const isPrincipal = result.user.role === 'principal';
+                    const requiresEmailVerification = result.requiresEmailVerification;
+                    
+                    // Special message for email verification first
+                    let messageHtml = '';
+                    if (requiresEmailVerification) {
+                        messageHtml = `
+                            <div style="text-align: center;">
+                                <p style="font-size: 50px; margin-bottom: 10px;">📧</p>
+                                <p><strong>Please verify your email address!</strong></p>
+                                <p style="margin-top: 15px;">We've sent a verification link to:<br>
+                                <strong style="color: #667eea;">${result.user.email || 'your email'}</strong></p>
+                                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #ffc107;">
+                                    <p style="color: #856404; margin: 0;">⏰ The link expires in <strong>24 hours</strong></p>
+                                </div>
+                                ${isPrincipal ? `
+                                    <hr style="margin: 15px 0; border-color: #e0e0e0;">
+                                    <p style="font-weight: 600; color: #0f4335;">After verifying email, contact Super Admin for account approval:</p>
+                                    <p style="margin: 8px 0;"><strong>📧 Email:</strong> <a href="mailto:your.personal.email@gmail.com" style="color: #667eea;">your.personal.email@gmail.com</a></p>
+                                ` : `
+                                    <p style="font-size: 0.9em; color: #666;">After verification, your account will need approval from your institution.</p>
+                                `}
+                            </div>
+                        `;
+                    } else if (isAutoApproved) {
+                        messageHtml = `<p>Your account has been created and approved.</p>
+                               <p>You can now <strong>log in</strong> to access the system.</p>`;
+                    } else if (isPrincipal) {
+                        messageHtml = `<p>Your account has been created but requires approval from the <strong>Super Admin</strong>.</p>
+                               <p><strong>Status:</strong> Pending Approval</p>
+                               <hr style="margin: 15px 0; border-color: #e0e0e0;">
+                               <p style="font-weight: 600; color: #0f4335;">📞 Contact Super Admin for Approval:</p>
+                               <p style="margin: 8px 0;"><strong>📧 Email:</strong> <a href="mailto:your.personal.email@gmail.com" style="color: #667eea;">your.personal.email@gmail.com</a></p>
+                               <p style="margin: 8px 0;"><strong>📱 Phone:</strong> +91 XXXXXXXXXX</p>
+                               <p style="font-size: 0.9em; color: #666; margin-top: 12px;">Please provide your college name and registration details for verification.</p>`;
+                    } else {
+                        messageHtml = `<p>Your account has been created but requires approval.</p>
+                               <p><strong>Status:</strong> Pending Approval</p>
+                               <p>You will be able to log in once your account is approved by your institution.</p>`;
+                    }
                     
                     Swal.fire({
-                        title: 'Success!',
-                        text: 'Registration successful. Redirecting...',
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
+                        title: requiresEmailVerification ? 'Verify Your Email' : 'Registration Successful!',
+                        html: messageHtml,
+                        icon: requiresEmailVerification ? 'info' : (isAutoApproved ? 'success' : 'info'),
+                        confirmButtonText: requiresEmailVerification ? 'Got it!' : 'Go to Login',
+                        confirmButtonColor: '#667eea',
+                        width: isPrincipal || requiresEmailVerification ? '500px' : 'auto'
                     }).then(() => {
-                        window.location.href = 'Log_Book1.html';
+                        window.location.href = 'login-page.html';
                     });
                 } else {
                     // Show popup with error message using error handler

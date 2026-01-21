@@ -21,6 +21,7 @@
         })();
     </script>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -29,9 +30,12 @@
         }
         body {
             font-family: Arial, sans-serif;
-            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding-top: 80px;
+        }
+        .page-content {
+            padding: 20px;
         }
         .container {
             max-width: 1400px;
@@ -243,10 +247,11 @@
         }
         .experiment-table {
             width: 100%;
+            min-width: 900px;
             border-collapse: collapse;
             margin: 10px 0;
             font-size: 13px;
-            table-layout: fixed;
+            table-layout: auto;
         }
         .experiment-table th,
         .experiment-table td {
@@ -254,6 +259,7 @@
             padding: 8px;
             text-align: center;
             height: 40px;
+            white-space: nowrap;
         }
         .experiment-table th {
             background: #667eea;
@@ -263,29 +269,111 @@
         .experiment-table tr:nth-child(even) {
             background: #f9f9f9;
         }
-        /* Fixed column widths for consistent layout across all three tables */
+        /* Table container with horizontal scroll */
+        .table-scroll-container {
+            width: 100%;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        /* Column widths as minimum widths */
         .experiment-table th:nth-child(1),
-        .experiment-table td:nth-child(1) { width: 6%; }  /* Sl.No */
+        .experiment-table td:nth-child(1) { min-width: 50px; }  /* Sl.No */
         .experiment-table th:nth-child(2),
-        .experiment-table td:nth-child(2) { width: 10%; } /* Date */
+        .experiment-table td:nth-child(2) { min-width: 90px; } /* Date */
         .experiment-table th:nth-child(3),
-        .experiment-table td:nth-child(3) { width: 22%; } /* Experiment/Project/Exam */
+        .experiment-table td:nth-child(3) { min-width: 180px; } /* Experiment/Project/Exam */
         .experiment-table th:nth-child(4),
-        .experiment-table td:nth-child(4) { width: 8%; }  /* CO */
+        .experiment-table td:nth-child(4) { min-width: 60px; }  /* CO */
         .experiment-table th:nth-child(5),
-        .experiment-table td:nth-child(5) { width: 7%; }  /* R1 */
+        .experiment-table td:nth-child(5) { min-width: 50px; }  /* R1 */
         .experiment-table th:nth-child(6),
-        .experiment-table td:nth-child(6) { width: 7%; }  /* R2 */
+        .experiment-table td:nth-child(6) { min-width: 50px; }  /* R2 */
         .experiment-table th:nth-child(7),
-        .experiment-table td:nth-child(7) { width: 7%; }  /* R3 */
+        .experiment-table td:nth-child(7) { min-width: 50px; }  /* R3 */
         .experiment-table th:nth-child(8),
-        .experiment-table td:nth-child(8) { width: 7%; }  /* R4 */
+        .experiment-table td:nth-child(8) { min-width: 50px; }  /* R4 */
         .experiment-table th:nth-child(9),
-        .experiment-table td:nth-child(9) { width: 7%; }  /* R5 */
+        .experiment-table td:nth-child(9) { min-width: 50px; }  /* R5 */
         .experiment-table th:nth-child(10),
-        .experiment-table td:nth-child(10) { width: 8%; } /* Total */
+        .experiment-table td:nth-child(10) { min-width: 60px; } /* Total */
         .experiment-table th:nth-child(11),
-        .experiment-table td:nth-child(11) { width: 11%; } /* Signatures */
+        .experiment-table td:nth-child(11) { min-width: 100px; } /* Signatures */
+        
+        /* Dark mode support - Elegant colors */
+        body.dark-mode {
+            background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
+        }
+        body.dark-mode .container {
+            background: #2a2a3d;
+            color: #e8e8f0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        body.dark-mode h1 {
+            color: #a78bfa;
+        }
+        body.dark-mode .search-bar input {
+            background: #353550;
+            border-color: #4a4a6a;
+            color: #e8e8f0;
+        }
+        body.dark-mode .search-bar input::placeholder {
+            color: #8888a0;
+        }
+        body.dark-mode .search-bar button {
+            background: #8b5cf6;
+        }
+        body.dark-mode .search-bar button:hover {
+            background: #7c3aed;
+        }
+        body.dark-mode .logbook-card {
+            background: #353550;
+            border-color: #4a4a6a;
+        }
+        body.dark-mode .logbook-header {
+            border-color: #a78bfa;
+        }
+        body.dark-mode .student-info h3,
+        body.dark-mode .student-info p strong {
+            color: #ffffff;
+        }
+        body.dark-mode .student-info p {
+            color: #c5c5d8;
+        }
+        body.dark-mode .summary-item {
+            background: #2a2a3d;
+            border-color: #a78bfa;
+        }
+        body.dark-mode .summary-item strong {
+            color: #c5c5d8;
+        }
+        body.dark-mode .summary-item span {
+            color: #a78bfa;
+        }
+        body.dark-mode .modal-content {
+            background: #2a2a3d;
+            color: #e8e8f0;
+        }
+        body.dark-mode .modal-close {
+            color: #8888a0;
+        }
+        body.dark-mode .modal-close:hover {
+            color: #ffffff;
+        }
+        body.dark-mode .detail-section h4 {
+            color: #a78bfa;
+            border-color: #4a4a6a;
+        }
+        body.dark-mode .experiment-table th {
+            background: #3d3d5c;
+        }
+        body.dark-mode .experiment-table td {
+            background: #353550;
+            border-color: #4a4a6a;
+            color: #e8e8f0;
+        }
+        body.dark-mode .experiment-table tr:nth-child(even) td {
+            background: #2a2a3d;
+        }
     </style>
 </head>
 <body>
@@ -300,14 +388,16 @@
                 <span></span>
             </button>
             <ul class="nav-menu" id="nav-menu">
-                <li><a href="index.html">Home</a></li>
-                <li><a href="Log_Book1.html">Log Book</a></li>
-                <li><a href="Studyresources.html">Study Resources</a></li>
-                <li><a href="About.html">About US</a></li>
+                <li><a href="index.html"><i class="fas fa-home"></i> Home</a></li>
+                <li><a href="Log_Book1.html"><i class="fas fa-book"></i> Logbook</a></li>
+                <li><a href="logbook-viewer.html"><i class="fas fa-eye"></i> Logbook Viewer</a></li>
+                <li><a href="master-templates.html"><i class="fas fa-pen"></i> Edit Master Templates</a></li>
+
             </ul>
         </div>
     </nav>
 
+    <div class="page-content">
     <div class="container">
         <h1>📚 Log Book Viewer</h1>
         
@@ -335,7 +425,7 @@
     </div>
 
     <script>
-        const API_URL = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
+        const API_URL = window.REACT_APP_LOGBOOK_API || 'http://localhost:3005/api/logbook';
         let allLogBooks = [];
         let viewMode = 'cards';
 
@@ -497,6 +587,7 @@
                 ${logBook.experiments && logBook.experiments.length > 0 ? `
                 <div class="detail-section">
                     <h4>Experiments</h4>
+                    <div class="table-scroll-container">
                     <table class="experiment-table">
                         <thead>
                             <tr>
@@ -531,12 +622,14 @@
                             `).join('')}
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 ` : ''}
 
                 ${logBook.openEndedProject && logBook.openEndedProject.projectName ? `
                 <div class="detail-section">
                     <h4>Open-Ended Project</h4>
+                    <div class="table-scroll-container">
                     <table class="experiment-table">
                         <thead>
                             <tr>
@@ -569,12 +662,14 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 ` : ''}
 
                 ${logBook.labExams && logBook.labExams.length > 0 ? `
                 <div class="detail-section">
                     <h4>Lab Exams</h4>
+                    <div class="table-scroll-container">
                     <table class="experiment-table">
                         <thead>
                             <tr>
@@ -609,12 +704,14 @@
                             `).join('')}
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 ` : ''}
 
                 ${logBook.finalAssessment ? `
                 <div class="detail-section">
                     <h4>Final Assessment</h4>
+                    <div class="table-scroll-container">
                     <table class="experiment-table">
                         <thead>
                             <tr>
@@ -651,6 +748,7 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 ` : ''}
             `;
@@ -701,6 +799,8 @@
             }
         }
     </script>
+    <script src="auth.js"></script>
     <script src="scripts.js"></script>
+    </div>
 </body>
 </html>

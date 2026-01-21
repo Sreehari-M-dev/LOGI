@@ -89,7 +89,7 @@ class AuthManager {
             const seconds = Math.floor((remaining % 60000) / 1000);
             
             el.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            el.style.color = remaining < 120000 ? '#e74c3c' : '#2ecc71'; // Red if < 2 min
+            el.style.color = remaining < 120000 ? '#e74c3c' : '#ffffffff'; // Red if < 2 min
             
             if (remaining <= 0) {
                 el.textContent = '0:00';
@@ -108,6 +108,25 @@ class AuthManager {
     }
     
     static async startInactivityMonitoring() {
+        // Super-admin users don't have session timeout
+        const user = this.getUser();
+        if (user && user.role === 'super-admin') {
+            console.log('[AUTH] Super-admin detected - skipping inactivity monitoring');
+            return;
+        }
+        
+        // Check if "Stay logged in" is enabled
+        const stayLoggedIn = localStorage.getItem('stayLoggedIn') === 'true';
+        if (stayLoggedIn) {
+            console.log('[AUTH] Stay logged in enabled - skipping inactivity monitoring');
+            // Hide timer display if it exists
+            const timerEl = document.getElementById('inactivityTimer');
+            if (timerEl) {
+                timerEl.parentElement.style.display = 'none';
+            }
+            return;
+        }
+        
         // Do not reset on user activity; only refresh when page loads or navigation occurs.
         await this.syncRemainingWithServer();
 
@@ -259,9 +278,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // This creates the timer element before we try to update it
     setupAuthButtons();
     
-    // THEN start inactivity monitoring when logged in (this syncs with server)
+    // THEN start inactivity monitoring when logged in (except for super-admin)
     if (AuthManager.isLoggedIn()) {
-        AuthManager.startInactivityMonitoring();
+        const user = AuthManager.getUser();
+        // Super-admin does NOT have session timeout
+        if (user && user.role !== 'super-admin') {
+            AuthManager.startInactivityMonitoring();
+        } else if (user && user.role === 'super-admin') {
+            // Hide timer for super-admin
+            const timerSpan = document.getElementById('inactivityTimer');
+            if (timerSpan && timerSpan.parentElement) {
+                timerSpan.parentElement.style.display = 'none';
+            }
+        }
     }
 });
 
@@ -283,15 +312,18 @@ function setupAuthButtons() {
     authItem.id = 'authNavItem';
     
     if (isLoggedIn) {
+        // Check if user is super-admin (no timer needed)
+        const isSuperAdmin = user && user.role === 'super-admin';
+        
         // Show logged-in user info and logout button
         authItem.innerHTML = `
             <div style="display: flex; align-items: center; gap: 15px; color: white; padding: 8px 16px; border-radius: 25px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);">
                 <span style="font-weight: 500; font-size: 14px;">
                     <i class="fas fa-user-circle"></i> ${user?.name || 'User'}
                 </span>
-                <span style="font-size: 12px; background: rgba(255, 255, 255, 0.66); padding: 4px 8px; border-radius: 4px; font-weight: 600;" title="Session timeout">
+                ${!isSuperAdmin ? `<span style="font-size: 12px; background: rgba(40, 32, 32, 0.66); padding: 4px 8px; border-radius: 4px; font-weight: 600;" title="Session timeout">
                     <i class="fas fa-clock"></i> <span id="inactivityTimer">10:00</span>
-                </span>
+                </span>` : ''}
                 <button id="logoutBtn" style="background: #e74c3c; border: none; color: white; cursor: pointer; font-size: 13px; padding: 6px 12px; border-radius: 6px; font-weight: 600; transition: all 0.3s ease;" onclick="AuthManager.logout()">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </button>

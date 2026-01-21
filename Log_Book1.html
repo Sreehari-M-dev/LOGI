@@ -27,6 +27,8 @@
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- SheetJS for Excel Export/Import -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -74,6 +76,20 @@
             <div style="padding: 15px; margin-top: 15px; background-color: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
                 <p style="margin: 0; color: #2e7d32;"><strong>ℹ️ Note:</strong> Only faculty members can create new logbooks. If you need a logbook, please contact your faculty member.</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Excel Export/Import Section -->
+    <div class="excel-actions">
+        <h3><i class="fas fa-file-excel"></i> Local Backup (Excel)</h3>
+        <p class="excel-info">Export your logbook to keep a verified backup on your device. Import to restore data with integrity check.</p>
+        <div class="excel-buttons">
+            <button type="button" class="btn-excel-export" onclick="exportLogbookToExcel()">
+                <i class="fas fa-download"></i> Export to Excel
+            </button>
+            <button type="button" class="btn-excel-import" onclick="importLogbookFromExcel()">
+                <i class="fas fa-upload"></i> Import from Excel
+            </button>
         </div>
     </div>
 
@@ -402,11 +418,15 @@
                     <td>75</td>
                     <td><input type="text" name="final5" readonly style="background: #f0f0f0; font-weight: bold;"></td>
                 </tr>
+                <tr>
+                    <td colspan="2"><b>Verification Signature</b></td>
+                    <td><b>Student</b> <input type="checkbox" name="finalStudentSignature" title="Student verification"></td>
+                    <td><b>Faculty</b> <input type="checkbox" name="finalFacultySignature" title="Faculty verification"></td>
+                </tr>
             </table>
             </div>
             <br><br>
-            <input type="submit" value="Submit" name="submit">
-            <button type="button" onclick="console.log('Test clicked'); alert('Form found: ' + (document.getElementById('logbookForm') ? 'YES' : 'NO'));">🧪 Test</button>
+            <input type="submit" value="Submit" name="submit" id="submitBtn">
         </center>
         </form>
     </div>
@@ -420,6 +440,8 @@
     <script src="auth.js"></script>
     <script src="scripts.js"></script>
     <script src="logbook-client.js"></script>
+    <!-- Logbook Excel Export/Import with Integrity Protection -->
+    <script src="logbook-excel.js"></script>
 </body>
 
 </html>
