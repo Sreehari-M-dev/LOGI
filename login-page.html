@@ -1047,7 +1047,7 @@
                         timer: 1500,
                         showConfirmButton: false
                     }).then(() => {
-                        window.location.href = 'Log_Book1.html';
+                        window.location.href = 'index.html';
                     });
                 } else if (result.requiresTwoFactor) {
                     // 2FA is required - show 2FA input section
@@ -1153,7 +1153,7 @@
                             confirmButtonText: 'Continue',
                             confirmButtonColor: '#36ba86'
                         }).then(() => {
-                            window.location.href = 'Log_Book1.html';
+                            window.location.href = 'index.html';
                         });
                     } else {
                         Swal.fire({
@@ -1163,7 +1163,7 @@
                             timer: 1500,
                             showConfirmButton: false
                         }).then(() => {
-                            window.location.href = 'Log_Book1.html';
+                            window.location.href = 'index.html';
                         });
                     }
                 } else {
@@ -1203,7 +1203,7 @@
         window.addEventListener('load', () => {
             const token = localStorage.getItem('token');
             if (token) {
-                window.location.href = 'Log_Book1.html';
+                window.location.href = 'index.html';
             }
             
             // Setup 2FA input handlers
