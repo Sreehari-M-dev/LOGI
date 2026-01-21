@@ -1,6 +1,6 @@
 // Authentication Helper
 const AUTH_API = window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth';
-const INACTIVITY_TIMEOUT = 100 * 60 * 1000; // 100 minutes in milliseconds (server-driven)
+const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds (server-driven)
 
 class AuthManager {
     static inactivityTimer = null;

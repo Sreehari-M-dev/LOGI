@@ -2300,7 +2300,7 @@
         let syncInterval = null;
         let displayUpdateInterval = null;
         let timeoutEndTime = null;
-        const INACTIVITY_TIMEOUT = 100 * 60 * 1000; // 100 minutes default
+        const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes default
         
         async function startInactivityMonitoring() {
             await syncRemainingWithServer();
