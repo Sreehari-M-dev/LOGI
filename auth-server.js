@@ -703,8 +703,17 @@ app.post('/api/auth/register', async (req, res) => {
                     </div>
                 `
             });
+            console.log('[REGISTRATION] ✅ Verification email sent to:', email);
         } catch (emailError) {
-            console.error('[REGISTRATION] Failed to send verification email:', emailError.message);
+            console.error('[REGISTRATION] ❌ Failed to send verification email:');
+            console.error('   Error:', emailError.message);
+            console.error('   Code:', emailError.code);
+            console.error('   Command:', emailError.command);
+            console.error('   Response:', emailError.response);
+            console.error('   HOST:', process.env.EMAIL_HOST || 'smtp.gmail.com');
+            console.error('   PORT:', process.env.EMAIL_PORT || '587');
+            console.error('   USER:', process.env.EMAIL_USER ? '✓ Set' : '✗ Missing');
+            console.error('   PASS:', process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing');
             // Don't fail registration if email fails - user can request resend later
         }
 
@@ -1472,12 +1481,27 @@ if (!EMAIL_USER || !EMAIL_PASS) {
     console.warn('⚠️ EMAIL_USER or EMAIL_PASS not configured in .env - Password reset emails will not work');
 }
 
+// Email transporter configuration
+// Supports Gmail or custom SMTP (Brevo, Resend, Mailgun, etc.)
+const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
+const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '587');
+
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: EMAIL_PORT === 465, // true for 465, false for other ports
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS
-    }
+    },
+    // Longer timeouts for cloud hosting environments
+    connectionTimeout: 30000, // 30 seconds
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
+    // Pool connections for better reliability
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100
 });
 
 // Test transporter connection
@@ -1485,8 +1509,11 @@ if (EMAIL_USER && EMAIL_PASS) {
     transporter.verify((error, success) => {
         if (error) {
             console.error('❌ Email transporter error:', error.message);
+            console.error('   Host:', EMAIL_HOST, 'Port:', EMAIL_PORT);
+            console.error('   Tip: On Render, try using Brevo/Resend instead of Gmail');
         } else {
             console.log('✅ Email transporter ready');
+            console.log('   Host:', EMAIL_HOST, 'Port:', EMAIL_PORT);
         }
     });
 }
@@ -1680,17 +1707,22 @@ app.post('/api/auth/admin/mark-email-verified/:userId', authenticateAndTouchSess
 
 // Send verification email to a specific user (admin can trigger)
 app.post('/api/auth/admin/send-verification-email/:userId', authenticateAndTouchSession, async (req, res) => {
+    console.log('[ADMIN-VERIFY] Send verification email requested for userId:', req.params.userId);
     try {
         // Only super-admin or principal can send
         const admin = await User.findById(req.auth.decoded.userId);
         if (!admin || !['super-admin', 'principal'].includes(admin.role)) {
+            console.log('[ADMIN-VERIFY] ❌ Access denied - not admin');
             return res.status(403).json({ success: false, error: 'Admin access required' });
         }
         
         const targetUser = await User.findById(req.params.userId);
         if (!targetUser) {
+            console.log('[ADMIN-VERIFY] ❌ User not found');
             return res.status(404).json({ success: false, error: 'User not found' });
         }
+        
+        console.log('[ADMIN-VERIFY] Target user:', targetUser.email, '| Verified:', targetUser.emailVerified);
         
         if (!targetUser.email) {
             return res.status(400).json({ success: false, error: 'User has no email address' });
@@ -1709,6 +1741,12 @@ app.post('/api/auth/admin/send-verification-email/:userId', authenticateAndTouch
         
         // Send verification email
         const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
+        
+        console.log('[ADMIN-VERIFY] Attempting to send email...');
+        console.log('[ADMIN-VERIFY] EMAIL_HOST:', process.env.EMAIL_HOST || 'smtp.gmail.com');
+        console.log('[ADMIN-VERIFY] EMAIL_PORT:', process.env.EMAIL_PORT || '587');
+        console.log('[ADMIN-VERIFY] EMAIL_USER:', process.env.EMAIL_USER ? '✓ Set' : '✗ Missing');
+        console.log('[ADMIN-VERIFY] EMAIL_PASS:', process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing');
         
         await transporter.sendMail({
             from: `"LOGI System" <${process.env.EMAIL_USER}>`,
@@ -1733,12 +1771,19 @@ app.post('/api/auth/admin/send-verification-email/:userId', authenticateAndTouch
             `
         });
         
+        console.log('[ADMIN-VERIFY] ✅ Email sent successfully to:', targetUser.email);
+        
         res.json({ 
             success: true, 
             message: `Verification email sent to ${targetUser.email}` 
         });
         
     } catch (error) {
+        console.error('[ADMIN-VERIFY] ❌ Error sending email:');
+        console.error('   Message:', error.message);
+        console.error('   Code:', error.code);
+        console.error('   Command:', error.command);
+        console.error('   Response:', error.response);
         res.status(500).json({ success: false, error: error.message });
     }
 });
