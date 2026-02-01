@@ -282,6 +282,14 @@ function injectAdminPanelLink() {
         const navMenu = document.getElementById('nav-menu');
         if (!navMenu) return;
         
+        // Hide logbook link for principals (they don't teach, so no need for lab book)
+        if (user.role === 'principal') {
+            const logbookLink = navMenu.querySelector('a[href="Log_Book1.html"]');
+            if (logbookLink && logbookLink.parentElement) {
+                logbookLink.parentElement.style.display = 'none';
+            }
+        }
+        
         // Check if admin link already exists
         if (navMenu.querySelector('a[href="admin-dashboard.html"]')) return;
         

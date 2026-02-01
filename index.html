@@ -178,13 +178,25 @@
             const user = AuthManager.getUser();
             if (!user) return;
             
-            // Only super-admin sees ALL cards
+            // Super-admin sees ALL cards
             if (user.role === 'super-admin') {
                 document.getElementById('teacherTemplatesCard').style.display = 'block';
                 document.getElementById('viewLogbooksCard').style.display = 'block';
                 document.getElementById('adminDashboardCard').style.display = 'block';
             }
-            // Other roles only see the default cards (Lab Records, Study Resources, Support)
+            // Faculty sees templates and logbook viewer (they teach students)
+            else if (user.role === 'faculty') {
+                document.getElementById('teacherTemplatesCard').style.display = 'block';
+                document.getElementById('viewLogbooksCard').style.display = 'block';
+                document.getElementById('adminDashboardCard').style.display = 'block';
+            }
+            // Principal sees admin dashboard and logbook viewer (to review), but NOT templates (they don't teach)
+            else if (user.role === 'principal') {
+                document.getElementById('viewLogbooksCard').style.display = 'block';
+                document.getElementById('adminDashboardCard').style.display = 'block';
+                // Hide the Master Templates card - principals don't create templates
+            }
+            // Students see default cards only (Lab Records, Study Resources, Support)
         });
     </script>
 </body>

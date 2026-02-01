@@ -7,7 +7,11 @@ const crypto = require('crypto');
 const app = express();
 
 const JWT_SECRET = process.env.JWT_SECRET; // Same as auth-server
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LOGI';
+
+// Multi-cluster MongoDB URIs
+const MONGODB_URI_LOGBOOK = process.env.MONGODB_URI_LOGBOOK || process.env.MONGODB_URI || 'mongodb://localhost:27017/logi_logbook';
+const MONGODB_URI_AUTH = process.env.MONGODB_URI_AUTH || MONGODB_URI_LOGBOOK; // Fallback for user lookups
+
 const PORT = process.env.PORT || process.env.LOGBOOK_SERVICE_PORT || 3005;
 
 if (!JWT_SECRET) {
@@ -143,10 +147,36 @@ app.use(simpleRateLimit);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// MongoDB Connection
-mongoose.connect(MONGODB_URI)
-.then(() => console.log('Connected to MongoDB - Database: LOGI'))
-.catch((err) => console.error('MongoDB connection error:', err));
+// ==================== MULTI-CLUSTER MONGODB CONNECTIONS ====================
+
+// Create separate connections for LOGBOOK and AUTH clusters
+const logbookConnection = mongoose.createConnection(MONGODB_URI_LOGBOOK, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
+
+// AUTH connection is read-only (for user lookups if needed)
+const authConnection = mongoose.createConnection(MONGODB_URI_AUTH, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
+
+logbookConnection.on('connected', () => {
+    console.log('✅ Connected to MongoDB LOGBOOK cluster');
+    console.log('   URI:', MONGODB_URI_LOGBOOK.replace(/\/\/[^:]+:[^@]+@/, '//<credentials>@'));
+});
+
+logbookConnection.on('error', (err) => {
+    console.error('❌ MongoDB LOGBOOK cluster error:', err.message);
+});
+
+authConnection.on('connected', () => {
+    console.log('✅ Connected to MongoDB AUTH cluster (for user lookups)');
+});
+
+authConnection.on('error', (err) => {
+    console.error('❌ MongoDB AUTH cluster error:', err.message);
+});
 
 // Log Book Schema - updated to support multiple subjects per student
 const logBookSchema = new mongoose.Schema({
@@ -208,7 +238,8 @@ const logBookSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now }
 });
 
-const LogBook = mongoose.model('LogBook', logBookSchema);
+// Register LogBook model on LOGBOOK connection
+const LogBook = logbookConnection.model('LogBook', logBookSchema);
 
 // Master Logbook Schema - Template created by teachers
 const masterLogbookSchema = new mongoose.Schema({
@@ -312,8 +343,9 @@ const studentLogbookSchema = new mongoose.Schema({
 studentLogbookSchema.index({ college: 1, rgno: 1 });
 studentLogbookSchema.index({ college: 1, department: 1, semester: 1 });
 
-const MasterLogbook = mongoose.model('MasterLogbook', masterLogbookSchema);
-const StudentLogbook = mongoose.model('StudentLogbook', studentLogbookSchema);
+// Register models on LOGBOOK connection
+const MasterLogbook = logbookConnection.model('MasterLogbook', masterLogbookSchema);
+const StudentLogbook = logbookConnection.model('StudentLogbook', studentLogbookSchema);
 
 // ==================== MASTER LOGBOOK ENDPOINTS ====================
 

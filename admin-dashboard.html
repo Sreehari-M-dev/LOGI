@@ -1238,22 +1238,22 @@
             <div class="stat-card pending">
                 <div class="icon"><i class="fas fa-clock"></i></div>
                 <div class="number" id="pendingCount">-</div>
-                <div class="label">Pending Approvals</div>
+                <div class="label" id="pendingLabel">Pending Approvals</div>
             </div>
             <div class="stat-card success">
                 <div class="icon"><i class="fas fa-user-check"></i></div>
                 <div class="number" id="approvedCount">-</div>
-                <div class="label">Approved Users</div>
+                <div class="label" id="approvedLabel">Approved Users</div>
             </div>
             <div class="stat-card error">
                 <div class="icon"><i class="fas fa-user-xmark"></i></div>
                 <div class="number" id="rejectedCount">-</div>
-                <div class="label">Rejected</div>
+                <div class="label" id="rejectedLabel">Rejected</div>
             </div>
             <div class="stat-card info">
                 <div class="icon"><i class="fas fa-users"></i></div>
                 <div class="number" id="totalCount">-</div>
-                <div class="label">Total Users</div>
+                <div class="label" id="totalLabel">Total Users</div>
             </div>
         </div>
         
@@ -1794,7 +1794,40 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    const users = data.users;
+                    let users = data.users;
+                    
+                    // Filter users based on role hierarchy (same as All Users tab)
+                    // Also set contextual labels
+                    if (currentUser.role === 'principal') {
+                        // Principal sees only faculty and students in their college
+                        users = users.filter(u => 
+                            ['faculty', 'student'].includes(u.role) && 
+                            u.college === currentUser.college
+                        );
+                        // Update labels for principal
+                        document.getElementById('pendingLabel').textContent = 'Pending (Faculty & Students)';
+                        document.getElementById('approvedLabel').textContent = 'Approved (College)';
+                        document.getElementById('rejectedLabel').textContent = 'Rejected (College)';
+                        document.getElementById('totalLabel').textContent = 'Total in College';
+                    } else if (currentUser.role === 'faculty') {
+                        // Faculty sees only students in their college
+                        users = users.filter(u => 
+                            u.role === 'student' && 
+                            u.college === currentUser.college
+                        );
+                        // Update labels for faculty
+                        document.getElementById('pendingLabel').textContent = 'Pending Students';
+                        document.getElementById('approvedLabel').textContent = 'Approved Students';
+                        document.getElementById('rejectedLabel').textContent = 'Rejected Students';
+                        document.getElementById('totalLabel').textContent = 'Total Students';
+                    } else {
+                        // Super-admin sees all users (no filter)
+                        document.getElementById('pendingLabel').textContent = 'Pending Approvals';
+                        document.getElementById('approvedLabel').textContent = 'Approved Users';
+                        document.getElementById('rejectedLabel').textContent = 'Rejected';
+                        document.getElementById('totalLabel').textContent = 'Total Users';
+                    }
+                    
                     document.getElementById('pendingCount').textContent = users.filter(u => u.approvalStatus === 'pending').length;
                     document.getElementById('approvedCount').textContent = users.filter(u => u.approvalStatus === 'approved').length;
                     document.getElementById('rejectedCount').textContent = users.filter(u => u.approvalStatus === 'rejected').length;
@@ -1897,12 +1930,31 @@
                     return;
                 }
                 
-                // Apply filters for super-admin
+                // Filter users based on role hierarchy
                 let users = data.users;
+                
+                // Super-admin sees everyone (except can filter)
                 if (currentUser.role === 'super-admin') {
                     if (role) users = users.filter(u => u.role === role);
                     if (status) users = users.filter(u => u.approvalStatus === status);
                     if (college) users = users.filter(u => u.college === college);
+                }
+                // Principal sees only faculty and students in their college
+                else if (currentUser.role === 'principal') {
+                    users = users.filter(u => 
+                        ['faculty', 'student'].includes(u.role) && 
+                        u.college === currentUser.college
+                    );
+                    if (role) users = users.filter(u => u.role === role);
+                    if (status) users = users.filter(u => u.approvalStatus === status);
+                }
+                // Faculty sees only students in their college
+                else if (currentUser.role === 'faculty') {
+                    users = users.filter(u => 
+                        u.role === 'student' && 
+                        u.college === currentUser.college
+                    );
+                    if (status) users = users.filter(u => u.approvalStatus === status);
                 }
                 
                 // Cache users for edit/delete operations
@@ -1932,25 +1984,11 @@
                                     <td>
                                         ${!user.email ? `<span style="color: #dc3545;" title="No email"><i class="fas fa-times-circle"></i></span>` :
                                           user.emailVerified ? `<span style="color: #28a745;" title="Email verified"><i class="fas fa-check-circle"></i></span>` :
-                                          `<span style="color: #ffc107; cursor: pointer;" title="Click to send verification" onclick="sendVerificationEmail('${user._id}', '${user.name.replace(/'/g, "\\'")}', '${user.email}')"><i class="fas fa-clock"></i></span>`
+                                          `<span style="color: #ffc107;" title="Email not verified (Use Manually Verify button)"><i class="fas fa-clock"></i></span>`
                                         }
                                     </td>
                                     <td class="action-btns">
-                                        ${user.approvalStatus === 'pending' ? `
-                                            <button class="action-btn approve" onclick="approveUser('${user._id}')"><i class="fas fa-check"></i></button>
-                                            <button class="action-btn reject" onclick="showRejectModal('${user._id}')"><i class="fas fa-times"></i></button>
-                                        ` : ''}
-                                        ${currentUser.role === 'super-admin' ? `
-                                            ${['principal', 'faculty'].includes(user.role) && user.approvalStatus === 'approved' ? `
-                                                <button class="action-btn crown crown-tooltip" onclick="showInviteSuccessorModal('${user._id}')" title="Invite as Super-Admin"><i class="fas fa-crown"></i></button>
-                                            ` : ''}
-                                            ${user.email && !user.emailVerified ? `
-                                                <button class="action-btn" style="background: #6c757d;" onclick="manuallyVerifyEmail('${user._id}', '${user.name.replace(/'/g, "\\'")}')" title="Manually Verify Email"><i class="fas fa-envelope-open-text"></i></button>
-                                            ` : ''}
-                                            <button class="action-btn" style="background: var(--accent-gradient);" onclick="showEditUserModal('${user._id}')" title="Edit User"><i class="fas fa-pen"></i></button>
-                                            <button class="action-btn revoke" onclick="revokeUserSessions('${user._id}')" title="Revoke Sessions"><i class="fas fa-ban"></i></button>
-                                            <button class="action-btn delete" onclick="deleteUser('${user._id}', '${user.name}')" title="Delete User"><i class="fas fa-trash"></i></button>
-                                        ` : ''}
+                                        ${getActionButtons(user, currentUser)}
                                     </td>
                                 </tr>
                             `).join('')}
@@ -1961,6 +1999,67 @@
                 console.error('Failed to load users:', error);
                 showToast('Failed to load users', 'error');
             }
+        }
+        
+        // Helper function to generate action buttons based on permissions
+        function getActionButtons(user, currentUser) {
+            const isSelf = user._id === currentUser.id;
+            const isSuperAdmin = currentUser.role === 'super-admin';
+            const isPrincipal = currentUser.role === 'principal';
+            const isFaculty = currentUser.role === 'faculty';
+            const sameCollege = user.college === currentUser.college;
+            
+            // Determine if current user can manage this user
+            let canManage = false;
+            if (isSuperAdmin && user.role !== 'super-admin') {
+                canManage = true;
+            } else if (isPrincipal && ['faculty', 'student'].includes(user.role) && sameCollege) {
+                canManage = true;
+            } else if (isFaculty && user.role === 'student' && sameCollege) {
+                canManage = true;
+            }
+            
+            if (isSelf) canManage = false; // Never on self
+            
+            let buttons = '';
+            
+            // Approve/Reject for pending users
+            if (user.approvalStatus === 'pending' && canManage) {
+                buttons += `<button class="action-btn approve" onclick="approveUser('${user._id}')"><i class="fas fa-check"></i></button>`;
+                buttons += `<button class="action-btn reject" onclick="showRejectModal('${user._id}')"><i class="fas fa-times"></i></button>`;
+            }
+            
+            // Reset Password for approved users
+            if (user.approvalStatus === 'approved' && canManage) {
+                buttons += `<button class="action-btn" style="background: #fd7e14;" onclick="adminResetPassword('${user._id}', '${user.name.replace(/'/g, "\\'")}', '${user.rgno}')" title="Reset Password"><i class="fas fa-key"></i></button>`;
+            }
+            
+            // Crown - Super-admin only
+            if (isSuperAdmin && ['principal', 'faculty'].includes(user.role) && user.approvalStatus === 'approved') {
+                buttons += `<button class="action-btn crown crown-tooltip" onclick="showInviteSuccessorModal('${user._id}')" title="Invite as Super-Admin"><i class="fas fa-crown"></i></button>`;
+            }
+            
+            // Verify Email - any admin who can manage
+            if (canManage && user.email && !user.emailVerified) {
+                buttons += `<button class="action-btn" style="background: #6c757d;" onclick="manuallyVerifyEmail('${user._id}', '${user.name.replace(/'/g, "\\'")}')" title="Manually Verify Email"><i class="fas fa-envelope-open-text"></i></button>`;
+            }
+            
+            // Edit User - any admin who can manage
+            if (canManage && user.approvalStatus === 'approved') {
+                buttons += `<button class="action-btn" style="background: var(--accent-gradient);" onclick="showEditUserModal('${user._id}')" title="Edit User"><i class="fas fa-pen"></i></button>`;
+            }
+            
+            // Revoke Sessions - any admin who can manage
+            if (canManage && user.approvalStatus === 'approved') {
+                buttons += `<button class="action-btn revoke" onclick="revokeUserSessions('${user._id}')" title="Revoke Sessions"><i class="fas fa-ban"></i></button>`;
+            }
+            
+            // Delete User - Super-admin only
+            if (isSuperAdmin && canManage) {
+                buttons += `<button class="action-btn delete" onclick="deleteUser('${user._id}', '${user.name}')" title="Delete User"><i class="fas fa-trash"></i></button>`;
+            }
+            
+            return buttons;
         }
         
         async function approveUser(userId) {
@@ -2490,22 +2589,24 @@
             }
         }
         
-        async function sendVerificationEmail(userId, userName, userEmail) {
+        // Admin Reset Password - User will be forced to change on next login
+        async function adminResetPassword(userId, userName, userRgno) {
             const result = await Swal.fire({
-                title: 'Send Verification Email?',
-                html: `<p>Send verification email to <strong>${userName}</strong> at <strong>${userEmail}</strong>?</p>`,
+                title: 'Reset User Password?',
+                html: `<p>Reset password for <strong>${userName}</strong> (RGNO: ${userRgno})?</p>
+                       <p style="font-size: 14px; color: #666;">A temporary password will be generated.<br>The user will be forced to change it on next login.</p>`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'Send',
+                confirmButtonText: 'Reset Password',
                 cancelButtonText: 'Cancel',
-                confirmButtonColor: '#667eea'
+                confirmButtonColor: '#fd7e14'
             });
             
             if (!result.isConfirmed) return;
             
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`${API_BASE}/api/auth/admin/send-verification-email/${userId}`, {
+                const response = await fetch(`${API_BASE}/api/auth/admin/reset-password/${userId}`, {
                     method: 'POST',
                     headers: { 
                         'Authorization': `Bearer ${token}`,
@@ -2515,13 +2616,48 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    showToast('Verification email sent!', 'success');
+                    // Show the temporary password to admin
+                    await Swal.fire({
+                        title: 'Password Reset Successful!',
+                        html: `
+                            <div style="text-align: left; padding: 20px; background: #f8f9fa; border-radius: 8px; margin: 10px 0;">
+                                <p><strong>User:</strong> ${data.user.name}</p>
+                                <p><strong>RGNO:</strong> ${data.user.rgno}</p>
+                                <p style="margin-top: 15px;"><strong>Temporary Password:</strong></p>
+                                <div style="background: #fff3cd; border: 2px dashed #ffc107; padding: 15px; border-radius: 8px; text-align: center; margin: 10px 0;">
+                                    <span style="font-size: 24px; font-family: monospace; font-weight: bold; letter-spacing: 3px;">${data.tempPassword}</span>
+                                </div>
+                                <p style="font-size: 13px; color: #dc3545;"><i class="fas fa-exclamation-triangle"></i> Write this down! It won't be shown again.</p>
+                            </div>
+                            <p style="font-size: 14px; color: #666; margin-top: 10px;">
+                                <i class="fas fa-info-circle"></i> Tell the user this temporary password.<br>
+                                They will be forced to change it on their next login.
+                            </p>
+                        `,
+                        icon: 'success',
+                        confirmButtonText: 'Got it',
+                        confirmButtonColor: '#28a745'
+                    });
+                    loadAllUsers();
                 } else {
-                    showToast(data.error || 'Failed to send email', 'error');
+                    showToast(data.error || 'Failed to reset password', 'error');
                 }
             } catch (error) {
-                showToast('Failed to send email', 'error');
+                showToast('Failed to reset password', 'error');
             }
+        }
+        
+        // Email service is currently unavailable - show helpful message
+        async function sendVerificationEmail(userId, userName, userEmail) {
+            await Swal.fire({
+                title: '📧 Email Service Unavailable',
+                html: `<p>Email service is currently disabled.</p>
+                       <p style="margin-top: 15px;"><strong>To verify ${userName}'s email:</strong></p>
+                       <p>Use the <strong>"Manually Verify Email"</strong> button (<i class="fas fa-envelope-open-text"></i>) instead.</p>`,
+                icon: 'info',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#667eea'
+            });
         }
         
         async function manuallyVerifyEmail(userId, userName) {

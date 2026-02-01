@@ -13,7 +13,18 @@ const BCRYPT_SALT_ROUNDS = 12;
 const app = express();
 const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
 const JWT_SECRET = process.env.JWT_SECRET;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LOGI';
+
+// Multi-cluster MongoDB URIs (2 clusters: AUTH + LOGBOOK)
+const MONGODB_URI_AUTH = process.env.MONGODB_URI_AUTH || process.env.MONGODB_URI || 'mongodb://localhost:27017/logi_auth';
+
+// Debug: Log environment variable status at startup
+console.log('🔧 Environment Check:');
+console.log('   MONGODB_URI_AUTH:', process.env.MONGODB_URI_AUTH ? '✅ SET' : '❌ NOT SET (using fallback)');
+console.log('   MONGODB_URI:', process.env.MONGODB_URI ? '✅ SET' : '❌ NOT SET');
+console.log('   JWT_SECRET:', process.env.JWT_SECRET ? '✅ SET' : '❌ NOT SET');
+console.log('   NODE_ENV:', process.env.NODE_ENV || 'not set');
+console.log('   Using URI:', MONGODB_URI_AUTH.includes('localhost') ? 'localhost (DEFAULT - CHECK ENV!)' : MONGODB_URI_AUTH.replace(/\/\/[^:]+:[^@]+@/, '//<credentials>@'));
+
 const JWT_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 const IDLE_TIMEOUT_MS = parseInt(process.env.IDLE_TIMEOUT_MS || '600000'); // 10 minutes default (600,000 ms)
 const TOUCH_INTERVAL_MS = 60000; // update lastActivity at most once per minute
@@ -72,14 +83,21 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// MongoDB Connection
-mongoose.connect(MONGODB_URI, {
+// ==================== MULTI-CLUSTER MONGODB CONNECTIONS ====================
+
+// Create separate connections for AUTH and META clusters
+const authConnection = mongoose.createConnection(MONGODB_URI_AUTH, {
     useNewUrlParser: true,
     useUnifiedTopology: true
-}).then(() => {
-    console.log('Connected to MongoDB - Database: LOGI');
-}).catch(err => {
-    console.error('MongoDB connection error:', err);
+});
+
+authConnection.on('connected', () => {
+    console.log('✅ Connected to MongoDB AUTH cluster');
+    console.log('   URI:', MONGODB_URI_AUTH.replace(/\/\/[^:]+:[^@]+@/, '//<credentials>@'));
+});
+
+authConnection.on('error', (err) => {
+    console.error('❌ MongoDB AUTH cluster error:', err.message);
 });
 
 // User Schema - using Register Number (rgno) as unique identifier with college scoping
@@ -148,7 +166,11 @@ const userSchema = new mongoose.Schema({
     emailVerified: { type: Boolean, default: false }, // Whether email is verified
     emailVerificationToken: { type: String }, // Token for verification link
     emailVerificationExpires: { type: Date }, // Token expiry (24 hours)
-    emailVerificationSentAt: { type: Date } // When verification email was last sent
+    emailVerificationSentAt: { type: Date }, // When verification email was last sent
+    // Admin password reset - forces user to change password on next login
+    mustChangePassword: { type: Boolean, default: false }, // Set by admin reset
+    passwordResetByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Who reset it
+    passwordResetByAdminAt: { type: Date } // When admin reset it
 }, {
     // Mongoose options to minimize storage
     minimize: true, // Remove empty objects
@@ -160,9 +182,10 @@ userSchema.index({ college: 1, role: 1 });
 userSchema.index({ college: 1, department: 1 });
 userSchema.index({ approvalStatus: 1, college: 1 });
 
-const User = mongoose.model('User', userSchema);
+// Register User model on AUTH connection
+const User = authConnection.model('User', userSchema);
 
-// Audit Log Schema for super-admin actions
+// Audit Log Schema for super-admin actions (stored in META cluster)
 const auditLogSchema = new mongoose.Schema({
     action: { type: String, required: true }, // e.g., 'USER_APPROVED', 'USER_DELETED', 'SESSION_REVOKED'
     performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -180,7 +203,8 @@ auditLogSchema.index({ timestamp: -1 });
 auditLogSchema.index({ performedBy: 1, timestamp: -1 });
 auditLogSchema.index({ action: 1, timestamp: -1 });
 
-const AuditLog = mongoose.model('AuditLog', auditLogSchema);
+// Register AuditLog model on AUTH connection (same cluster as Users)
+const AuditLog = authConnection.model('AuditLog', auditLogSchema);
 
 // Helper function to create audit log
 async function createAuditLog(action, performedBy, targetUser, details, req) {
@@ -286,7 +310,9 @@ const sessionSchema = new mongoose.Schema({
     stayLoggedIn: { type: Boolean, default: false }, // If true, skip idle timeout but still expire after 7 days
     stayLoggedInExpiry: { type: Date } // Expiry date for stay logged in sessions (7 days from creation)
 });
-const Session = mongoose.model('Session', sessionSchema);
+
+// Register Session model on AUTH connection
+const Session = authConnection.model('Session', sessionSchema);
 
 // Constants for session management
 const STAY_LOGGED_IN_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
@@ -653,12 +679,15 @@ app.post('/api/auth/register', async (req, res) => {
 
         await newUser.save();
         
+        /* ============================================================
+         * EMAIL VERIFICATION (Commented - Enable when SMTP is available)
+         * ============================================================
         // Send verification email
         try {
             const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
             
             await transporter.sendMail({
-                from: `"LOGI System" <${process.env.EMAIL_USER}>`,
+                from: `"LOGI System" <${EMAIL_FROM}>`,
                 to: email,
                 subject: '📧 Verify Your Email - LOGI Registration',
                 html: `
@@ -705,17 +734,15 @@ app.post('/api/auth/register', async (req, res) => {
             });
             console.log('[REGISTRATION] ✅ Verification email sent to:', email);
         } catch (emailError) {
-            console.error('[REGISTRATION] ❌ Failed to send verification email:');
-            console.error('   Error:', emailError.message);
-            console.error('   Code:', emailError.code);
-            console.error('   Command:', emailError.command);
-            console.error('   Response:', emailError.response);
-            console.error('   HOST:', process.env.EMAIL_HOST || 'smtp.gmail.com');
-            console.error('   PORT:', process.env.EMAIL_PORT || '587');
-            console.error('   USER:', process.env.EMAIL_USER ? '✓ Set' : '✗ Missing');
-            console.error('   PASS:', process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing');
-            // Don't fail registration if email fails - user can request resend later
+            console.error('[REGISTRATION] ❌ Failed to send verification email:', emailError.message);
+            // Don't fail registration if email fails - admin can verify manually
         }
+        * END EMAIL VERIFICATION COMMENT */
+        
+        // NOTE: Email verification is disabled. Admin must manually verify users.
+        console.log('[REGISTRATION] ℹ️ Email verification disabled - Admin must verify user:', email);
+        // NOTE: Email verification is disabled. Admin must manually verify users.
+        console.log('[REGISTRATION] ℹ️ Email verification disabled - Admin must verify user:', email);
 
         // Create server-side session and generate token with session id (sid)
         const sid = crypto.randomBytes(16).toString('hex');
@@ -732,8 +759,9 @@ app.post('/api/auth/register', async (req, res) => {
         
         res.status(201).json({
             success: true,
-            message: 'Registration successful! Please check your email to verify your account.' + additionalMessage,
-            requiresEmailVerification: true,
+            message: 'Registration successful! Your account is pending approval by an administrator.' + additionalMessage,
+            // Email verification disabled - admin will manually verify if needed
+            requiresEmailVerification: false,
             token,
             user: {
                 id: newUser._id,
@@ -872,11 +900,15 @@ app.post('/api/auth/login', async (req, res) => {
         // Check email verification (only for users who registered after email verification was implemented)
         // Existing users (who don't have emailVerified field set at all) are grandfathered in
         // Only block users who explicitly have emailVerified === false (meaning they registered with this feature)
+        // ============================================================
+        // EMAIL VERIFICATION CHECK - Currently using admin manual verification
+        // ============================================================
         if (user.role !== 'super-admin' && user.email && user.emailVerified === false) {
             const maskedEmail = user.email ? user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'your email';
             return res.status(403).json({ 
                 success: false, 
-                error: 'Please verify your email address before logging in. Check your inbox for the verification link.',
+                // Updated message since email service is disabled
+                error: 'Your email is not yet verified. Please contact your administrator (Faculty/Principal) to verify your email.',
                 emailNotVerified: true,
                 email: maskedEmail
             });
@@ -938,88 +970,24 @@ app.post('/api/auth/login', async (req, res) => {
                         remainingCodes: remainingBackupCodes 
                     }, req);
                     
-                    // 🔔 SECURITY ALERT: Send email notification about backup code usage
-                    try {
-                        const loginIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-                        const userAgent = req.headers['user-agent'] || 'Unknown device';
-                        const loginTime = new Date().toLocaleString('en-IN', { 
-                            timeZone: 'Asia/Kolkata',
-                            dateStyle: 'full',
-                            timeStyle: 'long'
-                        });
-                        const maskedCode = usedCode.substring(0, 2) + '****' + usedCode.substring(6);
-                        
-                        if (user.email) {
-                            await transporter.sendMail({
-                                from: `"LOGI Security Alert" <${process.env.EMAIL_USER}>`,
-                                to: user.email,
-                                subject: '⚠️ SECURITY ALERT: Backup Code Used for Login',
-                                html: `
-                                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                                        <div style="background: #d32f2f; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                                            <h2 style="margin: 0;">⚠️ Security Alert</h2>
-                                            <p style="margin: 10px 0 0;">Backup Code Login Detected</p>
-                                        </div>
-                                        
-                                        <div style="background: #fff3cd; padding: 20px; border: 1px solid #ffc107;">
-                                            <p style="color: #856404; margin: 0; font-weight: bold;">
-                                                A backup code was just used to access your account. If this wasn't you, your account may be compromised!
-                                            </p>
-                                        </div>
-                                        
-                                        <div style="padding: 20px; border: 1px solid #ddd; border-top: none;">
-                                            <h3 style="color: #333; margin-top: 0;">Login Details:</h3>
-                                            <table style="width: 100%; border-collapse: collapse;">
-                                                <tr>
-                                                    <td style="padding: 8px 0; color: #666;">Time:</td>
-                                                    <td style="padding: 8px 0; font-weight: bold;">${loginTime}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 8px 0; color: #666;">Backup Code Used:</td>
-                                                    <td style="padding: 8px 0; font-family: monospace; font-weight: bold;">${maskedCode}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 8px 0; color: #666;">IP Address:</td>
-                                                    <td style="padding: 8px 0; font-family: monospace;">${loginIP}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 8px 0; color: #666;">Device:</td>
-                                                    <td style="padding: 8px 0; font-size: 12px;">${userAgent}</td>
-                                                </tr>
-                                            </table>
-                                            
-                                            <div style="background: ${remainingBackupCodes <= 2 ? '#f8d7da' : '#e8f5e9'}; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid ${remainingBackupCodes <= 2 ? '#f5c6cb' : '#c8e6c9'};">
-                                                <p style="margin: 0; color: ${remainingBackupCodes <= 2 ? '#721c24' : '#2e7d32'}; font-weight: bold;">
-                                                    📊 Remaining Backup Codes: ${remainingBackupCodes} of 10
-                                                </p>
-                                                ${remainingBackupCodes <= 2 ? '<p style="margin: 10px 0 0; color: #721c24;">⚠️ You are running low! Generate new backup codes soon.</p>' : ''}
-                                            </div>
-                                            
-                                            <div style="background: #ffebee; padding: 15px; border-radius: 8px; border: 1px solid #ef9a9a;">
-                                                <p style="color: #c62828; font-weight: bold; margin: 0 0 10px;">🚨 If this wasn't you:</p>
-                                                <ol style="color: #c62828; margin: 0; padding-left: 20px;">
-                                                    <li>Change your password immediately</li>
-                                                    <li>Regenerate new backup codes</li>
-                                                    <li>Check your active sessions and revoke unknown ones</li>
-                                                    <li>Contact support if needed</li>
-                                                </ol>
-                                            </div>
-                                        </div>
-                                        
-                                        <div style="background: #f5f5f5; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; border: 1px solid #ddd; border-top: none;">
-                                            <p style="margin: 0; color: #666; font-size: 12px;">
-                                                This is an automated security notification from LOGI.<br>
-                                                Do not reply to this email.
-                                            </p>
-                                        </div>
-                                    </div>
-                                `
-                            });
-                        }
-                    } catch (emailError) {
-                        console.error('[BACKUP CODE ALERT] Failed to send email notification:', emailError.message);
-                        // Don't fail login if email fails
-                    }
+                    // 🔔 SECURITY ALERT: Email notification about backup code usage
+                    // ============================================================
+                    // COMMENTED - Enable when SMTP is available
+                    // ============================================================
+                    // try {
+                    //     const loginIP = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+                    //     const userAgent = req.headers['user-agent'] || 'Unknown device';
+                    //     const loginTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+                    //     const maskedCode = usedCode.substring(0, 2) + '****' + usedCode.substring(6);
+                    //     if (user.email) {
+                    //         await transporter.sendMail({ ... backup code alert email ... });
+                    //     }
+                    // } catch (emailError) {
+                    //     console.error('[BACKUP CODE ALERT] Failed:', emailError.message);
+                    // }
+                    // ============================================================
+                    console.log(`[BACKUP CODE ALERT] User ${user.username} used a backup code. ${remainingBackupCodes} codes remaining. (Email alert disabled)`);
+                    // END BACKUP CODE EMAIL COMMENT
                 }
             } else {
                 // Verify 2FA code (using TOTP)
@@ -1070,6 +1038,23 @@ app.post('/api/auth/login', async (req, res) => {
         // Create audit log for super-admin login
         if (user.role === 'super-admin') {
             await createAuditLog('SUPER_ADMIN_LOGIN', user, null, { ip: user.lastLoginIP, stayLoggedIn: !!stayLoggedIn }, req);
+        }
+
+        // Check if user must change password (admin-reset password)
+        if (user.mustChangePassword) {
+            return res.json({
+                success: true,
+                message: 'Password change required',
+                mustChangePassword: true,
+                token, // Give token so they can call the change password endpoint
+                user: {
+                    id: user._id,
+                    name: user.name,
+                    rgno: user.rgno,
+                    role: user.role,
+                    email: user.email
+                }
+            });
         }
 
         res.json({
@@ -1468,18 +1453,22 @@ app.get('/api/auth/users', authenticateAndTouchSession, async (req, res) => {
 // --- Password Reset: Forgot Password Endpoint ---
 
 // Add these to your .env:
-// EMAIL_USER=your_gmail_address@gmail.com
-// EMAIL_PASS=your_gmail_app_password
+// EMAIL_USER=your_smtp_login (for Brevo: your Brevo login email)
+// EMAIL_PASS=your_smtp_password (for Brevo: your SMTP key)
+// EMAIL_FROM=sender@yourdomain.com (the "from" address - must be verified in Brevo)
 // FRONTEND_URL=https://sreehari-m-dev.github.io/LOGI
 
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
+const EMAIL_FROM = process.env.EMAIL_FROM || process.env.EMAIL_USER; // Separate "from" address
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI';
 
 // Validate email credentials
 if (!EMAIL_USER || !EMAIL_PASS) {
     console.warn('⚠️ EMAIL_USER or EMAIL_PASS not configured in .env - Password reset emails will not work');
 }
+
+console.log('📧 Email config: HOST=' + (process.env.EMAIL_HOST || 'smtp.gmail.com') + ', FROM=' + EMAIL_FROM);
 
 // Email transporter configuration
 // Supports Gmail or custom SMTP (Brevo, Resend, Mailgun, etc.)
@@ -1573,102 +1562,23 @@ app.get('/api/auth/verify-email', async (req, res) => {
     }
 });
 
+/* ============================================================
+ * RESEND VERIFICATION EMAIL (Commented - Enable when SMTP is available)
+ * ============================================================
+
 // Resend Verification Email
 app.post('/api/auth/resend-verification', async (req, res) => {
-    try {
-        const { rgno, email } = req.body;
-        
-        if (!rgno && !email) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Register number or email is required' 
-            });
-        }
-        
-        // Find user
-        const query = rgno ? { rgno: parseInt(rgno) } : { email: email.toLowerCase().trim() };
-        const user = await User.findOne(query);
-        
-        if (!user) {
-            // Don't reveal if user exists
-            return res.json({ 
-                success: true, 
-                message: 'If an account exists with this information, a verification email will be sent.' 
-            });
-        }
-        
-        // Check if already verified
-        if (user.emailVerified) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Email is already verified. You can log in now.' 
-            });
-        }
-        
-        // Rate limit: Check if last email was sent less than 2 minutes ago
-        if (user.emailVerificationSentAt) {
-            const timeSinceLastEmail = Date.now() - new Date(user.emailVerificationSentAt).getTime();
-            const cooldownMs = 2 * 60 * 1000; // 2 minutes
-            if (timeSinceLastEmail < cooldownMs) {
-                const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastEmail) / 1000);
-                return res.status(429).json({ 
-                    success: false, 
-                    error: `Please wait ${remainingSeconds} seconds before requesting another verification email.`,
-                    retryAfter: remainingSeconds
-                });
-            }
-        }
-        
-        // Generate new verification token
-        const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-        user.emailVerificationToken = emailVerificationToken;
-        user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        user.emailVerificationSentAt = new Date();
-        await user.save();
-        
-        // Send verification email
-        const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
-        
-        await transporter.sendMail({
-            from: `"LOGI System" <${process.env.EMAIL_USER}>`,
-            to: user.email,
-            subject: '📧 Verify Your Email - LOGI',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                        <h1 style="margin: 0;">📧 Verify Your Email</h1>
-                        <p style="margin: 10px 0 0; opacity: 0.9;">LOGI - Digital Lab Logbook System</p>
-                    </div>
-                    
-                    <div style="padding: 30px; border: 1px solid #ddd; border-top: none;">
-                        <p>Hello <strong>${user.name}</strong>,</p>
-                        <p>Please verify your email address to access your LOGI account.</p>
-                        
-                        <div style="text-align: center; margin: 30px 0;">
-                            <a href="${verificationUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                                ✓ Verify Email Address
-                            </a>
-                        </div>
-                        
-                        <p style="color: #d32f2f; font-size: 14px;">⏰ This link expires in 24 hours.</p>
-                        
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                        <p style="font-size: 12px; color: #999;">If the button doesn't work, copy this link:<br>
-                        <span style="color: #667eea; word-break: break-all;">${verificationUrl}</span></p>
-                    </div>
-                </div>
-            `
-        });
-        
-        res.json({ 
-            success: true, 
-            message: 'Verification email sent! Please check your inbox.' 
-        });
-        
-    } catch (error) {
-        console.error('Resend verification error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
+    // ... email sending code ...
+});
+
+* END RESEND VERIFICATION EMAIL COMMENT */
+
+// Resend verification email - currently unavailable
+app.post('/api/auth/resend-verification', async (req, res) => {
+    res.status(503).json({ 
+        success: false, 
+        error: 'Email service is currently unavailable. Please contact your administrator to verify your email.' 
+    });
 });
 
 // Force verify email for existing users (admin endpoint)
@@ -1705,180 +1615,37 @@ app.post('/api/auth/admin/mark-email-verified/:userId', authenticateAndTouchSess
     }
 });
 
+/* ============================================================
+ * ADMIN SEND VERIFICATION EMAIL (Commented - Enable when SMTP is available)
+ * Use "Manually Verify Email" button in admin dashboard instead
+ * ============================================================
+
 // Send verification email to a specific user (admin can trigger)
 app.post('/api/auth/admin/send-verification-email/:userId', authenticateAndTouchSession, async (req, res) => {
-    console.log('[ADMIN-VERIFY] Send verification email requested for userId:', req.params.userId);
-    try {
-        // Only super-admin or principal can send
-        const admin = await User.findById(req.auth.decoded.userId);
-        if (!admin || !['super-admin', 'principal'].includes(admin.role)) {
-            console.log('[ADMIN-VERIFY] ❌ Access denied - not admin');
-            return res.status(403).json({ success: false, error: 'Admin access required' });
-        }
-        
-        const targetUser = await User.findById(req.params.userId);
-        if (!targetUser) {
-            console.log('[ADMIN-VERIFY] ❌ User not found');
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
-        
-        console.log('[ADMIN-VERIFY] Target user:', targetUser.email, '| Verified:', targetUser.emailVerified);
-        
-        if (!targetUser.email) {
-            return res.status(400).json({ success: false, error: 'User has no email address' });
-        }
-        
-        if (targetUser.emailVerified) {
-            return res.status(400).json({ success: false, error: 'Email is already verified' });
-        }
-        
-        // Generate new verification token
-        const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-        targetUser.emailVerificationToken = emailVerificationToken;
-        targetUser.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        targetUser.emailVerificationSentAt = new Date();
-        await targetUser.save();
-        
-        // Send verification email
-        const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
-        
-        console.log('[ADMIN-VERIFY] Attempting to send email...');
-        console.log('[ADMIN-VERIFY] EMAIL_HOST:', process.env.EMAIL_HOST || 'smtp.gmail.com');
-        console.log('[ADMIN-VERIFY] EMAIL_PORT:', process.env.EMAIL_PORT || '587');
-        console.log('[ADMIN-VERIFY] EMAIL_USER:', process.env.EMAIL_USER ? '✓ Set' : '✗ Missing');
-        console.log('[ADMIN-VERIFY] EMAIL_PASS:', process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing');
-        
-        await transporter.sendMail({
-            from: `"LOGI System" <${process.env.EMAIL_USER}>`,
-            to: targetUser.email,
-            subject: '📧 Verify Your Email - LOGI',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                        <h1 style="margin: 0;">📧 Email Verification Required</h1>
-                    </div>
-                    <div style="padding: 30px; border: 1px solid #ddd; border-top: none;">
-                        <p>Hello <strong>${targetUser.name}</strong>,</p>
-                        <p>Your administrator has requested that you verify your email address.</p>
-                        <div style="text-align: center; margin: 30px 0;">
-                            <a href="${verificationUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                                ✓ Verify Email Address
-                            </a>
-                        </div>
-                        <p style="color: #d32f2f; font-size: 14px;">⏰ This link expires in 24 hours.</p>
-                    </div>
-                </div>
-            `
-        });
-        
-        console.log('[ADMIN-VERIFY] ✅ Email sent successfully to:', targetUser.email);
-        
-        res.json({ 
-            success: true, 
-            message: `Verification email sent to ${targetUser.email}` 
-        });
-        
-    } catch (error) {
-        console.error('[ADMIN-VERIFY] ❌ Error sending email:');
-        console.error('   Message:', error.message);
-        console.error('   Code:', error.code);
-        console.error('   Command:', error.command);
-        console.error('   Response:', error.response);
-        res.status(500).json({ success: false, error: error.message });
-    }
+    // ... email sending code ...
 });
 
 // Bulk send verification emails to all unverified users (super-admin only)
 app.post('/api/auth/admin/send-bulk-verification-emails', authenticateAndTouchSession, async (req, res) => {
-    try {
-        const admin = await User.findById(req.auth.decoded.userId);
-        if (!admin || admin.role !== 'super-admin') {
-            return res.status(403).json({ success: false, error: 'Super-admin access required' });
-        }
-        
-        // Find all users with unverified emails (except super-admin)
-        const unverifiedUsers = await User.find({
-            email: { $exists: true, $ne: null },
-            emailVerified: { $ne: true },
-            role: { $ne: 'super-admin' }
-        });
-        
-        if (unverifiedUsers.length === 0) {
-            return res.json({ 
-                success: true, 
-                message: 'No unverified users found',
-                sent: 0 
-            });
-        }
-        
-        let sent = 0;
-        let failed = 0;
-        
-        for (const user of unverifiedUsers) {
-            try {
-                // Generate new verification token
-                const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-                user.emailVerificationToken = emailVerificationToken;
-                user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-                user.emailVerificationSentAt = new Date();
-                await user.save();
-                
-                const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
-                
-                await transporter.sendMail({
-                    from: `"LOGI System" <${process.env.EMAIL_USER}>`,
-                    to: user.email,
-                    subject: '📧 Action Required: Verify Your Email - LOGI',
-                    html: `
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                                <h1 style="margin: 0;">📧 Email Verification Required</h1>
-                            </div>
-                            <div style="padding: 30px; border: 1px solid #ddd; border-top: none;">
-                                <p>Hello <strong>${user.name}</strong>,</p>
-                                <p>LOGI now requires email verification for all users. Please verify your email address to continue using your account.</p>
-                                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #ffc107;">
-                                    <p style="color: #856404; margin: 0;"><strong>⚠️ Important:</strong> You will not be able to log in until you verify your email.</p>
-                                </div>
-                                <div style="text-align: center; margin: 30px 0;">
-                                    <a href="${verificationUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                                        ✓ Verify Email Address
-                                    </a>
-                                </div>
-                                <p style="color: #d32f2f; font-size: 14px;">⏰ This link expires in 24 hours.</p>
-                            </div>
-                        </div>
-                    `
-                });
-                
-                sent++;
-                
-                // Small delay to avoid rate limits
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-            } catch (err) {
-                console.error(`Failed to send verification to ${user.email}:`, err.message);
-                failed++;
-            }
-        }
-        
-        await createAuditLog('BULK_VERIFICATION_EMAILS_SENT', admin, null, {
-            totalUsers: unverifiedUsers.length,
-            sent,
-            failed
-        }, req);
-        
-        res.json({ 
-            success: true, 
-            message: `Sent ${sent} verification emails (${failed} failed)`,
-            sent,
-            failed,
-            total: unverifiedUsers.length
-        });
-        
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
+    // ... bulk email sending code ...
+});
+
+* END ADMIN SEND VERIFICATION EMAIL COMMENT */
+
+// Admin send verification email - currently unavailable
+app.post('/api/auth/admin/send-verification-email/:userId', authenticateAndTouchSession, async (req, res) => {
+    res.status(503).json({ 
+        success: false, 
+        error: 'Email service is currently unavailable. Use "Manually Verify Email" button instead.' 
+    });
+});
+
+// Bulk send verification emails - currently unavailable
+app.post('/api/auth/admin/send-bulk-verification-emails', authenticateAndTouchSession, async (req, res) => {
+    res.status(503).json({ 
+        success: false, 
+        error: 'Email service is currently unavailable. Please verify users manually from the admin dashboard.' 
+    });
 });
 
 // Get email verification stats (super-admin)
@@ -1926,6 +1693,11 @@ app.get('/api/auth/admin/email-verification-stats', authenticateAndTouchSession,
 
 // ==================== END EMAIL VERIFICATION ====================
 
+/* ============================================================
+ * FORGOT PASSWORD VIA EMAIL (Commented - Enable when SMTP is available)
+ * Users should contact admin for password reset instead
+ * ============================================================
+
 // Forgot Password Endpoint
 app.post('/api/auth/forgot-password', async (req, res) => {
     try {
@@ -1964,14 +1736,6 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Email does not match the register number' });
         }
         
-        // Check if running locally or in production
-        const isLocal = process.env.NODE_ENV !== 'production' && (process.env.FRONTEND_URL?.includes('localhost') || process.env.FRONTEND_URL?.includes('127.0.0.1'));
-        if (isLocal) {
-            console.log('[FORGOT PASSWORD] Running in local mode');
-        } else {
-            console.log('[FORGOT PASSWORD] Running in production mode');
-        }
-        
         // Generate token
         const token = crypto.randomBytes(32).toString('hex');
         user.resetPasswordToken = token;
@@ -1982,7 +1746,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         // Send email
         const resetUrl = `${FRONTEND_URL}/reset-password.html?token=${token}`;
         const mailOptions = {
-            from: `LOGI <${EMAIL_USER}>`,
+            from: `LOGI <${EMAIL_FROM}>`,
             to: user.email,
             subject: 'LOGI Password Reset Request',
             html: `<p>Hello ${user.name},</p>
@@ -2000,12 +1764,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         res.json({ success: true, message: 'Password reset email sent' });
     } catch (error) {
         console.error('[FORGOT PASSWORD] Error:', error.message);
-        console.error('[FORGOT PASSWORD] Full error:', error);
         res.status(500).json({ success: false, error: 'Failed to send reset email: ' + error.message });
     }
 });
 
-// --- Password Reset: Reset Password Endpoint ---
+// --- Password Reset: Reset Password Endpoint (Email Token Based) ---
 app.post('/api/auth/reset-password/:token', async (req, res) => {
     try {
         const { token } = req.params;
@@ -2014,10 +1777,8 @@ app.post('/api/auth/reset-password/:token', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Token and new password are required' });
         }
 
-        // Debug log for reset token
         console.log('[RESET PASSWORD] Token received:', token);
 
-        // Find user by reset token and expiry
         const user = await User.findOne({
             resetPasswordToken: token,
             resetPasswordExpires: { $gt: Date.now() }
@@ -2028,15 +1789,10 @@ app.post('/api/auth/reset-password/:token', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid or expired token' });
         }
 
-        console.log('[RESET PASSWORD] User found:', user);
-
-        // Hash the new password with bcrypt
         const hashedPassword = await hashPassword(password);
         user.password = hashedPassword;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpires = undefined;
-
-        // Save the updated user document
         await user.save();
         console.log('[RESET PASSWORD] Password updated successfully for user:', user.rgno);
 
@@ -2044,6 +1800,162 @@ app.post('/api/auth/reset-password/:token', async (req, res) => {
     } catch (error) {
         console.error('[RESET PASSWORD] Error:', error);
         res.status(500).json({ success: false, error: 'Failed to reset password' });
+    }
+});
+
+* END FORGOT PASSWORD VIA EMAIL COMMENT */
+
+// Forgot password - redirect to contact admin
+app.post('/api/auth/forgot-password', async (req, res) => {
+    res.status(503).json({ 
+        success: false, 
+        error: 'Email-based password reset is currently unavailable. Please contact your administrator (Faculty/Principal) to reset your password.' 
+    });
+});
+
+// ==================== FORCED PASSWORD CHANGE (After Admin Reset) ====================
+
+// Forced password change - for users who must change password after admin reset
+app.post('/api/auth/force-change-password', authenticateSessionNoTouch, async (req, res) => {
+    try {
+        const { newPassword, confirmPassword } = req.body;
+        
+        // Validate input
+        if (!newPassword || !confirmPassword) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'New password and confirmation are required' 
+            });
+        }
+        
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Passwords do not match' 
+            });
+        }
+        
+        if (newPassword.length < 8) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Password must be at least 8 characters long' 
+            });
+        }
+        
+        const user = await User.findById(req.auth.decoded.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        if (!user.mustChangePassword) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Password change not required for this account' 
+            });
+        }
+        
+        // Hash and save new password
+        user.password = await hashPassword(newPassword);
+        user.mustChangePassword = false;
+        user.passwordResetByAdmin = null;
+        user.passwordResetByAdminAt = null;
+        await user.save();
+        
+        console.log(`[FORCE-CHANGE-PASSWORD] ✅ User ${user.rgno} changed password after admin reset`);
+        
+        res.json({ 
+            success: true, 
+            message: 'Password changed successfully. You can now use all features.',
+            user: {
+                id: user._id,
+                name: user.name,
+                rgno: user.rgno,
+                role: user.role,
+                rollno: user.rollno,
+                college: user.college,
+                department: user.department,
+                email: user.email,
+                approvalStatus: user.approvalStatus,
+                emailVerified: user.emailVerified,
+                twoFactorEnabled: user.twoFactorEnabled || false,
+                mustChangePassword: false
+            }
+        });
+        
+    } catch (error) {
+        console.error('Force change password error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== ADMIN PASSWORD RESET (No Email Required) ====================
+
+// Admin resets user password - sets a temporary password that user must change
+app.post('/api/auth/admin/reset-password/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin || !['super-admin', 'principal', 'faculty'].includes(admin.role)) {
+            return res.status(403).json({ success: false, error: 'Admin access required' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Check authorization hierarchy
+        if (admin.role === 'faculty') {
+            // Faculty can only reset student passwords in their college
+            if (targetUser.role !== 'student' || targetUser.college !== admin.college) {
+                return res.status(403).json({ success: false, error: 'Not authorized to reset this user\'s password' });
+            }
+        } else if (admin.role === 'principal') {
+            // Principal can reset faculty and student passwords in their college
+            if (!['student', 'faculty'].includes(targetUser.role) || targetUser.college !== admin.college) {
+                return res.status(403).json({ success: false, error: 'Not authorized to reset this user\'s password' });
+            }
+        }
+        // Super-admin can reset anyone except other super-admins
+        if (targetUser.role === 'super-admin' && admin.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Cannot reset super-admin password' });
+        }
+        
+        // Generate a temporary password
+        const tempPassword = crypto.randomBytes(4).toString('hex').toUpperCase(); // 8 char like "A1B2C3D4"
+        
+        // Hash and save
+        targetUser.password = await hashPassword(tempPassword);
+        targetUser.mustChangePassword = true;
+        targetUser.passwordResetByAdmin = admin._id;
+        targetUser.passwordResetByAdminAt = new Date();
+        targetUser.failedLoginAttempts = 0; // Reset lockout
+        targetUser.accountFrozen = false; // Unfreeze if frozen
+        targetUser.lockoutUntil = null;
+        await targetUser.save();
+        
+        // Create audit log
+        await createAuditLog('ADMIN_PASSWORD_RESET', admin, targetUser, {
+            adminRole: admin.role,
+            userRole: targetUser.role
+        }, req);
+        
+        console.log(`[ADMIN-RESET-PASSWORD] ✅ Admin ${admin.rgno} reset password for user ${targetUser.rgno}`);
+        
+        res.json({ 
+            success: true, 
+            message: `Password reset successful. Temporary password: ${tempPassword}`,
+            tempPassword: tempPassword, // Return to admin so they can tell user
+            note: 'User will be forced to change this password on next login.',
+            user: {
+                name: targetUser.name,
+                rgno: targetUser.rgno,
+                email: targetUser.email
+            }
+        });
+        
+    } catch (error) {
+        console.error('Admin reset password error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

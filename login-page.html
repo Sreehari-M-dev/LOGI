@@ -971,62 +971,35 @@
                     return;
                 }
                 
-                // Handle email not verified
+                // Handle email not verified - Email service disabled, contact admin
                 if (result.emailNotVerified) {
                     Swal.fire({
                         title: '📧 Email Not Verified',
                         html: `
-                            <p>Please verify your email address before logging in.</p>
-                            <p style="margin-top: 10px;">We sent a verification link to:<br>
+                            <p>Your email address needs to be verified before you can log in.</p>
+                            <p style="margin-top: 10px;">Email on file:<br>
                             <strong>${result.email || 'your email'}</strong></p>
-                            <p style="margin-top: 15px; font-size: 14px; color: #666;">Can't find the email? Check your spam folder or click below to resend.</p>
+                            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #ffc107;">
+                                <p style="color: #856404; margin: 0;"><strong>📞 Contact your administrator</strong><br>
+                                (Faculty or Principal) to verify your email.</p>
+                            </div>
                         `,
                         icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Resend Verification Email',
-                        cancelButtonText: 'Close',
-                        confirmButtonColor: '#667eea',
-                        cancelButtonColor: '#6c757d'
-                    }).then(async (swalResult) => {
-                        if (swalResult.isConfirmed) {
-                            // Resend verification email
-                            try {
-                                const resendResponse = await fetch(`${AUTH_API}/resend-verification`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ rgno: parseInt(rgno) })
-                                });
-                                const resendResult = await resendResponse.json();
-                                
-                                if (resendResult.success) {
-                                    Swal.fire({
-                                        title: 'Email Sent!',
-                                        text: 'Please check your inbox for the verification link.',
-                                        icon: 'success',
-                                        confirmButtonColor: '#667eea'
-                                    });
-                                } else {
-                                    Swal.fire({
-                                        title: 'Error',
-                                        text: resendResult.error || 'Failed to resend verification email',
-                                        icon: 'error',
-                                        confirmButtonColor: '#667eea'
-                                    });
-                                }
-                            } catch (err) {
-                                Swal.fire({
-                                    title: 'Error',
-                                    text: 'Network error. Please try again.',
-                                    icon: 'error',
-                                    confirmButtonColor: '#667eea'
-                                });
-                            }
-                        }
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#667eea'
                     });
                     return;
                 }
                 
                 if (result.success) {
+                    // Check if user must change password (admin reset)
+                    if (result.mustChangePassword) {
+                        localStorage.setItem('token', result.token);
+                        localStorage.setItem('tempUser', JSON.stringify(result.user));
+                        showForceChangePasswordModal(result.user.name);
+                        return;
+                    }
+                    
                     // Store token and stayLoggedIn preference
                     localStorage.setItem('token', result.token);
                     localStorage.setItem('user', JSON.stringify(result.user));
@@ -1226,6 +1199,116 @@
                 });
             }
         });
+        
+        // ==================== FORCE CHANGE PASSWORD (After Admin Reset) ====================
+        
+        function showForceChangePasswordModal(userName) {
+            Swal.fire({
+                title: '🔐 Password Change Required',
+                html: `
+                    <div style="text-align: left; padding: 10px;">
+                        <p style="margin-bottom: 20px; color: #666;">
+                            Hello <strong>${userName}</strong>, your password was reset by an administrator.
+                            <br>You must set a new password to continue.
+                        </p>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">New Password</label>
+                            <input type="password" id="swal-new-password" class="swal2-input" 
+                                   style="width: 100%; margin: 0;" placeholder="Enter new password (min 8 chars)">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Confirm Password</label>
+                            <input type="password" id="swal-confirm-password" class="swal2-input" 
+                                   style="width: 100%; margin: 0;" placeholder="Confirm new password">
+                        </div>
+                        <p style="font-size: 12px; color: #888; margin-top: 15px;">
+                            <i class="fas fa-info-circle"></i> Choose a strong password that you haven't used before.
+                        </p>
+                    </div>
+                `,
+                icon: 'warning',
+                showCancelButton: false,
+                confirmButtonText: 'Change Password',
+                confirmButtonColor: '#667eea',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                preConfirm: () => {
+                    const newPassword = document.getElementById('swal-new-password').value;
+                    const confirmPassword = document.getElementById('swal-confirm-password').value;
+                    
+                    if (!newPassword || !confirmPassword) {
+                        Swal.showValidationMessage('Please fill in both password fields');
+                        return false;
+                    }
+                    if (newPassword.length < 8) {
+                        Swal.showValidationMessage('Password must be at least 8 characters');
+                        return false;
+                    }
+                    if (newPassword !== confirmPassword) {
+                        Swal.showValidationMessage('Passwords do not match');
+                        return false;
+                    }
+                    return { newPassword, confirmPassword };
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await submitForceChangePassword(result.value.newPassword, result.value.confirmPassword);
+                }
+            });
+        }
+        
+        async function submitForceChangePassword(newPassword, confirmPassword) {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${AUTH_API}/force-change-password`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ newPassword, confirmPassword })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Merge server response with existing tempUser data (keep full user info)
+                    const tempUser = JSON.parse(localStorage.getItem('tempUser') || '{}');
+                    const fullUser = { ...tempUser, ...result.user, mustChangePassword: false };
+                    localStorage.setItem('user', JSON.stringify(fullUser));
+                    localStorage.removeItem('tempUser');
+                    localStorage.setItem('loginTime', Date.now().toString());
+                    
+                    await Swal.fire({
+                        title: 'Password Changed!',
+                        text: 'Your password has been updated successfully.',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    
+                    window.location.href = 'index.html';
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: result.error || 'Failed to change password',
+                        icon: 'error',
+                        confirmButtonColor: '#667eea'
+                    }).then(() => {
+                        // Show the modal again
+                        const tempUser = JSON.parse(localStorage.getItem('tempUser') || '{}');
+                        showForceChangePasswordModal(tempUser.name || 'User');
+                    });
+                }
+            } catch (error) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to change password: ' + error.message,
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+        }
     </script>
 </body>
 </html>
