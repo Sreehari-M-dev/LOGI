@@ -586,6 +586,7 @@
                         <option value="">Select your role</option>
                         <option value="student" selected>Student</option>
                         <option value="faculty">Faculty</option>
+                        <option value="hod">HOD (Head of Department)</option>
                         <option value="principal">Principal</option>
                     </select>
                 </div>
@@ -748,11 +749,27 @@
                 rgnoInput.placeholder = 'Faculty employee number';
                 semInput.parentElement.style.display = 'none';
                 approvalNotice.style.display = 'block';
-                approvalRoleInfo.textContent = ' Faculty need Principal approval.';
+                approvalRoleInfo.textContent = ' Faculty need HOD approval.';
                 // Hide Office Administration for faculty
                 Array.from(deptSelect.options).forEach(opt => {
                     if (opt.value === 'Office Administration') opt.style.display = 'none';
                 });
+            } else if (role === 'hod') {
+                fields.classList.remove('show');
+                rollInput.required = false;
+                rgnoLabel.innerHTML = '<i class="fas fa-id-card"></i> Employee Number <span style="color:red">*</span>';
+                rgnoInput.placeholder = 'HOD employee number';
+                semInput.parentElement.style.display = 'none';
+                approvalNotice.style.display = 'block';
+                approvalRoleInfo.textContent = ' HOD needs Principal approval. Only one HOD per department allowed.';
+                // Hide Office Administration for HOD - they must select actual department
+                Array.from(deptSelect.options).forEach(opt => {
+                    if (opt.value === 'Office Administration') opt.style.display = 'none';
+                });
+                // Clear department if Office Administration was selected
+                if (deptSelect.value === 'Office Administration') {
+                    deptSelect.value = '';
+                }
             } else if (role === 'principal') {
                 fields.classList.remove('show');
                 rollInput.required = false;

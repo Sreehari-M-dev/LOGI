@@ -107,7 +107,7 @@ const userSchema = new mongoose.Schema({
     rollno: { type: Number }, // For students only - not stored for other roles
     rgno: { type: Number, required: true, unique: true }, // Unique identifier (Register Number)
     password: { type: String, required: true }, // Hashed
-    role: { type: String, enum: ['student', 'faculty', 'principal', 'super-admin'], default: 'student' },
+    role: { type: String, enum: ['student', 'faculty', 'hod', 'principal', 'super-admin'], default: 'student' },
     department: String,
     semester: Number, // For students only
     college: { type: String, required: true }, // College name - required for all users
@@ -529,7 +529,7 @@ app.post('/api/auth/register', async (req, res) => {
         }
         
         // Validate role
-        const validRoles = ['student', 'faculty', 'principal'];
+        const validRoles = ['student', 'faculty', 'hod', 'principal'];
         if (role && !validRoles.includes(role)) {
             return res.status(400).json({ 
                 success: false, 
@@ -543,6 +543,16 @@ app.post('/api/auth/register', async (req, res) => {
                 success: false, 
                 error: 'Office Administration department is only available for principals.' 
             });
+        }
+        
+        // HOD must select a department (not Office Administration)
+        if (role === 'hod') {
+            if (!department || department.toLowerCase() === 'office administration') {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'HOD must select a valid department (not Office Administration).' 
+                });
+            }
         }
         
         // Strong password validation
@@ -572,8 +582,26 @@ app.post('/api/auth/register', async (req, res) => {
             }
         }
         
-        // For faculty: Check if there's an approved principal in the same college
+        // For faculty: Check if there's an approved HOD in the same college/department
         if (role === 'faculty') {
+            const approvedHOD = await User.findOne({
+                college: college,
+                role: 'hod',
+                department: department,
+                approvalStatus: 'approved',
+                isActive: true
+            });
+            
+            if (!approvedHOD) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'No approved HOD found for your department. An HOD must be registered and approved first.' 
+                });
+            }
+        }
+        
+        // For HOD: Check if there's an approved principal in the same college
+        if (role === 'hod') {
             const approvedPrincipal = await User.findOne({
                 college: college,
                 role: 'principal',
@@ -585,6 +613,27 @@ app.post('/api/auth/register', async (req, res) => {
                 return res.status(400).json({ 
                     success: false, 
                     error: 'No approved principal found for your college. A principal must be registered and approved first.' 
+                });
+            }
+        }
+        
+        // For HOD: Check if there's already an HOD for this department in this college (only one allowed)
+        if (role === 'hod') {
+            const existingHOD = await User.findOne({
+                college: college,
+                role: 'hod',
+                department: department,
+                approvalStatus: { $in: ['pending', 'approved'] },
+                isActive: true
+            });
+            
+            if (existingHOD) {
+                const statusMsg = existingHOD.approvalStatus === 'approved' 
+                    ? 'An HOD is already registered and approved for this department.'
+                    : 'An HOD registration is already pending for this department.';
+                return res.status(409).json({ 
+                    success: false, 
+                    error: `${statusMsg} Only one HOD is allowed per department per college.`
                 });
             }
         }
@@ -830,8 +879,10 @@ app.post('/api/auth/login', async (req, res) => {
         if (user.accountFrozen) {
             let contactMsg = '';
             if (user.role === 'student') {
-                contactMsg = 'Please contact your faculty or principal to unfreeze your account.';
+                contactMsg = 'Please contact your faculty or HOD to unfreeze your account.';
             } else if (user.role === 'faculty') {
+                contactMsg = 'Please contact your HOD or principal to unfreeze your account.';
+            } else if (user.role === 'hod') {
                 contactMsg = 'Please contact your principal or super-admin to unfreeze your account.';
             } else {
                 contactMsg = 'Please contact the super-admin to unfreeze your account.';
@@ -868,8 +919,10 @@ app.post('/api/auth/login', async (req, res) => {
                 
                 let contactMsg = '';
                 if (user.role === 'student') {
-                    contactMsg = 'Please contact your faculty or principal to unfreeze your account.';
+                    contactMsg = 'Please contact your faculty or HOD to unfreeze your account.';
                 } else if (user.role === 'faculty') {
+                    contactMsg = 'Please contact your HOD or principal to unfreeze your account.';
+                } else if (user.role === 'hod') {
                     contactMsg = 'Please contact your principal or super-admin to unfreeze your account.';
                 } else {
                     contactMsg = 'Please contact the super-admin to unfreeze your account.';
@@ -1894,7 +1947,7 @@ app.post('/api/auth/force-change-password', authenticateSessionNoTouch, async (r
 app.post('/api/auth/admin/reset-password/:userId', authenticateAndTouchSession, async (req, res) => {
     try {
         const admin = await User.findById(req.auth.decoded.userId);
-        if (!admin || !['super-admin', 'principal', 'faculty'].includes(admin.role)) {
+        if (!admin || !['super-admin', 'principal', 'hod', 'faculty'].includes(admin.role)) {
             return res.status(403).json({ success: false, error: 'Admin access required' });
         }
         
@@ -1905,13 +1958,20 @@ app.post('/api/auth/admin/reset-password/:userId', authenticateAndTouchSession, 
         
         // Check authorization hierarchy
         if (admin.role === 'faculty') {
-            // Faculty can only reset student passwords in their college
+            // Faculty can only reset student passwords in their college/department
             if (targetUser.role !== 'student' || targetUser.college !== admin.college) {
                 return res.status(403).json({ success: false, error: 'Not authorized to reset this user\'s password' });
             }
+        } else if (admin.role === 'hod') {
+            // HOD can reset faculty and student passwords in their department
+            if (!['student', 'faculty'].includes(targetUser.role) || 
+                targetUser.college !== admin.college || 
+                targetUser.department !== admin.department) {
+                return res.status(403).json({ success: false, error: 'Not authorized to reset this user\'s password' });
+            }
         } else if (admin.role === 'principal') {
-            // Principal can reset faculty and student passwords in their college
-            if (!['student', 'faculty'].includes(targetUser.role) || targetUser.college !== admin.college) {
+            // Principal can reset HOD, faculty and student passwords in their college
+            if (!['student', 'faculty', 'hod'].includes(targetUser.role) || targetUser.college !== admin.college) {
                 return res.status(403).json({ success: false, error: 'Not authorized to reset this user\'s password' });
             }
         }
@@ -1978,11 +2038,16 @@ app.get('/api/auth/pending-approvals', authenticateAndTouchSession, async (req, 
         
         if (user.role === 'super-admin') {
             // Super-admin can see all pending (primarily principals)
-            query.role = { $in: ['principal', 'faculty', 'student'] };
+            query.role = { $in: ['principal', 'hod', 'faculty', 'student'] };
         } else if (user.role === 'principal') {
-            // Principal can only see pending faculty in their college
-            query.role = 'faculty';
+            // Principal can see pending HOD and faculty in their college
+            query.role = { $in: ['hod', 'faculty'] };
             query.college = user.college;
+        } else if (user.role === 'hod') {
+            // HOD can see pending faculty and students in their department
+            query.role = { $in: ['faculty', 'student'] };
+            query.college = user.college;
+            query.department = user.department;
         } else if (user.role === 'faculty') {
             // Faculty can only see pending students in their college/department
             query.role = 'student';
@@ -2022,9 +2087,12 @@ app.post('/api/auth/approve-user/:userId', authenticateAndTouchSession, async (r
         let authorized = false;
         if (approver.role === 'super-admin') {
             authorized = true; // Super-admin can approve anyone
-        } else if (approver.role === 'principal' && targetUser.role === 'faculty') {
-            // Principal can approve faculty in their college
+        } else if (approver.role === 'principal' && ['hod', 'faculty'].includes(targetUser.role)) {
+            // Principal can approve HOD and faculty in their college
             authorized = approver.college === targetUser.college;
+        } else if (approver.role === 'hod' && ['faculty', 'student'].includes(targetUser.role)) {
+            // HOD can approve faculty and students in their department
+            authorized = approver.college === targetUser.college && approver.department === targetUser.department;
         } else if (approver.role === 'faculty' && targetUser.role === 'student') {
             // Faculty can approve students in their college/department
             authorized = approver.college === targetUser.college;
@@ -2085,8 +2153,10 @@ app.post('/api/auth/reject-user/:userId', authenticateAndTouchSession, async (re
         let authorized = false;
         if (approver.role === 'super-admin') {
             authorized = true;
-        } else if (approver.role === 'principal' && targetUser.role === 'faculty') {
+        } else if (approver.role === 'principal' && ['hod', 'faculty'].includes(targetUser.role)) {
             authorized = approver.college === targetUser.college;
+        } else if (approver.role === 'hod' && ['faculty', 'student'].includes(targetUser.role)) {
+            authorized = approver.college === targetUser.college && approver.department === targetUser.department;
         } else if (approver.role === 'faculty' && targetUser.role === 'student') {
             authorized = approver.college === targetUser.college;
         }
@@ -2235,8 +2305,8 @@ app.get('/api/auth/college-users', authenticateAndTouchSession, async (req, res)
             return res.status(404).json({ success: false, error: 'User not found' });
         }
         
-        // Only principal, faculty, or super-admin can view college users
-        if (!['principal', 'faculty', 'super-admin'].includes(user.role)) {
+        // Only principal, hod, faculty, or super-admin can view college users
+        if (!['principal', 'hod', 'faculty', 'super-admin'].includes(user.role)) {
             return res.status(403).json({ success: false, error: 'Not authorized' });
         }
         
@@ -2247,8 +2317,12 @@ app.get('/api/auth/college-users', authenticateAndTouchSession, async (req, res)
             if (req.query.college) {
                 query.college = req.query.college;
             }
+        } else if (user.role === 'hod') {
+            // HOD can only see users in their college AND department
+            query.college = user.college;
+            query.department = user.department;
         } else {
-            // Others can only see users in their college
+            // Principal/Faculty can only see users in their college
             query.college = user.college;
         }
         
@@ -2296,9 +2370,10 @@ app.get('/api/auth/admin/all-users', authenticateAndTouchSession, async (req, re
         const byCollege = {};
         users.forEach(u => {
             if (!byCollege[u.college]) {
-                byCollege[u.college] = { principals: [], faculty: [], students: [] };
+                byCollege[u.college] = { principals: [], hods: [], faculty: [], students: [] };
             }
             if (u.role === 'principal') byCollege[u.college].principals.push(u);
+            else if (u.role === 'hod') byCollege[u.college].hods.push(u);
             else if (u.role === 'faculty') byCollege[u.college].faculty.push(u);
             else if (u.role === 'student') byCollege[u.college].students.push(u);
         });

@@ -275,14 +275,15 @@ function injectAdminPanelLink() {
         if (!userStr) return;
         
         const user = JSON.parse(userStr);
-        const authorizedRoles = ['super-admin', 'principal', 'faculty'];
+        const authorizedRoles = ['super-admin', 'principal', 'hod', 'faculty'];
         
         if (!authorizedRoles.includes(user.role)) return;
         
         const navMenu = document.getElementById('nav-menu');
         if (!navMenu) return;
         
-        // Hide logbook link for principals (they don't teach, so no need for lab book)
+        // Hide logbook link for principals only (they manage, not teach)
+        // HOD keeps logbook access since they sometimes teach
         if (user.role === 'principal') {
             const logbookLink = navMenu.querySelector('a[href="Log_Book1.html"]');
             if (logbookLink && logbookLink.parentElement) {
@@ -309,6 +310,8 @@ function injectAdminPanelLink() {
             adminLink.style.color = '#ef4444';
         } else if (user.role === 'principal') {
             adminLink.style.color = '#3b82f6';
+        } else if (user.role === 'hod') {
+            adminLink.style.color = '#8b5cf6';
         } else if (user.role === 'faculty') {
             adminLink.style.color = '#10b981';
         }

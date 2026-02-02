@@ -190,6 +190,12 @@
                 document.getElementById('viewLogbooksCard').style.display = 'block';
                 document.getElementById('adminDashboardCard').style.display = 'block';
             }
+            // HOD sees all faculty features + admin (they manage AND sometimes teach)
+            else if (user.role === 'hod') {
+                document.getElementById('teacherTemplatesCard').style.display = 'block';
+                document.getElementById('viewLogbooksCard').style.display = 'block';
+                document.getElementById('adminDashboardCard').style.display = 'block';
+            }
             // Principal sees admin dashboard and logbook viewer (to review), but NOT templates (they don't teach)
             else if (user.role === 'principal') {
                 document.getElementById('viewLogbooksCard').style.display = 'block';

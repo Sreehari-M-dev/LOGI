@@ -289,6 +289,10 @@
             background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         }
+        .role-badge.hod { 
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
         .role-badge.faculty { 
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
@@ -1289,6 +1293,7 @@
                     <select id="filterRole" onchange="loadCollegeUsers()">
                         <option value="">All Roles</option>
                         <option value="principal">Principal</option>
+                        <option value="hod">HOD</option>
                         <option value="faculty">Faculty</option>
                         <option value="student">Student</option>
                     </select>
@@ -1700,6 +1705,18 @@
         let pendingRejectUserId = null;
         let allUsersCache = []; // Cache for user management operations
         
+        // Helper function to format role names for display
+        function formatRole(role) {
+            const roleMap = {
+                'super-admin': 'Super Admin',
+                'principal': 'Principal',
+                'hod': 'HOD',
+                'faculty': 'Faculty',
+                'student': 'Student'
+            };
+            return roleMap[role] || role;
+        }
+        
         // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1799,16 +1816,28 @@
                     // Filter users based on role hierarchy (same as All Users tab)
                     // Also set contextual labels
                     if (currentUser.role === 'principal') {
-                        // Principal sees only faculty and students in their college
+                        // Principal sees HOD, faculty and students in their college
                         users = users.filter(u => 
-                            ['faculty', 'student'].includes(u.role) && 
+                            ['hod', 'faculty', 'student'].includes(u.role) && 
                             u.college === currentUser.college
                         );
                         // Update labels for principal
-                        document.getElementById('pendingLabel').textContent = 'Pending (Faculty & Students)';
+                        document.getElementById('pendingLabel').textContent = 'Pending (HOD, Faculty & Students)';
                         document.getElementById('approvedLabel').textContent = 'Approved (College)';
                         document.getElementById('rejectedLabel').textContent = 'Rejected (College)';
                         document.getElementById('totalLabel').textContent = 'Total in College';
+                    } else if (currentUser.role === 'hod') {
+                        // HOD sees faculty and students in their department
+                        users = users.filter(u => 
+                            ['faculty', 'student'].includes(u.role) && 
+                            u.college === currentUser.college &&
+                            u.department === currentUser.department
+                        );
+                        // Update labels for HOD
+                        document.getElementById('pendingLabel').textContent = 'Pending (Department)';
+                        document.getElementById('approvedLabel').textContent = 'Approved (Department)';
+                        document.getElementById('rejectedLabel').textContent = 'Rejected (Department)';
+                        document.getElementById('totalLabel').textContent = 'Total in Department';
                     } else if (currentUser.role === 'faculty') {
                         // Faculty sees only students in their college
                         users = users.filter(u => 
@@ -1876,7 +1905,7 @@
                                 <tr>
                                     <td><strong>${user.name}</strong></td>
                                     <td>${user.rgno}<br><small style="color: var(--text-muted)">${user.email}</small></td>
-                                    <td><span class="role-badge ${user.role}">${user.role}</span></td>
+                                    <td><span class="role-badge ${user.role}">${formatRole(user.role)}</span></td>
                                     <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${user.college || '-'}">${user.college || '-'}</td>
                                     <td>${user.department || '-'}</td>
                                     <td>${new Date(user.createdAt).toLocaleDateString()}</td>
@@ -1939,11 +1968,21 @@
                     if (status) users = users.filter(u => u.approvalStatus === status);
                     if (college) users = users.filter(u => u.college === college);
                 }
-                // Principal sees only faculty and students in their college
+                // Principal sees HOD, faculty and students in their college
                 else if (currentUser.role === 'principal') {
                     users = users.filter(u => 
-                        ['faculty', 'student'].includes(u.role) && 
+                        ['hod', 'faculty', 'student'].includes(u.role) && 
                         u.college === currentUser.college
+                    );
+                    if (role) users = users.filter(u => u.role === role);
+                    if (status) users = users.filter(u => u.approvalStatus === status);
+                }
+                // HOD sees faculty and students in their department
+                else if (currentUser.role === 'hod') {
+                    users = users.filter(u => 
+                        ['faculty', 'student'].includes(u.role) && 
+                        u.college === currentUser.college &&
+                        u.department === currentUser.department
                     );
                     if (role) users = users.filter(u => u.role === role);
                     if (status) users = users.filter(u => u.approvalStatus === status);
@@ -1978,7 +2017,7 @@
                                 <tr>
                                     <td><strong>${user.name}</strong></td>
                                     <td>${user.rgno}</td>
-                                    <td><span class="role-badge ${user.role}">${user.role}</span></td>
+                                    <td><span class="role-badge ${user.role}">${formatRole(user.role)}</span></td>
                                     <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;" title="${user.college || '-'}">${user.college || '-'}</td>
                                     <td><span class="status-badge ${user.approvalStatus}">${user.approvalStatus}</span></td>
                                     <td>
@@ -2006,16 +2045,20 @@
             const isSelf = user._id === currentUser.id;
             const isSuperAdmin = currentUser.role === 'super-admin';
             const isPrincipal = currentUser.role === 'principal';
+            const isHOD = currentUser.role === 'hod';
             const isFaculty = currentUser.role === 'faculty';
             const sameCollege = user.college === currentUser.college;
+            const sameDepartment = user.department === currentUser.department;
             
             // Determine if current user can manage this user
             let canManage = false;
             if (isSuperAdmin && user.role !== 'super-admin') {
                 canManage = true;
-            } else if (isPrincipal && ['faculty', 'student'].includes(user.role) && sameCollege) {
+            } else if (isPrincipal && ['hod', 'faculty', 'student'].includes(user.role) && sameCollege) {
                 canManage = true;
-            } else if (isFaculty && user.role === 'student' && sameCollege) {
+            } else if (isHOD && ['faculty', 'student'].includes(user.role) && sameCollege && sameDepartment) {
+                canManage = true;
+            } else if (isFaculty && user.role === 'student' && sameCollege && sameDepartment) {
                 canManage = true;
             }
             
@@ -2034,8 +2077,8 @@
                 buttons += `<button class="action-btn" style="background: #fd7e14;" onclick="adminResetPassword('${user._id}', '${user.name.replace(/'/g, "\\'")}', '${user.rgno}')" title="Reset Password"><i class="fas fa-key"></i></button>`;
             }
             
-            // Crown - Super-admin only
-            if (isSuperAdmin && ['principal', 'faculty'].includes(user.role) && user.approvalStatus === 'approved') {
+            // Crown - Super-admin only (can invite principal, hod, or faculty)
+            if (isSuperAdmin && ['principal', 'hod', 'faculty'].includes(user.role) && user.approvalStatus === 'approved') {
                 buttons += `<button class="action-btn crown crown-tooltip" onclick="showInviteSuccessorModal('${user._id}')" title="Invite as Super-Admin"><i class="fas fa-crown"></i></button>`;
             }
             
