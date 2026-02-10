@@ -737,7 +737,7 @@ app.post('/api/auth/register', async (req, res) => {
         try {
             const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
             
-            await transporter.sendMail({
+            await sendEmail({
                 from: `"LOGI System" <${EMAIL_FROM}>`,
                 to: email,
                 subject: '📧 Verify Your Email - LOGI Registration',
@@ -1549,66 +1549,110 @@ const EMAIL_PASS = process.env.EMAIL_PASS;
 const EMAIL_FROM = process.env.EMAIL_FROM || process.env.EMAIL_USER; // Separate "from" address
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI';
 
+// Check if using Resend API (recommended - works without domain verification)
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const useResend = !!RESEND_API_KEY;
+
 // Validate email credentials
-if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn('⚠️ EMAIL_USER or EMAIL_PASS not configured in .env - Emails will not work');
+if (!useResend && (!EMAIL_USER || !EMAIL_PASS)) {
+    console.warn('⚠️ Email not configured - Set RESEND_API_KEY (recommended) or EMAIL_USER/EMAIL_PASS');
 }
 
-// Email transporter configuration - Auto-detect provider
-const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.elasticemail.com'; // Default to Elastic Email
-const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '2525'); // Elastic Email default port
+// ==================== EMAIL SENDING FUNCTION ====================
+// Unified email sending that supports both Resend API and SMTP
 
-// Detect email provider for optimized settings
-const isElasticEmail = EMAIL_HOST.includes('elasticemail');
-const isBrevo = EMAIL_HOST.includes('brevo') || EMAIL_HOST.includes('sendinblue');
-const isGmail = EMAIL_HOST.includes('gmail');
+let transporter = null; // Will be initialized for SMTP providers
 
-console.log('📧 Email config:');
-console.log('   Provider:', isElasticEmail ? 'Elastic Email' : isBrevo ? 'Brevo' : isGmail ? 'Gmail' : 'Custom SMTP');
-console.log('   Host:', EMAIL_HOST, 'Port:', EMAIL_PORT);
-console.log('   From:', EMAIL_FROM || '(not set)');
+async function sendEmail(mailOptions) {
+    // Use Resend API if configured (RECOMMENDED - free, works without domain)
+    if (useResend) {
+        try {
+            const response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${RESEND_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    from: mailOptions.from || `LOGI <onboarding@resend.dev>`, // Resend's free sender
+                    to: Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to],
+                    subject: mailOptions.subject,
+                    html: mailOptions.html || mailOptions.text
+                })
+            });
 
-// Create transporter with provider-optimized settings
-const transporterConfig = {
-    host: EMAIL_HOST,
-    port: EMAIL_PORT,
-    secure: EMAIL_PORT === 465, // true for 465 (SSL), false for 587/2525 (TLS)
-    auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS
-    },
-    // Longer timeouts for cloud hosting environments (Render, Heroku, etc.)
-    connectionTimeout: 30000, // 30 seconds
-    greetingTimeout: 30000,
-    socketTimeout: 60000
-};
-
-// Add pooling for Elastic Email and Brevo (better for high volume)
-if (isElasticEmail || isBrevo) {
-    transporterConfig.pool = true;
-    transporterConfig.maxConnections = 5;
-    transporterConfig.maxMessages = 100;
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || `Resend API error: ${response.status}`);
+            }
+            
+            console.log('✅ Email sent via Resend:', data.id);
+            return { messageId: data.id };
+        } catch (error) {
+            console.error('❌ Resend email error:', error.message);
+            throw error;
+        }
+    }
+    
+    // Fall back to SMTP (Brevo, Gmail, etc.)
+    if (!transporter) {
+        throw new Error('Email not configured. Set RESEND_API_KEY or SMTP credentials.');
+    }
+    
+    return transporter.sendMail(mailOptions);
 }
 
-// Gmail-specific: require TLS
-if (isGmail) {
-    transporterConfig.requireTLS = true;
-}
-
-const transporter = nodemailer.createTransport(transporterConfig);
-
-// Test transporter connection
-if (EMAIL_USER && EMAIL_PASS) {
+// SMTP Configuration (for Brevo, Gmail, Elastic Email if preferred)
+if (!useResend && EMAIL_USER && EMAIL_PASS) {
+    const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
+    const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '587');
+    
+    const isBrevo = EMAIL_HOST.includes('brevo') || EMAIL_HOST.includes('sendinblue');
+    const isGmail = EMAIL_HOST.includes('gmail');
+    const isElasticEmail = EMAIL_HOST.includes('elasticemail');
+    
+    console.log('📧 SMTP Email config:');
+    console.log('   Provider:', isBrevo ? 'Brevo' : isGmail ? 'Gmail' : isElasticEmail ? 'Elastic Email' : 'Custom SMTP');
+    console.log('   Host:', EMAIL_HOST, 'Port:', EMAIL_PORT);
+    
+    const transporterConfig = {
+        host: EMAIL_HOST,
+        port: EMAIL_PORT,
+        secure: EMAIL_PORT === 465,
+        auth: {
+            user: EMAIL_USER,
+            pass: EMAIL_PASS
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 60000
+    };
+    
+    if (isBrevo || isElasticEmail) {
+        transporterConfig.pool = true;
+        transporterConfig.maxConnections = 5;
+    }
+    
+    if (isGmail) {
+        transporterConfig.requireTLS = true;
+    }
+    
+    transporter = nodemailer.createTransport(transporterConfig);
+    
     transporter.verify((error, success) => {
         if (error) {
-            console.error('❌ Email transporter error:', error.message);
-            console.error('   Host:', EMAIL_HOST, 'Port:', EMAIL_PORT);
-            console.error('   Tip: On Render, try using Brevo/Resend instead of Gmail');
+            console.error('❌ SMTP transporter error:', error.message);
         } else {
-            console.log('✅ Email transporter ready');
-            console.log('   Host:', EMAIL_HOST, 'Port:', EMAIL_PORT);
+            console.log('✅ SMTP transporter ready');
         }
     });
+} else if (useResend) {
+    console.log('📧 Email config: Using Resend API (recommended)');
+    console.log('   Free tier: 100 emails/day, no domain required');
+    console.log('   From address: onboarding@resend.dev (Resend free sender)');
+} else {
+    console.warn('⚠️ No email provider configured');
 }
 
 // ==================== EMAIL VERIFICATION ENDPOINTS ====================
@@ -1862,7 +1906,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         };
         
         console.log('[FORGOT PASSWORD] Sending email to:', user.email);
-        await transporter.sendMail(mailOptions);
+        await sendEmail(mailOptions);
         console.log('[FORGOT PASSWORD] Email sent successfully');
         
         res.json({ success: true, message: 'Password reset email sent' });
@@ -2937,7 +2981,7 @@ app.post('/api/auth/invite-super-admin-successor/:userId', authenticateAndTouchS
         // Send email notification to invited user
         try {
             if (targetUser.email) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: targetUser.email,
                     subject: '👑 You have been invited to become Super-Admin',
@@ -3059,7 +3103,7 @@ app.post('/api/auth/cancel-super-admin-invitation', authenticateAndTouchSession,
         // Notify the user
         try {
             if (invitedUser.email) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: invitedUser.email,
                     subject: '❌ Super-Admin Invitation Cancelled',
@@ -3160,7 +3204,7 @@ app.post('/api/auth/accept-super-admin-invitation', authenticateAndTouchSession,
         // Notify current super-admin
         try {
             if (currentAdmin && currentAdmin.email) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: currentAdmin.email,
                     subject: '✅ Super-Admin Invitation Accepted - Action Required',
@@ -3229,7 +3273,7 @@ app.post('/api/auth/decline-super-admin-invitation', authenticateAndTouchSession
         // Notify current super-admin
         try {
             if (currentAdmin && currentAdmin.email) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: currentAdmin.email,
                     subject: '❌ Super-Admin Invitation Declined',
@@ -3378,7 +3422,7 @@ app.post('/api/auth/complete-super-admin-transfer', authenticateAndTouchSession,
         try {
             // Email to old admin
             if (oldAdminEmail) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: oldAdminEmail,
                     subject: '⚠️ Super-Admin Transfer Completed',
@@ -3408,7 +3452,7 @@ app.post('/api/auth/complete-super-admin-transfer', authenticateAndTouchSession,
             
             // Email to new admin
             if (newAdmin.email) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: newAdmin.email,
                     subject: '🎉 You are now the Super-Admin',
@@ -3558,7 +3602,7 @@ app.post('/api/auth/reverse-super-admin-transfer', authenticateAndTouchSession, 
         // 5. Send email notification
         try {
             if (oldAdmin.email) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: oldAdmin.email,
                     subject: '🔄 Super-Admin Transfer Reversed',
@@ -3682,7 +3726,7 @@ app.post('/api/auth/reclaim-super-admin', authenticateAndTouchSession, async (re
         try {
             // Email to reclaiming admin
             if (oldAdmin.email) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: oldAdmin.email,
                     subject: '🔐 Super-Admin Access Reclaimed',
@@ -3702,7 +3746,7 @@ app.post('/api/auth/reclaim-super-admin', authenticateAndTouchSession, async (re
             
             // Email to demoted admin
             if (currentAdmin.email) {
-                await transporter.sendMail({
+                await sendEmail({
                     from: `"LOGI System" <${process.env.EMAIL_USER}>`,
                     to: currentAdmin.email,
                     subject: '⚠️ Super-Admin Access Revoked',
@@ -4423,7 +4467,7 @@ app.post('/api/auth/super-admin-recovery/initiate', async (req, res) => {
 
         // Send OTP to super-admin email
         try {
-            await transporter.sendMail({
+            await sendEmail({
                 from: `"LOGI System Security" <${process.env.EMAIL_USER}>`,
                 to: superAdmin.email,
                 subject: '🔐 Super-Admin Account Recovery OTP',
@@ -4511,7 +4555,7 @@ app.post('/api/auth/super-admin-recovery/reset', async (req, res) => {
 
         // Send confirmation email
         try {
-            await transporter.sendMail({
+            await sendEmail({
                 from: `"LOGI System Security" <${process.env.EMAIL_USER}>`,
                 to: superAdmin.email,
                 subject: '✅ Password Reset Successful',
