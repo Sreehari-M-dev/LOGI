@@ -89,7 +89,7 @@ class AuthManager {
             const seconds = Math.floor((remaining % 60000) / 1000);
             
             el.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            el.style.color = remaining < 120000 ? '#e74c3c' : '#ffffffff'; // Red if < 2 min
+            el.style.color = remaining < 120000 ? '#e74c3c' : '#ffffff'; // Red if < 2 min
             
             if (remaining <= 0) {
                 el.textContent = '0:00';

@@ -455,6 +455,15 @@
 </head>
 
 <body>
+    <!-- Loading Screen -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Profile</div>
+            <div class="loader-subtext">Loading<span class="loader-dots"><span></span><span></span><span></span></span></div>
+        </div>
+    </div>
+
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
@@ -1660,6 +1669,14 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Wait for profile to load first, then load navbar preferences
             setTimeout(loadNavbarPreferences, 500);
+        });
+        
+        // Hide loading screen when page is ready
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const loader = document.getElementById('pageLoader');
+                if (loader) loader.classList.add('hidden');
+            }, 300);
         });
     </script>
 </body>

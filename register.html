@@ -434,6 +434,15 @@
     </style>
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">LOGI</div>
+            <div class="loader-subtext">Loading<span class="loader-dots"><span></span><span></span><span></span></span></div>
+        </div>
+    </div>
+
     <div class="auth-shell">
         <div class="glass-card hero-panel">
             <div class="hero-kicker"><i class="fas fa-flask"></i> Join the Lab Portal</div>
@@ -1027,6 +1036,12 @@
         
         // Check if already logged in
         window.addEventListener('load', () => {
+            // Hide loading screen
+            setTimeout(function() {
+                const loader = document.getElementById('pageLoader');
+                if (loader) loader.classList.add('hidden');
+            }, 300);
+            
             const token = localStorage.getItem('token');
             if (token) {
                 window.location.href = 'Log_Book1.html';

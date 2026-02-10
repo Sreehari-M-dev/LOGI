@@ -70,6 +70,15 @@
 </head>
 
 <body>
+    <!-- Loading Screen -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">LOGI</div>
+            <div class="loader-subtext">Loading<span class="loader-dots"><span></span><span></span><span></span></span></div>
+        </div>
+    </div>
+
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
@@ -173,6 +182,14 @@
     <script src="auth.js"></script>
     <script src="scripts.js"></script>
     <script>
+        // Hide loading screen when page is ready
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const loader = document.getElementById('pageLoader');
+                if (loader) loader.classList.add('hidden');
+            }, 300); // Small delay for smoother transition
+        });
+        
         // Show role-specific options based on user role
         document.addEventListener('DOMContentLoaded', function() {
             const user = AuthManager.getUser();

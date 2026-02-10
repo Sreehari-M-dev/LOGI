@@ -54,25 +54,30 @@ const allowedOrigins = isProduction
 
     ];
 
-// Log all incoming requests and headers
+// Log requests - skip health checks and preflight to reduce noise in production
 app.use((req, res, next) => {
+    // Skip logging for health checks and OPTIONS preflight (too noisy)
+    if (req.path === '/health' || req.method === 'OPTIONS') {
+        return next();
+    }
     console.log(`[REQUEST] ${req.method} ${req.path}`);
-    console.log(`[HEADERS] Origin: ${req.headers.origin}, Referer: ${req.headers.referer}`);
-    console.log(`[HEADERS] Host: ${req.headers.host}`);
+    // Only log headers in development for debugging
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`[HEADERS] Origin: ${req.headers.origin}, Host: ${req.headers.host}`);
+    }
     next();
 });
 
 app.use(cors({
     origin: function(origin, callback) {
-        console.log(`[CORS] Origin received: ${origin}`);
+        // Skip logging for allowed origins in production (too noisy)
         if (!origin) {
-            console.log('[CORS] No origin (non-browser request) - allowing');
             return callback(null, true);
         }
         if (allowedOrigins.includes(origin)) {
-            console.log(`[CORS] Origin ${origin} is allowed`);
             return callback(null, true);
         }
+        // Only log rejected origins
         console.log(`[CORS] Origin ${origin} is NOT allowed`);
         return callback(new Error('Not allowed by CORS'));
     },
@@ -86,14 +91,11 @@ app.use(express.json());
 // ==================== MULTI-CLUSTER MONGODB CONNECTIONS ====================
 
 // Create separate connections for AUTH and META clusters
-const authConnection = mongoose.createConnection(MONGODB_URI_AUTH, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
+// Note: useNewUrlParser and useUnifiedTopology are deprecated in MongoDB Driver 4.0+ (removed)
+const authConnection = mongoose.createConnection(MONGODB_URI_AUTH);
 
 authConnection.on('connected', () => {
     console.log('✅ Connected to MongoDB AUTH cluster');
-    console.log('   URI:', MONGODB_URI_AUTH.replace(/\/\/[^:]+:[^@]+@/, '//<credentials>@'));
 });
 
 authConnection.on('error', (err) => {
@@ -790,8 +792,6 @@ app.post('/api/auth/register', async (req, res) => {
         
         // NOTE: Email verification is disabled. Admin must manually verify users.
         console.log('[REGISTRATION] ℹ️ Email verification disabled - Admin must verify user:', email);
-        // NOTE: Email verification is disabled. Admin must manually verify users.
-        console.log('[REGISTRATION] ℹ️ Email verification disabled - Admin must verify user:', email);
 
         // Create server-side session and generate token with session id (sid)
         const sid = crypto.randomBytes(16).toString('hex');
@@ -909,6 +909,18 @@ app.post('/api/auth/login', async (req, res) => {
             // Increment failed login attempts
             user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
             const remainingAttempts = 5 - user.failedLoginAttempts;
+            
+            // Create security alert for principals (notify super-admin)
+            if (user.role === 'principal' && user.failedLoginAttempts >= 3) {
+                await createSecurityAlert(user, 'failed_login', 
+                    user.failedLoginAttempts >= 5 ? 'critical' : 'high', 
+                    { 
+                        attempts: user.failedLoginAttempts, 
+                        message: `${user.failedLoginAttempts} failed login attempts on principal account` 
+                    }, 
+                    req
+                );
+            }
             
             if (user.failedLoginAttempts >= 5) {
                 // FREEZE the account - requires admin to unfreeze
@@ -1505,10 +1517,31 @@ app.get('/api/auth/users', authenticateAndTouchSession, async (req, res) => {
 
 // --- Password Reset: Forgot Password Endpoint ---
 
-// Add these to your .env:
-// EMAIL_USER=your_smtp_login (for Brevo: your Brevo login email)
-// EMAIL_PASS=your_smtp_password (for Brevo: your SMTP key)
-// EMAIL_FROM=sender@yourdomain.com (the "from" address - must be verified in Brevo)
+// ==================== EMAIL CONFIGURATION ====================
+// Supports: Elastic Email (recommended), Brevo, Gmail, Mailgun, SendGrid, etc.
+//
+// === ELASTIC EMAIL SETUP (Recommended - Free 100 emails/day, no domain required) ===
+// 1. Sign up at https://elasticemail.com
+// 2. Go to Settings → SMTP → Create new SMTP credentials
+// 3. Set these in your .env:
+//    EMAIL_HOST=smtp.elasticemail.com
+//    EMAIL_PORT=2525
+//    EMAIL_USER=your-elasticemail-api-key (or your account email)
+//    EMAIL_PASS=your-elasticemail-smtp-password
+//    EMAIL_FROM=your-verified-sender@email.com
+//
+// === BREVO SETUP (Requires domain verification) ===
+//    EMAIL_HOST=smtp-relay.brevo.com
+//    EMAIL_PORT=587
+//    EMAIL_USER=your-brevo-login-email
+//    EMAIL_PASS=your-brevo-smtp-key
+//
+// === GMAIL SETUP (May be blocked by some hosts) ===
+//    EMAIL_HOST=smtp.gmail.com
+//    EMAIL_PORT=587
+//    EMAIL_USER=your-gmail@gmail.com
+//    EMAIL_PASS=your-app-password (16-char app password, not regular password)
+//
 // FRONTEND_URL=https://sreehari-m-dev.github.io/LOGI
 
 const EMAIL_USER = process.env.EMAIL_USER;
@@ -1518,33 +1551,51 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.
 
 // Validate email credentials
 if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn('⚠️ EMAIL_USER or EMAIL_PASS not configured in .env - Password reset emails will not work');
+    console.warn('⚠️ EMAIL_USER or EMAIL_PASS not configured in .env - Emails will not work');
 }
 
-console.log('📧 Email config: HOST=' + (process.env.EMAIL_HOST || 'smtp.gmail.com') + ', FROM=' + EMAIL_FROM);
+// Email transporter configuration - Auto-detect provider
+const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.elasticemail.com'; // Default to Elastic Email
+const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '2525'); // Elastic Email default port
 
-// Email transporter configuration
-// Supports Gmail or custom SMTP (Brevo, Resend, Mailgun, etc.)
-const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
-const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '587');
+// Detect email provider for optimized settings
+const isElasticEmail = EMAIL_HOST.includes('elasticemail');
+const isBrevo = EMAIL_HOST.includes('brevo') || EMAIL_HOST.includes('sendinblue');
+const isGmail = EMAIL_HOST.includes('gmail');
 
-const transporter = nodemailer.createTransport({
+console.log('📧 Email config:');
+console.log('   Provider:', isElasticEmail ? 'Elastic Email' : isBrevo ? 'Brevo' : isGmail ? 'Gmail' : 'Custom SMTP');
+console.log('   Host:', EMAIL_HOST, 'Port:', EMAIL_PORT);
+console.log('   From:', EMAIL_FROM || '(not set)');
+
+// Create transporter with provider-optimized settings
+const transporterConfig = {
     host: EMAIL_HOST,
     port: EMAIL_PORT,
-    secure: EMAIL_PORT === 465, // true for 465, false for other ports
+    secure: EMAIL_PORT === 465, // true for 465 (SSL), false for 587/2525 (TLS)
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS
     },
-    // Longer timeouts for cloud hosting environments
+    // Longer timeouts for cloud hosting environments (Render, Heroku, etc.)
     connectionTimeout: 30000, // 30 seconds
     greetingTimeout: 30000,
-    socketTimeout: 60000,
-    // Pool connections for better reliability
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100
-});
+    socketTimeout: 60000
+};
+
+// Add pooling for Elastic Email and Brevo (better for high volume)
+if (isElasticEmail || isBrevo) {
+    transporterConfig.pool = true;
+    transporterConfig.maxConnections = 5;
+    transporterConfig.maxMessages = 100;
+}
+
+// Gmail-specific: require TLS
+if (isGmail) {
+    transporterConfig.requireTLS = true;
+}
+
+const transporter = nodemailer.createTransport(transporterConfig);
 
 // Test transporter connection
 if (EMAIL_USER && EMAIL_PASS) {
@@ -2776,7 +2827,7 @@ app.post('/api/auth/admin/reassign-user/:userId', authenticateAndTouchSession, a
         
         if (newCollege) targetUser.college = newCollege;
         if (newDepartment) targetUser.department = newDepartment;
-        if (newRole && ['student', 'faculty', 'principal'].includes(newRole)) {
+        if (newRole && ['student', 'faculty', 'hod', 'principal'].includes(newRole)) {
             targetUser.role = newRole;
         }
         
@@ -3790,6 +3841,703 @@ app.get('/api/auth/seed-super-admin', async (req, res) => {
         });
     } catch (error) {
         console.error('Seed super admin error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== NOTIFICATION SYSTEM ====================
+// Notification Schema for in-app notifications
+const notificationSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    type: { 
+        type: String, 
+        enum: ['logbook_review', 'logbook_approved', 'user_approved', 'user_rejected', 
+               'security_alert', 'system', 'template_shared', 'password_reset'],
+        required: true 
+    },
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    link: { type: String }, // Optional link to redirect
+    read: { type: Boolean, default: false },
+    priority: { type: String, enum: ['low', 'normal', 'high', 'urgent'], default: 'normal' },
+    relatedUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    metadata: { type: mongoose.Schema.Types.Mixed }, // Additional data
+    createdAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date } // Auto-delete after this date
+});
+
+notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
+notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
+
+const Notification = authConnection.model('Notification', notificationSchema);
+
+// Logbook Template Schema
+const templateSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    description: { type: String },
+    category: { type: String, required: true }, // e.g., 'Electronics', 'Computer Science', 'Mechanical'
+    content: { type: mongoose.Schema.Types.Mixed, required: true }, // Template structure/fields
+    college: { type: String }, // If college-specific, otherwise null for global
+    department: { type: String }, // If department-specific
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    createdByName: { type: String },
+    isGlobal: { type: Boolean, default: false }, // Super-admin can create global templates
+    isActive: { type: Boolean, default: true },
+    usageCount: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+});
+
+templateSchema.index({ college: 1, category: 1, isActive: 1 });
+templateSchema.index({ isGlobal: 1, isActive: 1 });
+
+const Template = authConnection.model('Template', templateSchema);
+
+// Security Alert Schema for tracking suspicious activities
+const securityAlertSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    userRgno: { type: Number, required: true },
+    userRole: { type: String, required: true },
+    alertType: { 
+        type: String, 
+        enum: ['failed_login', 'unusual_location', 'password_reset', 'brute_force', 'account_compromised'],
+        required: true 
+    },
+    severity: { type: String, enum: ['low', 'medium', 'high', 'critical'], required: true },
+    details: { type: mongoose.Schema.Types.Mixed },
+    ipAddress: { type: String },
+    userAgent: { type: String },
+    resolved: { type: Boolean, default: false },
+    resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    resolvedAt: { type: Date },
+    notifiedAdmin: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+});
+
+securityAlertSchema.index({ userId: 1, createdAt: -1 });
+securityAlertSchema.index({ alertType: 1, resolved: 1 });
+securityAlertSchema.index({ userRole: 1, severity: 1 });
+
+const SecurityAlert = authConnection.model('SecurityAlert', securityAlertSchema);
+
+// Helper function to create notification
+async function createNotification(userId, type, title, message, options = {}) {
+    try {
+        const notification = new Notification({
+            userId,
+            type,
+            title,
+            message,
+            link: options.link,
+            priority: options.priority || 'normal',
+            relatedUser: options.relatedUser,
+            metadata: options.metadata,
+            expiresAt: options.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days default
+        });
+        await notification.save();
+        return notification;
+    } catch (error) {
+        console.error('[NOTIFICATION] Error creating notification:', error);
+        return null;
+    }
+}
+
+// Helper function to create security alert and notify admin
+async function createSecurityAlert(user, alertType, severity, details, req) {
+    try {
+        const alert = new SecurityAlert({
+            userId: user._id,
+            userRgno: user.rgno,
+            userRole: user.role,
+            alertType,
+            severity,
+            details,
+            ipAddress: req?.ip || req?.headers?.['x-forwarded-for'] || 'unknown',
+            userAgent: req?.headers?.['user-agent'] || 'unknown'
+        });
+        await alert.save();
+
+        // For principals, notify super-admin
+        if (user.role === 'principal' && (severity === 'high' || severity === 'critical')) {
+            const superAdmin = await User.findOne({ role: 'super-admin' });
+            if (superAdmin) {
+                await createNotification(
+                    superAdmin._id,
+                    'security_alert',
+                    '🚨 Principal Account Security Alert',
+                    `Suspicious activity detected on principal account: ${user.name} (${user.college}). Type: ${alertType}`,
+                    { priority: 'urgent', relatedUser: user._id, metadata: { alertId: alert._id } }
+                );
+                alert.notifiedAdmin = true;
+                await alert.save();
+            }
+        }
+
+        return alert;
+    } catch (error) {
+        console.error('[SECURITY ALERT] Error creating alert:', error);
+        return null;
+    }
+}
+
+// ==================== NOTIFICATION ENDPOINTS ====================
+
+// Get user's notifications
+app.get('/api/notifications', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const userId = req.auth.decoded.userId;
+        const limit = parseInt(req.query.limit) || 20;
+        const page = parseInt(req.query.page) || 1;
+        const unreadOnly = req.query.unread === 'true';
+
+        const query = { userId };
+        if (unreadOnly) query.read = false;
+
+        const notifications = await Notification.find(query)
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit);
+
+        const unreadCount = await Notification.countDocuments({ userId, read: false });
+        const total = await Notification.countDocuments(query);
+
+        res.json({
+            success: true,
+            notifications,
+            unreadCount,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        console.error('Get notifications error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Mark notification as read
+app.put('/api/notifications/:id/read', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const notification = await Notification.findOneAndUpdate(
+            { _id: req.params.id, userId: req.auth.decoded.userId },
+            { read: true },
+            { new: true }
+        );
+        
+        if (!notification) {
+            return res.status(404).json({ success: false, error: 'Notification not found' });
+        }
+
+        res.json({ success: true, notification });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Mark all notifications as read
+app.put('/api/notifications/read-all', authenticateAndTouchSession, async (req, res) => {
+    try {
+        await Notification.updateMany(
+            { userId: req.auth.decoded.userId, read: false },
+            { read: true }
+        );
+        res.json({ success: true, message: 'All notifications marked as read' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Delete notification
+app.delete('/api/notifications/:id', authenticateAndTouchSession, async (req, res) => {
+    try {
+        await Notification.findOneAndDelete({ 
+            _id: req.params.id, 
+            userId: req.auth.decoded.userId 
+        });
+        res.json({ success: true, message: 'Notification deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== ANALYTICS ENDPOINTS ====================
+
+// Get dashboard analytics
+app.get('/api/analytics/dashboard', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (!user || !['super-admin', 'principal', 'hod', 'faculty'].includes(user.role)) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+        const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+        // Build query based on role
+        let userQuery = {};
+        if (user.role === 'principal') {
+            userQuery.college = user.college;
+        } else if (user.role === 'hod') {
+            userQuery.college = user.college;
+            userQuery.department = user.department;
+        } else if (user.role === 'faculty') {
+            userQuery.college = user.college;
+            userQuery.role = 'student';
+        }
+
+        // Get user statistics
+        const totalUsers = await User.countDocuments(userQuery);
+        const activeUsers = await User.countDocuments({ ...userQuery, approvalStatus: 'approved' });
+        const pendingUsers = await User.countDocuments({ ...userQuery, approvalStatus: 'pending' });
+        
+        // New registrations in last 7 days
+        const newRegistrations = await User.countDocuments({
+            ...userQuery,
+            createdAt: { $gte: sevenDaysAgo }
+        });
+
+        // Recent logins (users who logged in within 7 days)
+        const recentLogins = await User.countDocuments({
+            ...userQuery,
+            lastLoginAt: { $gte: sevenDaysAgo }
+        });
+
+        // Users by role
+        const usersByRole = await User.aggregate([
+            { $match: userQuery },
+            { $group: { _id: '$role', count: { $sum: 1 } } }
+        ]);
+
+        // Registrations per day (last 7 days)
+        const registrationTrend = await User.aggregate([
+            { 
+                $match: { 
+                    ...userQuery,
+                    createdAt: { $gte: sevenDaysAgo } 
+                } 
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Approvals per day (last 7 days)
+        const approvalTrend = await User.aggregate([
+            { 
+                $match: { 
+                    ...userQuery,
+                    approvedAt: { $gte: sevenDaysAgo } 
+                } 
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$approvedAt' } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // Security alerts (for super-admin only)
+        let securityStats = null;
+        if (user.role === 'super-admin') {
+            const unresolvedAlerts = await SecurityAlert.countDocuments({ resolved: false });
+            const criticalAlerts = await SecurityAlert.countDocuments({ severity: 'critical', resolved: false });
+            const recentAlerts = await SecurityAlert.find({ resolved: false })
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .populate('userId', 'name email rgno role college');
+            
+            securityStats = {
+                unresolvedAlerts,
+                criticalAlerts,
+                recentAlerts
+            };
+        }
+
+        res.json({
+            success: true,
+            analytics: {
+                overview: {
+                    totalUsers,
+                    activeUsers,
+                    pendingUsers,
+                    newRegistrations,
+                    recentLogins
+                },
+                usersByRole: usersByRole.reduce((acc, item) => {
+                    acc[item._id] = item.count;
+                    return acc;
+                }, {}),
+                trends: {
+                    registrations: registrationTrend,
+                    approvals: approvalTrend
+                },
+                security: securityStats
+            }
+        });
+    } catch (error) {
+        console.error('Dashboard analytics error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== TEMPLATE LIBRARY ENDPOINTS ====================
+
+// Get templates
+app.get('/api/templates', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        const category = req.query.category;
+
+        // Build query - show global templates + college templates
+        const query = {
+            isActive: true,
+            $or: [
+                { isGlobal: true },
+                { college: user.college }
+            ]
+        };
+        
+        if (category) query.category = category;
+
+        const templates = await Template.find(query)
+            .sort({ usageCount: -1, createdAt: -1 });
+
+        res.json({ success: true, templates });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Create template (faculty, HOD, principal, super-admin)
+app.post('/api/templates', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (!user || !['super-admin', 'principal', 'hod', 'faculty'].includes(user.role)) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const { name, description, category, content, isGlobal } = req.body;
+
+        const template = new Template({
+            name,
+            description,
+            category,
+            content,
+            college: user.role === 'super-admin' && isGlobal ? null : user.college,
+            department: user.department,
+            createdBy: user._id,
+            createdByName: user.name,
+            isGlobal: user.role === 'super-admin' && isGlobal
+        });
+
+        await template.save();
+
+        res.json({ success: true, template, message: 'Template created successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update template
+app.put('/api/templates/:id', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        const template = await Template.findById(req.params.id);
+
+        if (!template) {
+            return res.status(404).json({ success: false, error: 'Template not found' });
+        }
+
+        // Only creator, principal of same college, or super-admin can edit
+        const canEdit = template.createdBy.equals(user._id) ||
+                       user.role === 'super-admin' ||
+                       (user.role === 'principal' && template.college === user.college);
+
+        if (!canEdit) {
+            return res.status(403).json({ success: false, error: 'Not authorized to edit this template' });
+        }
+
+        const { name, description, category, content, isActive } = req.body;
+        
+        template.name = name || template.name;
+        template.description = description !== undefined ? description : template.description;
+        template.category = category || template.category;
+        template.content = content || template.content;
+        template.isActive = isActive !== undefined ? isActive : template.isActive;
+        template.updatedAt = new Date();
+
+        await template.save();
+
+        res.json({ success: true, template, message: 'Template updated successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Delete template
+app.delete('/api/templates/:id', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        const template = await Template.findById(req.params.id);
+
+        if (!template) {
+            return res.status(404).json({ success: false, error: 'Template not found' });
+        }
+
+        // Only creator, principal of same college, or super-admin can delete
+        const canDelete = template.createdBy.equals(user._id) ||
+                         user.role === 'super-admin' ||
+                         (user.role === 'principal' && template.college === user.college);
+
+        if (!canDelete) {
+            return res.status(403).json({ success: false, error: 'Not authorized to delete this template' });
+        }
+
+        await template.deleteOne();
+
+        res.json({ success: true, message: 'Template deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Increment template usage
+app.post('/api/templates/:id/use', authenticateAndTouchSession, async (req, res) => {
+    try {
+        await Template.findByIdAndUpdate(req.params.id, { $inc: { usageCount: 1 } });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get template categories
+app.get('/api/templates/categories', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const categories = await Template.distinct('category', { isActive: true });
+        res.json({ success: true, categories });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== SECURITY ALERTS ENDPOINTS ====================
+
+// Get security alerts (super-admin only)
+app.get('/api/security-alerts', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (user.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+
+        const limit = parseInt(req.query.limit) || 50;
+        const resolved = req.query.resolved;
+        const severity = req.query.severity;
+
+        const query = {};
+        if (resolved !== undefined) query.resolved = resolved === 'true';
+        if (severity) query.severity = severity;
+
+        const alerts = await SecurityAlert.find(query)
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .populate('userId', 'name email rgno role college');
+
+        res.json({ success: true, alerts });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Resolve security alert
+app.put('/api/security-alerts/:id/resolve', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        if (user.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Super-admin access required' });
+        }
+
+        const alert = await SecurityAlert.findByIdAndUpdate(
+            req.params.id,
+            { 
+                resolved: true, 
+                resolvedBy: user._id, 
+                resolvedAt: new Date() 
+            },
+            { new: true }
+        );
+
+        if (!alert) {
+            return res.status(404).json({ success: false, error: 'Alert not found' });
+        }
+
+        res.json({ success: true, alert, message: 'Alert resolved' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== SUPER-ADMIN RECOVERY SYSTEM ====================
+// Uses SUPER_ADMIN_RECOVERY_KEY environment variable for emergency access
+
+// Step 1: Initiate recovery - validates recovery key and sends OTP to super-admin email
+app.post('/api/auth/super-admin-recovery/initiate', async (req, res) => {
+    try {
+        const { recoveryKey } = req.body;
+        const envRecoveryKey = process.env.SUPER_ADMIN_RECOVERY_KEY;
+
+        if (!envRecoveryKey) {
+            return res.status(503).json({ 
+                success: false, 
+                error: 'Recovery system not configured. Contact system administrator.' 
+            });
+        }
+
+        if (recoveryKey !== envRecoveryKey) {
+            // Log failed recovery attempt
+            console.warn('[SECURITY] Failed super-admin recovery attempt - invalid key');
+            return res.status(401).json({ success: false, error: 'Invalid recovery key' });
+        }
+
+        const superAdmin = await User.findOne({ role: 'super-admin' });
+        if (!superAdmin) {
+            return res.status(404).json({ success: false, error: 'No super-admin account found' });
+        }
+
+        // Generate 6-digit OTP
+        const otp = crypto.randomInt(100000, 999999).toString();
+        const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+        // Store OTP in user record (reusing resetPasswordToken fields)
+        superAdmin.resetPasswordToken = crypto.createHash('sha256').update(otp).digest('hex');
+        superAdmin.resetPasswordExpires = otpExpiry;
+        await superAdmin.save();
+
+        // Send OTP to super-admin email
+        try {
+            await transporter.sendMail({
+                from: `"LOGI System Security" <${process.env.EMAIL_USER}>`,
+                to: superAdmin.email,
+                subject: '🔐 Super-Admin Account Recovery OTP',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #d32f2f;">🔐 Account Recovery Request</h2>
+                        <p>A recovery request was initiated for your super-admin account.</p>
+                        <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                            <p style="margin: 0; color: #666;">Your OTP code is:</p>
+                            <h1 style="font-size: 36px; letter-spacing: 8px; color: #667eea; margin: 10px 0;">${otp}</h1>
+                            <p style="margin: 0; color: #999; font-size: 12px;">Valid for 15 minutes</p>
+                        </div>
+                        <p style="color: #d32f2f;"><strong>⚠️ If you did not request this, your recovery key may be compromised!</strong></p>
+                        <p>IP Address: ${req.ip || req.headers['x-forwarded-for'] || 'unknown'}</p>
+                    </div>
+                `
+            });
+        } catch (emailError) {
+            console.error('[RECOVERY] Failed to send OTP email:', emailError);
+            return res.status(500).json({ 
+                success: false, 
+                error: 'Failed to send OTP. Please try again.' 
+            });
+        }
+
+        // Mask email for response
+        const maskedEmail = superAdmin.email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+
+        res.json({ 
+            success: true, 
+            message: `OTP sent to ${maskedEmail}`,
+            expiresIn: '15 minutes'
+        });
+    } catch (error) {
+        console.error('Super-admin recovery initiate error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Step 2: Verify OTP and reset password
+app.post('/api/auth/super-admin-recovery/reset', async (req, res) => {
+    try {
+        const { otp, newPassword } = req.body;
+
+        if (!otp || !newPassword) {
+            return res.status(400).json({ success: false, error: 'OTP and new password required' });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+        }
+
+        const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
+        
+        const superAdmin = await User.findOne({
+            role: 'super-admin',
+            resetPasswordToken: hashedOtp,
+            resetPasswordExpires: { $gt: new Date() }
+        });
+
+        if (!superAdmin) {
+            return res.status(400).json({ success: false, error: 'Invalid or expired OTP' });
+        }
+
+        // Reset password
+        superAdmin.password = await hashPassword(newPassword);
+        superAdmin.resetPasswordToken = undefined;
+        superAdmin.resetPasswordExpires = undefined;
+        superAdmin.failedLoginAttempts = 0;
+        superAdmin.lockoutUntil = undefined;
+        superAdmin.accountFrozen = false;
+        await superAdmin.save();
+
+        // Invalidate all sessions for security
+        await Session.updateMany(
+            { userId: superAdmin._id },
+            { isExpired: true, expiredAt: new Date() }
+        );
+
+        // Create audit log
+        await createAuditLog('SUPER_ADMIN_PASSWORD_RECOVERED', superAdmin, superAdmin, {
+            method: 'recovery_key',
+            ipAddress: req.ip || req.headers['x-forwarded-for']
+        }, req);
+
+        // Send confirmation email
+        try {
+            await transporter.sendMail({
+                from: `"LOGI System Security" <${process.env.EMAIL_USER}>`,
+                to: superAdmin.email,
+                subject: '✅ Password Reset Successful',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #4caf50;">✅ Password Reset Successful</h2>
+                        <p>Your super-admin password has been reset successfully.</p>
+                        <p>All existing sessions have been invalidated for security.</p>
+                        <p><strong>Please login with your new password.</strong></p>
+                        <p style="color: #d32f2f; margin-top: 20px;">
+                            <strong>⚠️ Important:</strong> Consider changing your SUPER_ADMIN_RECOVERY_KEY 
+                            in the environment variables if you suspect it may have been compromised.
+                        </p>
+                    </div>
+                `
+            });
+        } catch (emailError) {
+            console.error('[RECOVERY] Failed to send confirmation email:', emailError);
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'Password reset successfully. Please login with your new password.' 
+        });
+    } catch (error) {
+        console.error('Super-admin recovery reset error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

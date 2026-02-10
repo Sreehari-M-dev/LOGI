@@ -32,6 +32,15 @@
 </head>
 
 <body>
+    <!-- Loading Screen -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Lab Logbook</div>
+            <div class="loader-subtext">Loading<span class="loader-dots"><span></span><span></span><span></span></span></div>
+        </div>
+    </div>
+
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
@@ -442,6 +451,15 @@
     <script src="logbook-client.js"></script>
     <!-- Logbook Excel Export/Import with Integrity Protection -->
     <script src="logbook-excel.js"></script>
+    <script>
+        // Hide loading screen when page is ready
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const loader = document.getElementById('pageLoader');
+                if (loader) loader.classList.add('hidden');
+            }, 300);
+        });
+    </script>
 </body>
 
 </html>
