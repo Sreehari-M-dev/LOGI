@@ -7,6 +7,14 @@ const bcrypt = require('bcrypt');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 
+// WebAuthn/Passkey support for super-admin biometric authentication
+const {
+    generateRegistrationOptions,
+    verifyRegistrationResponse,
+    generateAuthenticationOptions,
+    verifyAuthenticationResponse
+} = require('@simplewebauthn/server');
+
 // Bcrypt configuration
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -172,7 +180,18 @@ const userSchema = new mongoose.Schema({
     // Admin password reset - forces user to change password on next login
     mustChangePassword: { type: Boolean, default: false }, // Set by admin reset
     passwordResetByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Who reset it
-    passwordResetByAdminAt: { type: Date } // When admin reset it
+    passwordResetByAdminAt: { type: Date }, // When admin reset it
+    // Passkey/Biometric authentication fields (super-admin only)
+    passkeys: [{
+        credentialId: { type: String, required: true }, // Base64URL encoded credential ID
+        credentialPublicKey: { type: String, required: true }, // Base64URL encoded public key
+        counter: { type: Number, default: 0 }, // Signature counter for replay attack prevention
+        deviceName: { type: String, default: 'Unknown Device' }, // Friendly name for the device
+        transports: [{ type: String }], // e.g., ['internal', 'hybrid'] for cross-device
+        createdAt: { type: Date, default: Date.now },
+        lastUsedAt: { type: Date }
+    }],
+    currentPasskeyChallenge: { type: String } // Temporary challenge for registration/auth
 }, {
     // Mongoose options to minimize storage
     minimize: true, // Remove empty objects
@@ -722,10 +741,10 @@ app.post('/api/auth/register', async (req, res) => {
             semester: semester || null,
             college: college,
             approvalStatus: approvalStatus,
-            emailVerified: false,
-            emailVerificationToken: emailVerificationToken,
-            emailVerificationExpires: emailVerificationExpires,
-            emailVerificationSentAt: new Date()
+            emailVerified: true, // AUTO-VERIFIED: Email verification disabled (no SMTP configured)
+            emailVerificationToken: null, // Not used - email disabled
+            emailVerificationExpires: null, // Not used - email disabled
+            emailVerificationSentAt: null // Not used - email disabled
         });
 
         await newUser.save();
@@ -966,8 +985,10 @@ app.post('/api/auth/login', async (req, res) => {
         // Existing users (who don't have emailVerified field set at all) are grandfathered in
         // Only block users who explicitly have emailVerified === false (meaning they registered with this feature)
         // ============================================================
-        // EMAIL VERIFICATION CHECK - Currently using admin manual verification
+        // EMAIL VERIFICATION CHECK - DISABLED (No SMTP configured)
+        // Enable this when email service is available
         // ============================================================
+        /* EMAIL VERIFICATION DISABLED
         if (user.role !== 'super-admin' && user.email && user.emailVerified === false) {
             const maskedEmail = user.email ? user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'your email';
             return res.status(403).json({ 
@@ -978,6 +999,7 @@ app.post('/api/auth/login', async (req, res) => {
                 email: maskedEmail
             });
         }
+        */
         
         // Check approval status (except for super-admin)
         if (user.role !== 'super-admin' && user.approvalStatus !== 'approved') {
@@ -4429,6 +4451,398 @@ app.put('/api/security-alerts/:id/resolve', authenticateAndTouchSession, async (
     }
 });
 
+// ==================== PASSKEY/BIOMETRIC AUTHENTICATION (Super-Admin Only) ====================
+// WebAuthn implementation for fingerprint/Face ID authentication
+// Supports cross-device authentication (QR code scan from phone)
+
+// Relying Party configuration
+const getRP = (req) => {
+    const origin = req.get('origin') || req.get('referer') || 'https://sreehari-m-dev.github.io';
+    const hostname = new URL(origin).hostname;
+    return {
+        name: 'LOGI - Digital Lab Logbook',
+        id: hostname === 'localhost' ? 'localhost' : hostname
+    };
+};
+
+// Get allowed origins for WebAuthn
+const getAllowedOrigins = () => [
+    'https://sreehari-m-dev.github.io',
+    'http://localhost:3002',
+    'http://127.0.0.1:3002',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500'
+];
+
+// Generate registration options - Step 1 of passkey registration
+app.post('/api/auth/passkey/register-options', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        
+        if (!user || user.role !== 'super-admin') {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Passkey registration is only available for super-admin accounts' 
+            });
+        }
+
+        const { deviceName } = req.body;
+        const rp = getRP(req);
+
+        // Exclude already registered passkeys
+        const excludeCredentials = (user.passkeys || []).map(pk => ({
+            id: Buffer.from(pk.credentialId, 'base64url'),
+            type: 'public-key',
+            transports: pk.transports || ['internal', 'hybrid']
+        }));
+
+        const options = await generateRegistrationOptions({
+            rpName: rp.name,
+            rpID: rp.id,
+            userID: user._id.toString(),
+            userName: user.email,
+            userDisplayName: user.name,
+            attestationType: 'none', // We don't need attestation
+            excludeCredentials,
+            authenticatorSelection: {
+                residentKey: 'preferred',
+                userVerification: 'required', // Require fingerprint/face
+                authenticatorAttachment: 'platform' // Use device's built-in biometric first
+            },
+            supportedAlgorithmIDs: [-7, -257] // ES256 and RS256
+        });
+
+        // Store challenge temporarily
+        user.currentPasskeyChallenge = options.challenge;
+        await user.save();
+
+        console.log(`[PASSKEY] Registration options generated for super-admin: ${user.email}`);
+        res.json({ success: true, options, deviceName: deviceName || 'Unknown Device' });
+    } catch (error) {
+        console.error('[PASSKEY] Error generating registration options:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Verify registration response - Step 2 of passkey registration
+app.post('/api/auth/passkey/register-verify', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        
+        if (!user || user.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+
+        if (!user.currentPasskeyChallenge) {
+            return res.status(400).json({ success: false, error: 'No registration in progress' });
+        }
+
+        const { credential, deviceName } = req.body;
+        const rp = getRP(req);
+        const origin = req.get('origin') || 'https://sreehari-m-dev.github.io';
+
+        const verification = await verifyRegistrationResponse({
+            response: credential,
+            expectedChallenge: user.currentPasskeyChallenge,
+            expectedOrigin: getAllowedOrigins(),
+            expectedRPID: rp.id
+        });
+
+        if (!verification.verified || !verification.registrationInfo) {
+            return res.status(400).json({ success: false, error: 'Verification failed' });
+        }
+
+        const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
+
+        // Store the passkey
+        if (!user.passkeys) user.passkeys = [];
+        user.passkeys.push({
+            credentialId: Buffer.from(credentialID).toString('base64url'),
+            credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
+            counter: counter,
+            deviceName: deviceName || 'Unknown Device',
+            transports: credential.response.transports || ['internal', 'hybrid'],
+            createdAt: new Date()
+        });
+
+        user.currentPasskeyChallenge = undefined;
+        await user.save();
+
+        // Log the action
+        await createAuditLog({
+            action: 'PASSKEY_REGISTERED',
+            performedBy: user._id,
+            performedByRgno: user.rgno,
+            performedByRole: user.role,
+            details: { deviceName: deviceName || 'Unknown Device' },
+            ipAddress: req.ip
+        }, req);
+
+        console.log(`[PASSKEY] ✅ Passkey registered for super-admin: ${user.email}, device: ${deviceName}`);
+        res.json({ 
+            success: true, 
+            message: 'Passkey registered successfully',
+            passkeyCount: user.passkeys.length
+        });
+    } catch (error) {
+        console.error('[PASSKEY] Registration verification error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get registered passkeys for super-admin
+app.get('/api/auth/passkey/list', authenticateSessionNoTouch, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        
+        if (!user || user.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const passkeys = (user.passkeys || []).map(pk => ({
+            id: pk.credentialId.substring(0, 16) + '...', // Truncated for display
+            deviceName: pk.deviceName,
+            createdAt: pk.createdAt,
+            lastUsedAt: pk.lastUsedAt
+        }));
+
+        res.json({ success: true, passkeys, count: passkeys.length });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Delete a passkey
+app.delete('/api/auth/passkey/:credentialIdPrefix', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        
+        if (!user || user.role !== 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+
+        const { credentialIdPrefix } = req.params;
+        const initialCount = user.passkeys?.length || 0;
+        
+        user.passkeys = (user.passkeys || []).filter(pk => 
+            !pk.credentialId.startsWith(credentialIdPrefix)
+        );
+
+        if (user.passkeys.length === initialCount) {
+            return res.status(404).json({ success: false, error: 'Passkey not found' });
+        }
+
+        await user.save();
+
+        await createAuditLog({
+            action: 'PASSKEY_DELETED',
+            performedBy: user._id,
+            performedByRgno: user.rgno,
+            performedByRole: user.role,
+            details: { credentialIdPrefix },
+            ipAddress: req.ip
+        }, req);
+
+        res.json({ success: true, message: 'Passkey deleted', remainingCount: user.passkeys.length });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== PASSKEY RECOVERY AUTHENTICATION ====================
+// Used when super-admin forgets password - authenticates via biometric
+
+// Step 1: Generate authentication options (no login required)
+app.post('/api/auth/passkey/auth-options', async (req, res) => {
+    try {
+        const superAdmin = await User.findOne({ role: 'super-admin' });
+        
+        if (!superAdmin) {
+            return res.status(404).json({ success: false, error: 'No super-admin account found' });
+        }
+
+        if (!superAdmin.passkeys || superAdmin.passkeys.length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No passkeys registered for super-admin account',
+                hasPasskey: false
+            });
+        }
+
+        const rp = getRP(req);
+
+        // Allow any registered passkey
+        const allowCredentials = superAdmin.passkeys.map(pk => ({
+            id: Buffer.from(pk.credentialId, 'base64url'),
+            type: 'public-key',
+            transports: pk.transports || ['internal', 'hybrid'] // 'hybrid' enables QR code scanning
+        }));
+
+        const options = await generateAuthenticationOptions({
+            rpID: rp.id,
+            allowCredentials,
+            userVerification: 'required' // Must use fingerprint/face
+        });
+
+        // Store challenge
+        superAdmin.currentPasskeyChallenge = options.challenge;
+        await superAdmin.save();
+
+        console.log(`[PASSKEY] Authentication options generated for recovery`);
+        res.json({ success: true, options, hasPasskey: true });
+    } catch (error) {
+        console.error('[PASSKEY] Auth options error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Step 2: Verify authentication and allow password reset
+app.post('/api/auth/passkey/auth-verify', async (req, res) => {
+    try {
+        const { credential } = req.body;
+        
+        const superAdmin = await User.findOne({ role: 'super-admin' });
+        
+        if (!superAdmin || !superAdmin.currentPasskeyChallenge) {
+            return res.status(400).json({ success: false, error: 'No authentication in progress' });
+        }
+
+        // Find the matching passkey
+        const passkey = superAdmin.passkeys.find(pk => 
+            pk.credentialId === credential.id
+        );
+
+        if (!passkey) {
+            return res.status(400).json({ success: false, error: 'Passkey not recognized' });
+        }
+
+        const rp = getRP(req);
+
+        const verification = await verifyAuthenticationResponse({
+            response: credential,
+            expectedChallenge: superAdmin.currentPasskeyChallenge,
+            expectedOrigin: getAllowedOrigins(),
+            expectedRPID: rp.id,
+            authenticator: {
+                credentialID: Buffer.from(passkey.credentialId, 'base64url'),
+                credentialPublicKey: Buffer.from(passkey.credentialPublicKey, 'base64url'),
+                counter: passkey.counter
+            }
+        });
+
+        if (!verification.verified) {
+            return res.status(400).json({ success: false, error: 'Biometric verification failed' });
+        }
+
+        // Update counter to prevent replay attacks
+        passkey.counter = verification.authenticationInfo.newCounter;
+        passkey.lastUsedAt = new Date();
+        
+        // Generate a temporary token for password reset (valid for 10 minutes)
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        superAdmin.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        superAdmin.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        superAdmin.currentPasskeyChallenge = undefined;
+        
+        await superAdmin.save();
+
+        // Log the recovery
+        await createAuditLog({
+            action: 'PASSKEY_RECOVERY_AUTH',
+            performedBy: superAdmin._id,
+            performedByRgno: superAdmin.rgno,
+            performedByRole: superAdmin.role,
+            details: { 
+                deviceName: passkey.deviceName,
+                method: 'biometric'
+            },
+            ipAddress: req.ip
+        }, req);
+
+        console.log(`[PASSKEY] ✅ Super-admin authenticated via biometric for password recovery`);
+        res.json({ 
+            success: true, 
+            message: 'Biometric verification successful',
+            resetToken, // Client will use this to set new password
+            expiresIn: 600 // 10 minutes in seconds
+        });
+    } catch (error) {
+        console.error('[PASSKEY] Auth verification error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Step 3: Set new password after passkey authentication
+app.post('/api/auth/passkey/reset-password', async (req, res) => {
+    try {
+        const { resetToken, newPassword } = req.body;
+
+        if (!resetToken || !newPassword) {
+            return res.status(400).json({ success: false, error: 'Reset token and new password required' });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+        }
+
+        const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        
+        const superAdmin = await User.findOne({
+            role: 'super-admin',
+            resetPasswordToken: hashedToken,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!superAdmin) {
+            return res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
+        }
+
+        // Set new password
+        superAdmin.password = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+        superAdmin.resetPasswordToken = undefined;
+        superAdmin.resetPasswordExpires = undefined;
+        superAdmin.failedLoginAttempts = 0;
+        superAdmin.lockoutUntil = undefined;
+        
+        await superAdmin.save();
+
+        // Log the password change
+        await createAuditLog({
+            action: 'PASSWORD_RESET_VIA_PASSKEY',
+            performedBy: superAdmin._id,
+            performedByRgno: superAdmin.rgno,
+            performedByRole: superAdmin.role,
+            details: { method: 'biometric_recovery' },
+            ipAddress: req.ip
+        }, req);
+
+        console.log(`[PASSKEY] ✅ Super-admin password reset via biometric recovery`);
+        res.json({ 
+            success: true, 
+            message: 'Password reset successful. You can now login with your new password.'
+        });
+    } catch (error) {
+        console.error('[PASSKEY] Password reset error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Check if super-admin has passkeys registered (public endpoint)
+app.get('/api/auth/passkey/check', async (req, res) => {
+    try {
+        const superAdmin = await User.findOne({ role: 'super-admin' });
+        
+        if (!superAdmin) {
+            return res.json({ success: true, hasPasskey: false, exists: false });
+        }
+
+        const hasPasskey = superAdmin.passkeys && superAdmin.passkeys.length > 0;
+        res.json({ success: true, hasPasskey, exists: true });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ==================== SUPER-ADMIN RECOVERY SYSTEM ====================
 // Uses SUPER_ADMIN_RECOVERY_KEY environment variable for emergency access
 
@@ -4465,6 +4879,10 @@ app.post('/api/auth/super-admin-recovery/initiate', async (req, res) => {
         superAdmin.resetPasswordExpires = otpExpiry;
         await superAdmin.save();
 
+        /* ============================================================
+         * EMAIL OTP SENDING - DISABLED (No SMTP configured)
+         * Use Passkey/Biometric recovery instead!
+         * ============================================================
         // Send OTP to super-admin email
         try {
             await sendEmail({
@@ -4492,6 +4910,14 @@ app.post('/api/auth/super-admin-recovery/initiate', async (req, res) => {
                 error: 'Failed to send OTP. Please try again.' 
             });
         }
+        */
+
+        // EMAIL DISABLED: Return error directing user to use Passkey recovery
+        return res.status(503).json({ 
+            success: false, 
+            error: 'Email service is not available. Please use Passkey/Biometric recovery instead.',
+            usePasskey: true
+        });
 
         // Mask email for response
         const maskedEmail = superAdmin.email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
@@ -4553,6 +4979,9 @@ app.post('/api/auth/super-admin-recovery/reset', async (req, res) => {
             ipAddress: req.ip || req.headers['x-forwarded-for']
         }, req);
 
+        /* ============================================================
+         * CONFIRMATION EMAIL - DISABLED (No SMTP configured)
+         * ============================================================
         // Send confirmation email
         try {
             await sendEmail({
@@ -4575,6 +5004,8 @@ app.post('/api/auth/super-admin-recovery/reset', async (req, res) => {
         } catch (emailError) {
             console.error('[RECOVERY] Failed to send confirmation email:', emailError);
         }
+        */
+        // EMAIL DISABLED: Skip confirmation email
 
         res.json({ 
             success: true, 

@@ -7,7 +7,7 @@
     <title>Resources</title>
     <script>
         // Auto-detect environment: use local servers for localhost/local IPs, Render for production
-        (function() {
+        (function () {
             const hostname = window.location.hostname;
             const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
             if (isLocal) {
@@ -22,6 +22,14 @@
         })();
     </script>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        body.dark-mode h3 {
+            color: rgb(153, 117, 117);
+        }
+        body.dark-mode p{
+            color: #7e8199;
+        }
+    </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 
@@ -57,14 +65,15 @@
             <div class="info-header">
                 <div class="drive-logo">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M6.24 20.424L1.424 12H5.424L8.824 17.724L6.24 20.424Z" fill="#0F9D58"/>
-                        <path d="M14.4 12H9.6L6.24 20.424L8.824 17.724L14.4 12Z" fill="#F4B400"/>
-                        <path d="M14.4 12L8.824 17.724L12.424 17.724L18 12L14.4 12Z" fill="#4285F4"/>
+                        <path d="M6.24 20.424L1.424 12H5.424L8.824 17.724L6.24 20.424Z" fill="#0F9D58" />
+                        <path d="M14.4 12H9.6L6.24 20.424L8.824 17.724L14.4 12Z" fill="#F4B400" />
+                        <path d="M14.4 12L8.824 17.724L12.424 17.724L18 12L14.4 12Z" fill="#4285F4" />
                     </svg>
                 </div>
                 <h2>Google Drive Integration</h2>
             </div>
-            <p>All study materials are securely stored and shared through our integrated Google Drive system for easy access and collaboration.</p>
+            <p>All study materials are securely stored and shared through our integrated Google Drive system for easy
+                access and collaboration.</p>
         </div>
 
         <!-- Features Grid -->
@@ -100,12 +109,14 @@
                 </div>
                 <p>Share study materials, assignments, and resources with your classmates through Google Drive.</p>
                 <div class="action-note">
-                    <strong>Restricted Access:</strong> Only authorized faculty and designated students can upload files.
+                    <strong>Restricted Access:</strong> Only authorized faculty and designated students can upload
+                    files.
                 </div>
                 <button onclick="openUploadDrive()" class="btn btn-upload">
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                        <path d="M4.5 6a.5.5 0 0 0-1 0v8a.5.5 0 0 0 1 0V6z"/>
+                        <path
+                            d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z" />
+                        <path d="M4.5 6a.5.5 0 0 0-1 0v8a.5.5 0 0 0 1 0V6z" />
                     </svg>
                     Upload to Google Drive
                 </button>
@@ -122,8 +133,10 @@
                 </div>
                 <button onclick="openDownloadDrive()" class="btn btn-download">
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                        <path d="M11.5 10a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5h7z"/>
+                        <path
+                            d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z" />
+                        <path
+                            d="M11.5 10a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5h7z" />
                     </svg>
                     Browse Google Drive
                 </button>
@@ -138,21 +151,24 @@
                     <div class="step-number">1</div>
                     <div class="step-content">
                         <h4>For Uploading Files</h4>
-                        <p>Click "Upload to Google Drive" button. You'll be redirected to the shared Google Drive folder where authorized users can add new files.</p>
+                        <p>Click "Upload to Google Drive" button. You'll be redirected to the shared Google Drive folder
+                            where authorized users can add new files.</p>
                     </div>
                 </div>
                 <div class="instruction-step">
                     <div class="step-number">2</div>
                     <div class="step-content">
                         <h4>For Downloading Files</h4>
-                        <p>Click "Browse Google Drive" to access all shared files. You can view, download, and even preview documents directly in your browser.</p>
+                        <p>Click "Browse Google Drive" to access all shared files. You can view, download, and even
+                            preview documents directly in your browser.</p>
                     </div>
                 </div>
                 <div class="instruction-step">
                     <div class="step-number">3</div>
                     <div class="step-content">
                         <h4>File Organization</h4>
-                        <p>Files are organized by subjects and categories. Use Google Drive's search and filter options to quickly find what you need.</p>
+                        <p>Files are organized by subjects and categories. Use Google Drive's search and filter options
+                            to quickly find what you need.</p>
                     </div>
                 </div>
             </div>
@@ -186,4 +202,5 @@
     <script src="auth.js"></script>
     <script src="scripts.js"></script>
 </body>
+
 </html>

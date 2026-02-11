@@ -24,6 +24,8 @@
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- SimpleWebAuthn for Passkey/Biometric support -->
+    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
     <style>
         :root {
             --bg-primary: #0a0f1c;
@@ -1923,6 +1925,35 @@
                 </div>
                 
                 <button class="action-btn approve" id="setup2FABtn" onclick="setup2FA()"><i class="fas fa-plus"></i> Setup 2FA</button>
+                
+                <!-- Passkey/Biometric Section -->
+                <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--border-light);">
+                    <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-fingerprint" style="color: #22c55e;"></i> Passkey / Biometric Recovery
+                    </h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">
+                        Register your device's fingerprint or Face ID for password recovery. If you forget your password, you can use biometric verification instead of email OTP.
+                    </p>
+                    
+                    <div id="passkeyList" style="margin-bottom: 20px;">
+                        <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                            <div class="spinner"></div> Loading passkeys...
+                        </div>
+                    </div>
+                    
+                    <button class="action-btn approve" id="registerPasskeyBtn" onclick="registerPasskey()" style="background: linear-gradient(135deg, #22c55e, #16a34a);">
+                        <i class="fas fa-fingerprint"></i> Register New Passkey
+                    </button>
+                    
+                    <div id="passkeyInfo" style="margin-top: 15px; background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; border-radius: 8px; padding: 12px; font-size: 0.85rem;">
+                        <p style="color: #16a34a; margin: 0;"><i class="fas fa-info-circle"></i> <strong>How it works:</strong></p>
+                        <ul style="color: var(--text-secondary); margin: 8px 0 0 20px; padding: 0;">
+                            <li>Your fingerprint/Face ID is stored only on your device</li>
+                            <li>We only store a public key (safe even if database is breached)</li>
+                            <li>No fingerprint sensor? Scan QR code with your phone</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -2181,7 +2212,7 @@
                     case 'security': loadSecurityAlerts(); break;
                     case 'emailverify': loadEmailVerificationStats(); break;
                     case 'audit': loadAuditLogs(); break;
-                    case '2fa': check2FAStatus(); break;
+                    case '2fa': check2FAStatus(); loadPasskeys(); break;
                 }
             });
         });
@@ -2894,6 +2925,170 @@
             } catch (error) {
                 console.error('Disable 2FA error:', error);
                 showToast('Failed to disable 2FA', 'error');
+            }
+        }
+        
+        // ==================== PASSKEY / BIOMETRIC FUNCTIONS ====================
+        
+        // Load and display registered passkeys
+        async function loadPasskeys() {
+            const container = document.getElementById('passkeyList');
+            if (!container) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/passkey/list`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.passkeys.length > 0) {
+                    container.innerHTML = data.passkeys.map(pk => `
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 10px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <i class="fas fa-fingerprint" style="font-size: 24px; color: #22c55e;"></i>
+                                <div>
+                                    <div style="font-weight: 600; color: var(--text-primary);">${pk.deviceName}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                        Added ${new Date(pk.createdAt).toLocaleDateString()}
+                                        ${pk.lastUsedAt ? ` • Last used ${new Date(pk.lastUsedAt).toLocaleDateString()}` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="deletePasskey('${pk.id}')" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 8px;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 10px; color: var(--text-secondary);">
+                            <i class="fas fa-fingerprint" style="font-size: 40px; opacity: 0.3; margin-bottom: 10px;"></i>
+                            <p style="margin: 0;">No passkeys registered yet</p>
+                            <p style="font-size: 0.85rem; margin: 5px 0 0;">Register one to enable biometric recovery</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading passkeys:', error);
+                container.innerHTML = '<p style="color: var(--text-secondary);">Failed to load passkeys</p>';
+            }
+        }
+        
+        // Register a new passkey
+        async function registerPasskey() {
+            // Check if WebAuthn is supported
+            if (!window.PublicKeyCredential) {
+                showToast('Passkeys are not supported in this browser', 'error');
+                return;
+            }
+            
+            const deviceName = await Swal.fire({
+                title: 'Name this device',
+                input: 'text',
+                inputPlaceholder: 'e.g., "My Phone" or "Work Laptop"',
+                inputValue: navigator.platform || 'My Device',
+                showCancelButton: true,
+                confirmButtonText: 'Continue',
+                confirmButtonColor: '#22c55e'
+            });
+            
+            if (!deviceName.isConfirmed || !deviceName.value) return;
+            
+            const btn = document.getElementById('registerPasskeyBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Initializing...';
+            
+            try {
+                const token = localStorage.getItem('token');
+                
+                // Step 1: Get registration options from server
+                const optionsResponse = await fetch(`${API_BASE}/api/auth/passkey/register-options`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ deviceName: deviceName.value })
+                });
+                
+                const optionsResult = await optionsResponse.json();
+                
+                if (!optionsResult.success) {
+                    throw new Error(optionsResult.error || 'Failed to get registration options');
+                }
+                
+                btn.innerHTML = '<i class="fas fa-fingerprint"></i> Touch sensor...';
+                
+                // Step 2: Create credential using WebAuthn
+                const credential = await SimpleWebAuthnBrowser.startRegistration(optionsResult.options);
+                
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                
+                // Step 3: Send credential to server for verification
+                const verifyResponse = await fetch(`${API_BASE}/api/auth/passkey/register-verify`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ credential, deviceName: deviceName.value })
+                });
+                
+                const verifyResult = await verifyResponse.json();
+                
+                if (verifyResult.success) {
+                    showToast('Passkey registered successfully!', 'success');
+                    loadPasskeys(); // Refresh list
+                } else {
+                    throw new Error(verifyResult.error || 'Failed to register passkey');
+                }
+                
+            } catch (error) {
+                console.error('Passkey registration error:', error);
+                
+                if (error.name === 'NotAllowedError') {
+                    showToast('Registration cancelled', 'warning');
+                } else {
+                    showToast(error.message || 'Failed to register passkey', 'error');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-fingerprint"></i> Register New Passkey';
+            }
+        }
+        
+        // Delete a passkey
+        async function deletePasskey(credentialIdPrefix) {
+            const confirm = await Swal.fire({
+                title: 'Delete Passkey?',
+                text: 'This device will no longer be able to use biometric recovery.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Delete',
+                confirmButtonColor: '#ef4444'
+            });
+            
+            if (!confirm.isConfirmed) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/auth/passkey/${credentialIdPrefix}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('Passkey deleted', 'success');
+                    loadPasskeys();
+                } else {
+                    showToast(data.error || 'Failed to delete passkey', 'error');
+                }
+            } catch (error) {
+                console.error('Delete passkey error:', error);
+                showToast('Failed to delete passkey', 'error');
             }
         }
         
