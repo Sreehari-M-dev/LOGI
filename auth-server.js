@@ -156,6 +156,7 @@ const userSchema = new mongoose.Schema({
     accountFrozen: { type: Boolean },
     frozenAt: { type: Date },
     frozenReason: { type: String },
+    frozenBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     unfrozenBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     unfrozenAt: { type: Date },
     // Super-admin succession invitation fields (invitation-based transfer)
@@ -2312,6 +2313,79 @@ app.post('/api/auth/reject-user/:userId', authenticateAndTouchSession, async (re
     }
 });
 
+// Freeze a user account (admin action)
+app.post('/api/auth/freeze-user/:userId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const admin = await User.findById(req.auth.decoded.userId);
+        if (!admin) {
+            return res.status(404).json({ success: false, error: 'Admin not found' });
+        }
+        
+        // Only principal or super-admin can freeze accounts
+        if (!['principal', 'super-admin'].includes(admin.role)) {
+            return res.status(403).json({ success: false, error: 'Not authorized to freeze accounts' });
+        }
+        
+        const targetUser = await User.findById(req.params.userId);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Cannot freeze super-admin
+        if (targetUser.role === 'super-admin') {
+            return res.status(403).json({ success: false, error: 'Cannot freeze super-admin account' });
+        }
+        
+        // Check if the user is already frozen
+        if (targetUser.accountFrozen) {
+            return res.status(400).json({ success: false, error: 'This account is already frozen' });
+        }
+        
+        // Principals can only freeze users in their college (not other principals)
+        if (admin.role === 'principal') {
+            if (targetUser.college !== admin.college) {
+                return res.status(403).json({ success: false, error: 'You can only freeze users in your college' });
+            }
+            if (targetUser.role === 'principal') {
+                return res.status(403).json({ success: false, error: 'Only super-admin can freeze principal accounts' });
+            }
+        }
+        
+        const { reason } = req.body;
+        
+        // Freeze the account
+        targetUser.accountFrozen = true;
+        targetUser.frozenAt = new Date();
+        targetUser.frozenReason = reason || 'Manual freeze by admin';
+        targetUser.frozenBy = admin._id;
+        await targetUser.save();
+        
+        // Revoke all sessions for this user
+        await Session.deleteMany({ userId: targetUser._id });
+        
+        // Create audit log
+        await createAuditLog('USER_FROZEN', admin, targetUser, {
+            targetRole: targetUser.role,
+            reason: reason || 'Manual freeze by admin',
+            college: targetUser.college
+        }, req);
+        
+        res.json({ 
+            success: true, 
+            message: `${targetUser.name}'s account has been frozen. They cannot log in until unfrozen.`,
+            user: {
+                id: targetUser._id,
+                name: targetUser.name,
+                rgno: targetUser.rgno,
+                accountFrozen: true
+            }
+        });
+    } catch (error) {
+        console.error('Freeze user error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Unfreeze a frozen account (admin action)
 app.post('/api/auth/unfreeze-user/:userId', authenticateAndTouchSession, async (req, res) => {
     try {
@@ -2974,11 +3048,11 @@ app.post('/api/auth/invite-super-admin-successor/:userId', authenticateAndTouchS
             return res.status(404).json({ success: false, error: 'User not found' });
         }
         
-        // Only allow inviting principals and faculty
-        if (!['principal', 'faculty'].includes(targetUser.role)) {
+        // Only allow inviting principals (not faculty or hod)
+        if (targetUser.role !== 'principal') {
             return res.status(400).json({
                 success: false,
-                error: 'Only principals and faculty can be invited as super-admin successors'
+                error: 'Only principals can be invited as super-admin successors. Faculty and HOD cannot be super-admin.'
             });
         }
         
