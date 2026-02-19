@@ -361,7 +361,8 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:3005';
+        // Use the global API URL configured at page load (without /api/logbook suffix)
+        const API_URL = (window.REACT_APP_LOGBOOK_API || 'http://localhost:3005/api/logbook').replace('/api/logbook', '');
         let experimentCount = 0;
 
         function getAuthHeaders() {

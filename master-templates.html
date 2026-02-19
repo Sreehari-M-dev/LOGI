@@ -527,7 +527,8 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:3005/api/logbook';
+        // Use the global API URL configured at page load
+        const API_URL = window.REACT_APP_LOGBOOK_API || 'http://localhost:3005/api/logbook';
         let templates = [];
         let currentEditingId = null;
 
