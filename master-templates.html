@@ -434,6 +434,184 @@
         .remove-btn:hover {
             background: #da190b;
         }
+        /* Filter bar styles */
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 15px;
+            background: #f0f0f5;
+            border-radius: 8px;
+        }
+        .filter-bar input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .filter-bar input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        .filter-bar select {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+            min-width: 150px;
+        }
+        body.dark-mode .filter-bar {
+            background: #353550;
+        }
+        body.dark-mode .filter-bar input,
+        body.dark-mode .filter-bar select {
+            background: #2a2a3d;
+            border-color: #4a4a6a;
+            color: #e8e8f0;
+        }
+        /* Expandable template wrapper */
+        .template-wrapper {
+            margin-bottom: 10px;
+        }
+        .template-row {
+            cursor: pointer;
+        }
+        .expand-arrow {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: #e8e8ff;
+            color: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+        }
+        .expand-arrow:hover {
+            background: #667eea;
+            color: white;
+        }
+        .expand-arrow.expanded {
+            transform: rotate(90deg);
+            background: #667eea;
+            color: white;
+        }
+        .students-panel {
+            display: none;
+            padding: 15px 20px;
+            background: #f5f5ff;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            margin-top: -5px;
+        }
+        .students-panel.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 500px;
+            }
+        }
+        .students-panel table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .students-panel th {
+            background: #667eea;
+            color: white;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 500;
+        }
+        .students-panel td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .students-panel tr:hover {
+            background: #eef;
+        }
+        .students-panel .no-students {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+        .students-loading {
+            text-align: center;
+            padding: 15px;
+            color: #667eea;
+        }
+        body.dark-mode .expand-arrow {
+            background: #4a4a6a;
+            color: #a78bfa;
+        }
+        body.dark-mode .expand-arrow:hover,
+        body.dark-mode .expand-arrow.expanded {
+            background: #a78bfa;
+            color: #1a1a2e;
+        }
+        body.dark-mode .students-panel {
+            background: #2a2a3d;
+            border-color: #4a4a6a;
+        }
+        body.dark-mode .students-panel th {
+            background: #4a4a6a;
+        }
+        body.dark-mode .students-panel td {
+            border-color: #4a4a6a;
+        }
+        body.dark-mode .students-panel tr:hover {
+            background: #353550;
+        }
+        /* Student action buttons */
+        .student-actions {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+        }
+        .btn-action {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+        .btn-view-logbook {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-view-logbook:hover {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+        .btn-remove-student {
+            background: #f44336;
+            color: white;
+        }
+        .btn-remove-student:hover {
+            background: #da190b;
+            transform: scale(1.1);
+        }
     </style>
 </head>
 <body>
@@ -450,7 +628,7 @@
             <ul class="nav-menu" id="nav-menu">
                 <li><a href="index.html"><i class="fas fa-home"></i> Home</a></li>
                 <li><a href="Log_Book1.html"><i class="fas fa-book"></i> Logbook</a></li>
-                <li><a href="logbook-viewer.html"><i class="fas fa-eye"></i> Logbook Viewer</a></li>
+
             </ul>
         </div>
     </nav>
@@ -458,11 +636,20 @@
     <div class="page-content">
     <div class="container">
         <h1>📚 Master Templates</h1>
-        <p class="subtitle">View and manage master templates created by you</p>
+        <p class="subtitle">View, edit, and manage your master templates. Add late-joining students here.</p>
         
         <div class="header-actions">
-            <button class="btn btn-primary" onclick="showCreateModal()">➕ Create New Template</button>
+            <a href="create-master-logbook.html" class="btn btn-primary">➕ Create New Template</a>
             <button class="btn btn-secondary" onclick="goHome()">← Back to Home</button>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-bar">
+            <input type="text" id="filterInput" placeholder="Filter by subject name or code..." oninput="filterTemplates()">
+            <select id="filterDepartment" onchange="filterTemplates()" title="Filter by department">
+                <option value="">All Departments</option>
+            </select>
+            <button class="btn btn-secondary" onclick="clearFilters()"><i class="fas fa-times"></i> Clear</button>
         </div>
 
         <div id="templatesContainer" class="templates-grid">
@@ -470,11 +657,11 @@
         </div>
     </div>
 
-    <!-- Create/Edit Template Modal -->
+    <!-- Edit Template Modal -->
     <div id="templateModal" class="modal">
         <div class="modal-content">
             <span class="modal-close" onclick="closeModal()">&times;</span>
-            <h2 id="modalTitle">Create New Master Template</h2>
+            <h2 id="modalTitle">Edit Master Template</h2>
             
             <form id="templateForm">
                 <div class="form-row">
@@ -554,6 +741,7 @@
 
                 if (data.success) {
                     templates = data.data;
+                    populateDepartmentFilter();
                     displayTemplates();
                 } else {
                     showNotification('Failed to load templates', 'error');
@@ -566,120 +754,213 @@
 
         function displayTemplates() {
             const container = document.getElementById('templatesContainer');
+            const filterValue = document.getElementById('filterInput').value.toLowerCase();
+            const deptFilter = document.getElementById('filterDepartment').value;
 
-            if (templates.length === 0) {
+            // Filter templates based on search and department
+            let filteredTemplates = templates.filter(t => {
+                const matchesSearch = !filterValue || 
+                    t.subject.toLowerCase().includes(filterValue) || 
+                    (t.code && t.code.toLowerCase().includes(filterValue));
+                const matchesDept = !deptFilter || t.department === deptFilter;
+                return matchesSearch && matchesDept;
+            });
+
+            if (filteredTemplates.length === 0) {
                 container.innerHTML = `
                     <div class="no-templates">
-                        <p>📭 No templates created yet</p>
-                        <button class="btn btn-primary" onclick="showCreateModal()">Create Your First Template</button>
+                        <p>📭 ${templates.length === 0 ? 'No templates created yet' : 'No templates match your filter'}</p>
+                        ${templates.length === 0 ? '<a href="create-master-logbook.html" class="btn btn-primary">Create Your First Template</a>' : '<button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>'}
                     </div>
                 `;
                 return;
             }
 
-            // Row-based view similar to logbook-viewer
-            container.innerHTML = templates.map(template => `
-                <div class="template-row">
-                    <div class="subject-info">
-                        <h4>${template.subject}</h4>
-                        <span class="code">${template.code}</span>
+            // Row-based view with expandable students
+            container.innerHTML = filteredTemplates.map(template => `
+                <div class="template-wrapper" id="wrapper-${template._id}">
+                    <div class="template-row">
+                        <button class="expand-arrow" onclick="toggleStudents('${template._id}', event)" title="Show/Hide Students">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                        <div class="subject-info">
+                            <h4>${template.subject}</h4>
+                            <span class="code">${template.code}</span>
+                        </div>
+                        <div class="meta-info">
+                            <span><i class="fas fa-building"></i> ${template.department}</span>
+                            <span><i class="fas fa-graduation-cap"></i> Sem ${template.semester}</span>
+                            <span><i class="fas fa-calendar"></i> ${template.batch}</span>
+                        </div>
+                        <div class="stats-info">
+                            <span class="stat">${template.experiments ? template.experiments.length : 0} Exp</span>
+                            <span class="stat">${template.labExams ? template.labExams.length : 0} Exams</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn-assign" onclick="addLateStudents('${template._id}')" title="Add Late Students"><i class="fas fa-user-plus"></i></button>
+                            <button class="btn-edit" onclick="editTemplate('${template._id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                            <button class="btn-delete" onclick="deleteTemplate('${template._id}', '${template.subject}')" title="Delete"><i class="fas fa-trash"></i></button>
+                        </div>
                     </div>
-                    <div class="meta-info">
-                        <span><i class="fas fa-building"></i> ${template.department}</span>
-                        <span><i class="fas fa-graduation-cap"></i> Sem ${template.semester}</span>
-                        <span><i class="fas fa-calendar"></i> ${template.batch}</span>
-                    </div>
-                    <div class="stats-info">
-                        <span class="stat">${template.experiments ? template.experiments.length : 0} Exp</span>
-                        <span class="stat">${template.labExams ? template.labExams.length : 0} Exams</span>
-                    </div>
-                    <div class="actions">
-                        <button class="btn-view-students" onclick="viewAssignedStudents('${template._id}', '${template.subject}')" title="View Assigned Students"><i class="fas fa-users"></i></button>
-                        <button class="btn-assign" onclick="assignStudents('${template._id}')" title="Assign Students"><i class="fas fa-user-plus"></i></button>
-                        <button class="btn-edit" onclick="editTemplate('${template._id}')" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="btn-delete" onclick="deleteTemplate('${template._id}', '${template.subject}')" title="Delete"><i class="fas fa-trash"></i></button>
+                    <div class="students-panel" id="students-${template._id}">
+                        <div class="students-loading"><i class="fas fa-spinner fa-spin"></i> Loading students...</div>
                     </div>
                 </div>
             `).join('');
         }
 
-        function assignStudents(templateId) {
-            window.location.href = `assign-students.html?templateId=${templateId}`;
+        function filterTemplates() {
+            displayTemplates();
         }
 
-        async function viewAssignedStudents(templateId, subjectName) {
+        function clearFilters() {
+            document.getElementById('filterInput').value = '';
+            document.getElementById('filterDepartment').value = '';
+            displayTemplates();
+        }
+
+        function populateDepartmentFilter() {
+            const departments = [...new Set(templates.map(t => t.department))];
+            const select = document.getElementById('filterDepartment');
+            select.innerHTML = '<option value="">All Departments</option>' + 
+                departments.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+
+        async function toggleStudents(templateId, event) {
+            event.stopPropagation();
+            const panel = document.getElementById(`students-${templateId}`);
+            const arrow = event.currentTarget;
+            
+            if (panel.classList.contains('show')) {
+                panel.classList.remove('show');
+                arrow.classList.remove('expanded');
+            } else {
+                arrow.classList.add('expanded');
+                panel.classList.add('show');
+                
+                // Load students if not already loaded
+                if (panel.querySelector('.students-loading')) {
+                    await loadStudentsForTemplate(templateId);
+                }
+            }
+        }
+
+        async function loadStudentsForTemplate(templateId) {
+            const panel = document.getElementById(`students-${templateId}`);
             try {
                 const response = await fetch(`${window.REACT_APP_LOGBOOK_API}/master/${templateId}/students`, {
                     headers: getAuthHeaders()
                 });
                 const data = await response.json();
 
-                let studentListHtml = '';
                 if (data.success && data.students && data.students.length > 0) {
-                    studentListHtml = `
-                        <table style="width:100%; border-collapse: collapse; margin-top: 15px;">
+                    panel.innerHTML = `
+                        <table>
                             <thead>
-                                <tr style="background: #667eea; color: white;">
-                                    <th style="padding: 10px; text-align: left;">#</th>
-                                    <th style="padding: 10px; text-align: left;">Name</th>
-                                    <th style="padding: 10px; text-align: left;">Email</th>
-                                    <th style="padding: 10px; text-align: left;">Roll No</th>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Roll No</th>
+                                    <th>Reg No</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${data.students.map((student, idx) => `
-                                    <tr style="border-bottom: 1px solid #e0e0e0;">
-                                        <td style="padding: 10px;">${idx + 1}</td>
-                                        <td style="padding: 10px;">${student.name || 'N/A'}</td>
-                                        <td style="padding: 10px;">${student.email || 'N/A'}</td>
-                                        <td style="padding: 10px;">${student.rollNo || 'N/A'}</td>
+                                    <tr id="student-row-${templateId}-${student.rgno}">
+                                        <td>${idx + 1}</td>
+                                        <td>${student.name || 'N/A'}</td>
+                                        <td>${student.email || 'N/A'}</td>
+                                        <td>${student.rollNo || 'N/A'}</td>
+                                        <td>${student.rgno || 'N/A'}</td>
+                                        <td class="student-actions">
+                                            <button class="btn-action btn-view-logbook" onclick="viewStudentLogbook('${templateId}', '${student.rgno}', '${student.name}')" title="View Logbook">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn-action btn-remove-student" onclick="removeStudent('${templateId}', '${student.rgno}', '${student.name}')" title="Remove Student">
+                                                <i class="fas fa-user-minus"></i>
+                                            </button>
+                                        </td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
+                        <p style="margin-top: 10px; font-size: 12px; color: #667eea;"><strong>Total: ${data.students.length} student(s)</strong></p>
                     `;
                 } else {
-                    studentListHtml = '<p style="text-align: center; color: #999; padding: 30px;">No students assigned to this template yet.</p>';
+                    panel.innerHTML = '<div class="no-students"><i class="fas fa-user-slash"></i> No students assigned yet</div>';
                 }
-
-                // Create modal for viewing students
-                const modal = document.createElement('div');
-                modal.className = 'modal';
-                modal.id = 'studentsModal';
-                modal.style.display = 'block';
-                modal.innerHTML = `
-                    <div class="modal-content" style="max-width: 700px;">
-                        <span class="modal-close" onclick="closeStudentsModal()">&times;</span>
-                        <h2 style="margin-bottom: 10px;"><i class="fas fa-users" style="color: #667eea;"></i> Assigned Students</h2>
-                        <p style="color: #666; margin-bottom: 15px;">Subject: <strong>${subjectName}</strong></p>
-                        <p style="color: #667eea; font-weight: bold;">Total: ${data.students ? data.students.length : 0} students</p>
-                        ${studentListHtml}
-                        <div style="margin-top: 20px; text-align: right;">
-                            <button class="btn btn-secondary" onclick="closeStudentsModal()">Close</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(modal);
             } catch (error) {
-                console.error('Error fetching students:', error);
-                showNotification('Error loading assigned students', 'error');
+                console.error('Error loading students:', error);
+                panel.innerHTML = '<div class="no-students" style="color: #f44336;"><i class="fas fa-exclamation-triangle"></i> Error loading students</div>';
             }
         }
 
-        function closeStudentsModal() {
-            const modal = document.getElementById('studentsModal');
-            if (modal) modal.remove();
+        async function removeStudent(templateId, studentRgno, studentName) {
+            if (!confirm(`Are you sure you want to remove "${studentName}" from this logbook? This will delete all their data for this subject.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${window.REACT_APP_LOGBOOK_API}/master/${templateId}/student/${studentRgno}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(`${studentName} removed successfully`, 'success');
+                    // Reload students for this template
+                    await loadStudentsForTemplate(templateId);
+                } else {
+                    showNotification(data.error || 'Failed to remove student', 'error');
+                }
+            } catch (error) {
+                console.error('Error removing student:', error);
+                showNotification('Error removing student', 'error');
+            }
         }
 
-        function showCreateModal() {
-            currentEditingId = null;
-            document.getElementById('modalTitle').textContent = 'Create New Master Template';
-            document.getElementById('templateForm').reset();
-            document.getElementById('experimentsContainer').innerHTML = '';
-            document.getElementById('examsContainer').innerHTML = '';
-            addExperiment();
-            addExam();
-            document.getElementById('templateModal').style.display = 'block';
+        async function viewStudentLogbook(templateId, studentRgno, studentName) {
+            // Find the student logbook ID and redirect to Log_Book1.html
+            try {
+                const response = await fetch(`${window.REACT_APP_LOGBOOK_API}/master/${templateId}/student/${studentRgno}`, {
+                    headers: getAuthHeaders()
+                });
+                const data = await response.json();
+
+                if (data.success && data.logbook) {
+                    // Redirect to Log_Book1.html with the logbook ID
+                    window.location.href = `Log_Book1.html?logbookId=${data.logbook._id}`;
+                } else {
+                    showNotification(data.error || 'Failed to load student logbook', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading student logbook:', error);
+                showNotification('Error loading student logbook', 'error');
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr || dateStr === '-') return '-';
+            try {
+                const date = new Date(dateStr);
+                if (isNaN(date.getTime())) return dateStr;
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+            } catch (e) {
+                return dateStr;
+            }
+        }
+
+        // showStudentLogbookModal removed - now redirects to Log_Book1.html
+
+        function addLateStudents(masterId) {
+            // Redirect to assign-students page to add late-joining students
+            window.location.href = `assign-students.html?masterId=${masterId}&mode=late`;
         }
 
         function editTemplate(id) {
@@ -799,26 +1080,21 @@
             };
 
             try {
-                let response;
-                if (currentEditingId) {
-                    // Update existing template
-                    response = await fetch(`${API_URL}/master/${currentEditingId}`, {
-                        method: 'PUT',
-                        headers: getAuthHeaders(),
-                        body: JSON.stringify(payload)
-                    });
-                } else {
-                    // Create new template
-                    response = await fetch(`${API_URL}/master/create`, {
-                        method: 'POST',
-                        headers: getAuthHeaders(),
-                        body: JSON.stringify(payload)
-                    });
+                if (!currentEditingId) {
+                    showNotification('Please use Create New Template page to create templates', 'error');
+                    return;
                 }
+
+                // Update existing template only
+                const response = await fetch(`${API_URL}/master/${currentEditingId}`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(payload)
+                });
 
                 const data = await response.json();
                 if (data.success) {
-                    showNotification(currentEditingId ? 'Template updated successfully' : 'Template created successfully', 'success');
+                    showNotification('Template updated successfully', 'success');
                     closeModal();
                     loadTemplates();
                 } else {

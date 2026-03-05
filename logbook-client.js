@@ -3,6 +3,55 @@ const API_URL = window.REACT_APP_LOGBOOK_API || 'http://localhost:3005/api/logbo
 let currentUser = null;
 let currentStudentLogbookId = null;
 
+// Helper to get URL parameters
+function getUrlParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+}
+
+// Helper function to format date as dd/mm/yyyy for display
+function formatDateDDMMYYYY(dateStr) {
+    if (!dateStr || dateStr === '-') return '';
+    try {
+        // Handle both YYYY-MM-DD and existing dd/mm/yyyy formats
+        let date;
+        if (dateStr.includes('/')) {
+            // Already in dd/mm/yyyy format, return as-is
+            return dateStr;
+        }
+        date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (e) {
+        return dateStr;
+    }
+}
+
+// Helper function to convert dd/mm/yyyy back to YYYY-MM-DD for HTML date input
+function formatDateForInput(dateStr) {
+    if (!dateStr || dateStr === '-') return '';
+    try {
+        // If already in YYYY-MM-DD format
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return dateStr;
+        }
+        // If in dd/mm/yyyy format, convert
+        if (dateStr.includes('/')) {
+            const [day, month, year] = dateStr.split('/');
+            return `${year}-${month}-${day}`;
+        }
+        // Try parsing as date
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '';
+        return date.toISOString().split('T')[0];
+    } catch (e) {
+        return '';
+    }
+}
+
 // Helper to check if error handler is available
 function handleFetchError(error, context) {
     console.error(`[${context}] Error:`, error);
@@ -193,23 +242,63 @@ async function fetchUserProfile() {
             const studentActions = document.getElementById('studentActions');
             const studentFormContainer = document.getElementById('studentFormContainer');
             const logbookSelectionPanel = document.getElementById('logbookSelectionPanel');
+            const logbookActions = document.querySelector('.logbook-actions');
             
-            if (user.role === 'faculty' || user.role === 'admin') {
-                // Faculty and admins can see all logbooks (viewer buttons only)
-                if (teacherActions) teacherActions.style.display = 'block';
+            // Check if there's a logbookId in URL (faculty viewing specific student's logbook)
+            const logbookIdFromUrl = getUrlParam('logbookId');
+            
+            if (logbookIdFromUrl) {
+                // Direct logbook view mode - hide all selection UI, show only the form
+                if (teacherActions) teacherActions.style.display = 'none';
+                if (studentActions) studentActions.style.display = 'none';
+                if (logbookSelectionPanel) logbookSelectionPanel.style.display = 'none';
+                if (logbookActions) logbookActions.style.display = 'none';
+                if (studentFormContainer) studentFormContainer.style.display = 'block';
+                
+                // Show back to templates button for faculty
+                const backToTemplates = document.getElementById('backToTemplates');
+                if (backToTemplates && (user.role === 'faculty' || user.role === 'admin')) {
+                    backToTemplates.style.display = 'block';
+                }
+                
+                // Show submit button for faculty/admin to grade
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn && (user.role === 'faculty' || user.role === 'admin')) {
+                    submitBtn.style.display = 'inline-block';
+                }
+                
+                // Load the specific logbook
+                loadLogBookById(logbookIdFromUrl, true); // Pass true to show student info
+            } else if (user.role === 'faculty' || user.role === 'admin') {
+                // Faculty/admin without specific logbook - hide everything, show message
+                if (teacherActions) teacherActions.style.display = 'none';
                 if (studentActions) studentActions.style.display = 'none';
                 if (studentFormContainer) studentFormContainer.style.display = 'none';
                 if (logbookSelectionPanel) logbookSelectionPanel.style.display = 'none';
+                if (logbookActions) logbookActions.style.display = 'none';
                 
-                // Show submit button for faculty/admin
-                const submitBtn = document.getElementById('submitBtn');
-                if (submitBtn) submitBtn.style.display = 'inline-block';
+                // Show a message to go to Master Templates
+                const container = document.querySelector('.container') || document.body;
+                const messageDiv = document.createElement('div');
+                messageDiv.style.cssText = 'padding: 40px; text-align: center; background: #f8f9fa; border-radius: 12px; margin: 20px;';
+                messageDiv.innerHTML = `
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #667eea; margin-bottom: 20px;"></i>
+                    <h3 style="margin-bottom: 15px;">View Student Logbooks</h3>
+                    <p style="color: #666; margin-bottom: 20px;">To view or grade student logbooks, go to Master Templates and expand a template to see assigned students.</p>
+                    <a href="master-templates.html" class="btn" style="display: inline-block; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 6px;">
+                        <i class="fas fa-arrow-right"></i> Go to Master Templates
+                    </a>
+                `;
+                if (logbookActions) {
+                    logbookActions.parentNode.insertBefore(messageDiv, logbookActions.nextSibling);
+                }
             } else {
                 // Students can see their logbooks list but NOT create logbooks
                 if (teacherActions) teacherActions.style.display = 'none';
                 if (studentActions) studentActions.style.display = 'block';
                 if (studentFormContainer) studentFormContainer.style.display = 'block';
                 if (logbookSelectionPanel) logbookSelectionPanel.style.display = 'block';
+                if (logbookActions) logbookActions.style.display = 'none'; // Hide for students too
                 
                 // Hide "Create New Log Book" buttons for students
                 const createButtons = document.querySelectorAll('button[onclick="createNewLogBook()"]');
@@ -281,7 +370,7 @@ async function loadMyLogBooks() {
 }
 
 // Load specific logbook by ID
-async function loadLogBookById(logbookId) {
+async function loadLogBookById(logbookId, showStudentHeader = false) {
     try {
         console.log('Loading logbook by ID:', logbookId);
         const response = await fetch(`${API_URL}/student/${logbookId}`, {
@@ -299,6 +388,15 @@ async function loadLogBookById(logbookId) {
             const studentFormContainer = document.getElementById('studentFormContainer');
             if (studentFormContainer) studentFormContainer.style.display = 'block';
             loadDataIntoForm(result.data);
+            
+            // Show student info in header if requested (faculty view mode)
+            if (showStudentHeader) {
+                const viewingInfo = document.getElementById('viewingStudentInfo');
+                if (viewingInfo) {
+                    viewingInfo.innerHTML = `<i class="fas fa-user-graduate"></i> Viewing: <strong>${result.data.name}</strong> | ${result.data.subject} (${result.data.code || 'N/A'}) | Roll: ${result.data.rollno}`;
+                }
+            }
+            
             showNotification('✅ Log book loaded successfully!', 'success');
             
             // Hide selection panel and show form
@@ -317,6 +415,15 @@ async function loadLogBookById(logbookId) {
             const studentFormContainer = document.getElementById('studentFormContainer');
             if (studentFormContainer) studentFormContainer.style.display = 'block';
             loadDataIntoForm(result.data);
+            
+            // Show student info in header if requested
+            if (showStudentHeader) {
+                const viewingInfo = document.getElementById('viewingStudentInfo');
+                if (viewingInfo) {
+                    viewingInfo.innerHTML = `<i class="fas fa-user-graduate"></i> Viewing: <strong>${result.data.name}</strong> | ${result.data.subject} (${result.data.code || 'N/A'}) | Roll: ${result.data.rollno}`;
+                }
+            }
+            
             showNotification('✅ Log book loaded!', 'success');
             
             const selectionPanel = document.getElementById('logbookSelectionPanel');
@@ -808,7 +915,7 @@ async function loadLogBookByRegister() {
 
 // View all log books
 function viewAllLogBooks() {
-    window.location.href = 'logbook-viewer.html';
+    window.location.href = 'master-templates.html';
 }
 
 // Clear all form data
@@ -942,7 +1049,7 @@ function loadDataIntoForm(logBookData) {
     }
 }
 
-// Attach verification listeners for student checkboxes
+// Attach verification listeners for student checkboxes AND date fields
 function attachVerificationListeners() {
     const form = document.getElementById('logbookForm');
     if (!form) return;
@@ -958,6 +1065,23 @@ function attachVerificationListeners() {
         });
     });
     
+    // Experiment DATE fields - sync when date changes (students can edit dates)
+    const expDateFields = form.querySelectorAll('input[name^="date"][type="date"]');
+    expDateFields.forEach((dateField) => {
+        dateField.addEventListener('change', () => {
+            // Extract the experiment number from the field name (date1 -> 1)
+            const match = dateField.name.match(/date(\d+)/);
+            if (match) {
+                const num = parseInt(match[1]);
+                const idx = num - 1;
+                const checkbox = form.querySelector(`input[name="student${num}"]`);
+                const verified = checkbox ? checkbox.checked : false;
+                console.log(`[DATE SYNC] Experiment ${num} date changed to: ${dateField.value}`);
+                updateVerification('experiment', idx, dateField.value);
+            }
+        });
+    });
+    
     // Project verification checkbox: t2student1
     const projectCheckbox = form.querySelector('input[name="t2student1"]');
     if (projectCheckbox) {
@@ -965,6 +1089,15 @@ function attachVerificationListeners() {
             const dateField = form.querySelector('input[name="t2date1"]');
             const date = dateField ? dateField.value : new Date().toISOString().split('T')[0];
             updateVerification('project', 0, date);
+        });
+    }
+    
+    // Project DATE field - sync when date changes
+    const projectDateField = form.querySelector('input[name="t2date1"]');
+    if (projectDateField) {
+        projectDateField.addEventListener('change', () => {
+            console.log(`[DATE SYNC] Project date changed to: ${projectDateField.value}`);
+            updateVerification('project', 0, projectDateField.value);
         });
     }
     
@@ -976,6 +1109,20 @@ function attachVerificationListeners() {
             const dateField = form.querySelector(`input[name="t3date${num}"]`);
             const date = dateField ? dateField.value : new Date().toISOString().split('T')[0];
             updateVerification('exam', idx, date);
+        });
+    });
+    
+    // Exam DATE fields - sync when date changes
+    const examDateFields = form.querySelectorAll('input[name^="t3date"]');
+    examDateFields.forEach((dateField) => {
+        dateField.addEventListener('change', () => {
+            const match = dateField.name.match(/t3date(\d+)/);
+            if (match) {
+                const num = parseInt(match[1]);
+                const idx = num - 1;
+                console.log(`[DATE SYNC] Exam ${num} date changed to: ${dateField.value}`);
+                updateVerification('exam', idx, dateField.value);
+            }
         });
     });
 }
@@ -1018,7 +1165,8 @@ function populateExperiments(experiments) {
         });
         
         if (dateField) { 
-            dateField.value = exp.date || ''; 
+            // Convert date to YYYY-MM-DD format for HTML date input
+            dateField.value = formatDateForInput(exp.date) || ''; 
             console.log(`Set date${num} to: "${dateField.value}"`);
             dateField.dispatchEvent(new Event('input', { bubbles: true })); 
         }
@@ -1052,7 +1200,7 @@ function loadOpenEndedProject(proj) {
     const projNameField = document.querySelector('[name="t2experiment1"]');
     const projCoField = document.querySelector('[name="t2co1"]');
     
-    if (projDateField) projDateField.value = proj.date || '';
+    if (projDateField) projDateField.value = formatDateForInput(proj.date) || '';
     if (projNameField) projNameField.value = proj.projectName || '';
     if (projCoField) projCoField.value = proj.co || '';
     
@@ -1079,7 +1227,7 @@ function loadLabExams(labExams) {
         const examNameField = document.querySelector(`[name="exam${num}"]`);
         const examCoField = document.querySelector(`[name="t3co${num}"]`);
         
-        if (examDateField) examDateField.value = exam.date || '';
+        if (examDateField) examDateField.value = formatDateForInput(exam.date) || '';
         if (examNameField) examNameField.value = exam.examName || '';
         if (examCoField) examCoField.value = exam.co || '';
         

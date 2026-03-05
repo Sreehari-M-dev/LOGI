@@ -1509,7 +1509,7 @@ app.post('/api/auth/students/filter', async (req, res) => {
             role: 'student',
             department: { $regex: `^${department.trim()}\\s*$`, $options: 'i' },
             semester: parseInt(semester)
-        }).select('name rgno rollno department semester -_id').sort({ rollno: 1 });
+        }).select('name email rgno rollno department semester -_id').sort({ rollno: 1 });
 
         res.json({
             success: true,

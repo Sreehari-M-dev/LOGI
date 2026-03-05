@@ -574,6 +574,54 @@
             const logBook = allLogBooks.find(log => log._id === id);
             if (!logBook) return;
 
+            // Helper function to format date as dd/mm/yyyy
+            function formatDate(dateStr) {
+                if (!dateStr || dateStr === '-') return '-';
+                try {
+                    const date = new Date(dateStr);
+                    if (isNaN(date.getTime())) return dateStr;
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                } catch (e) {
+                    return dateStr;
+                }
+            }
+
+            // Helper function to check if experiment has data
+            function hasExperimentData(exp) {
+                return exp.experimentName || exp.date || exp.total > 0 || 
+                       exp.rubric1 > 0 || exp.rubric2 > 0 || exp.rubric3 > 0 || 
+                       exp.rubric4 > 0 || exp.rubric5 > 0 || exp.studentSignature || exp.facultySignature;
+            }
+
+            // Helper function to check if lab exam has data
+            function hasLabExamData(exam) {
+                return exam.examName || exam.date || exam.total > 0 || 
+                       exam.rubric1 > 0 || exam.rubric2 > 0 || exam.rubric3 > 0 || 
+                       exam.rubric4 > 0 || exam.rubric5 > 0 || exam.studentSignature || exam.facultySignature;
+            }
+
+            // Helper function to check if final assessment has data
+            function hasFinalAssessmentData(final) {
+                return final && (final.attendance > 0 || final.labWork > 0 || 
+                       final.openEndedProject > 0 || final.labExam > 0 || final.totalMarks > 0);
+            }
+
+            // Filter experiments with data
+            const filledExperiments = logBook.experiments ? logBook.experiments.filter(hasExperimentData) : [];
+            
+            // Filter lab exams with data
+            const filledLabExams = logBook.labExams ? logBook.labExams.filter(hasLabExamData) : [];
+
+            // Check if open-ended project has data
+            const hasProjectData = logBook.openEndedProject && (
+                logBook.openEndedProject.projectName || logBook.openEndedProject.date ||
+                logBook.openEndedProject.total > 0 || logBook.openEndedProject.studentSignature || 
+                logBook.openEndedProject.facultySignature
+            );
+
             const modalContent = document.getElementById('modalContent');
             modalContent.innerHTML = `
                 <h2>📖 Log Book Details</h2>
@@ -582,9 +630,10 @@
                     <p><strong>Name:</strong> ${logBook.name}</p>
                     <p><strong>Roll Number:</strong> ${logBook.rollno}</p>
                     <p><strong>Register Number:</strong> ${logBook.rgno}</p>
+                    <p><strong>Logbook:</strong> ${logBook.subject || 'N/A'} (${logBook.code || 'N/A'})</p>
                 </div>
 
-                ${logBook.experiments && logBook.experiments.length > 0 ? `
+                ${filledExperiments.length > 0 ? `
                 <div class="detail-section">
                     <h4>Experiments</h4>
                     <div class="table-scroll-container">
@@ -605,10 +654,10 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${logBook.experiments.map(exp => `
+                            ${filledExperiments.map((exp, idx) => `
                                 <tr>
-                                    <td>${exp.slNo}</td>
-                                    <td>${exp.date || '-'}</td>
+                                    <td>${exp.slNo || (idx + 1)}</td>
+                                    <td>${formatDate(exp.date)}</td>
                                     <td>${exp.experimentName || '-'}</td>
                                     <td>${exp.co || '-'}</td>
                                     <td>${exp.rubric1 || 0}</td>
@@ -626,7 +675,7 @@
                 </div>
                 ` : ''}
 
-                ${logBook.openEndedProject && logBook.openEndedProject.projectName ? `
+                ${hasProjectData ? `
                 <div class="detail-section">
                     <h4>Open-Ended Project</h4>
                     <div class="table-scroll-container">
@@ -649,8 +698,8 @@
                         <tbody>
                             <tr>
                                 <td>1</td>
-                                <td>${logBook.openEndedProject.date || '-'}</td>
-                                <td>${logBook.openEndedProject.projectName}</td>
+                                <td>${formatDate(logBook.openEndedProject.date)}</td>
+                                <td>${logBook.openEndedProject.projectName || '-'}</td>
                                 <td>${logBook.openEndedProject.co || '-'}</td>
                                 <td>${logBook.openEndedProject.rubric1 || 0}</td>
                                 <td>${logBook.openEndedProject.rubric2 || 0}</td>
@@ -666,7 +715,7 @@
                 </div>
                 ` : ''}
 
-                ${logBook.labExams && logBook.labExams.length > 0 ? `
+                ${filledLabExams.length > 0 ? `
                 <div class="detail-section">
                     <h4>Lab Exams</h4>
                     <div class="table-scroll-container">
@@ -687,11 +736,11 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${logBook.labExams.map(exam => `
+                            ${filledLabExams.map((exam, idx) => `
                                 <tr>
-                                    <td>${exam.slNo}</td>
-                                    <td>${exam.date || '-'}</td>
-                                    <td>Exam ${exam.slNo}</td>
+                                    <td>${exam.slNo || (idx + 1)}</td>
+                                    <td>${formatDate(exam.date)}</td>
+                                    <td>${exam.examName || `Exam ${exam.slNo || (idx + 1)}`}</td>
                                     <td>${exam.co || '-'}</td>
                                     <td>${exam.rubric1 || 0}</td>
                                     <td>${exam.rubric2 || 0}</td>
@@ -708,7 +757,7 @@
                 </div>
                 ` : ''}
 
-                ${logBook.finalAssessment ? `
+                ${hasFinalAssessmentData(logBook.finalAssessment) ? `
                 <div class="detail-section">
                     <h4>Final Assessment</h4>
                     <div class="table-scroll-container">
@@ -749,6 +798,12 @@
                         </tbody>
                     </table>
                     </div>
+                </div>
+                ` : ''}
+
+                ${!filledExperiments.length && !hasProjectData && !filledLabExams.length && !hasFinalAssessmentData(logBook.finalAssessment) ? `
+                <div class="detail-section">
+                    <p style="text-align: center; color: #666; padding: 20px;">📭 No data has been filled in this logbook yet.</p>
                 </div>
                 ` : ''}
             `;

@@ -349,7 +349,7 @@
             <ul class="nav-menu" id="nav-menu">
                 <li><a href="index.html"><i class="fas fa-home"></i>Home</a></li>
                 <li><a href="Log_Book1.html"><i class="fas fa-book"></i>Logbook</a></li>
-                <li><a href="logbook-viewer.html"><i class="fas fa-eye"></i>Logbook Viewer</a></li>
+
                 <li><a href="master-templates.html"><i class="fas fa-pen"></i> Edit Master Templates</a></li>
             </ul>
         </div>
@@ -358,8 +358,8 @@
     <div class="page-content">
     <div class="container">
         <div class="header">
-            <h1>👥 Assign Students</h1>
-            <p>Add students to the master logbook template</p>
+            <h1 id="pageTitle">👥 Assign Students</h1>
+            <p id="pageSubtitle">Add students to the master logbook template</p>
         </div>
 
         <div class="content">
@@ -388,7 +388,7 @@
             </div>
 
             <div class="section">
-                <div class="section-title">� Select Students to Assign</div>
+                <div class="section-title">Select Students to Assign</div>
                 
                 <div id="summary" class="summary">
                     <div class="summary-item">
@@ -453,10 +453,20 @@
         let masterData = null;
 
         async function loadMasterDetails() {
-            masterId = getUrlParam('masterId');
+            // Support both masterId and templateId parameters for backwards compatibility
+            masterId = getUrlParam('masterId') || getUrlParam('templateId');
+            const isLateMode = getUrlParam('mode') === 'late';
+            
             if (!masterId) {
                 showNotification('Master Logbook ID not found in URL', 'error');
                 return;
+            }
+
+            // Update page title based on mode
+            if (isLateMode) {
+                document.getElementById('pageTitle').textContent = '👥 Add Students';
+                document.getElementById('pageSubtitle').textContent = 'Add students to an existing logbook';
+                document.getElementById('assignBtn').textContent = 'Add Selected Students';
             }
 
             try {
@@ -486,19 +496,56 @@
 
         async function loadRegisteredStudents() {
             if (!masterData) return;
+            const isLateMode = getUrlParam('mode') === 'late';
 
             try {
-                const response = await fetch(`${API_URL}/api/logbook/students/by-dept-sem?department=${encodeURIComponent(masterData.department)}&semester=${masterData.semester}`, {
+                // Get all registered students for this department/semester
+                // The server will handle filtering by course code
+                const courseCode = masterData.code ? encodeURIComponent(masterData.code) : '';
+                let url = `${API_URL}/api/logbook/students/by-dept-sem?department=${encodeURIComponent(masterData.department)}&semester=${masterData.semester}`;
+                
+                // Only filter by course code when we have one - this ensures students
+                // can be in multiple logbooks with DIFFERENT course codes
+                if (courseCode) {
+                    url += `&courseCode=${courseCode}&excludeAssigned=true`;
+                }
+                
+                console.log('[assign-students] Master logbook:', masterData.subject, masterData.code);
+                console.log('[assign-students] Fetching URL:', url);
+
+                const response = await fetch(url, {
                     headers: getAuthHeaders()
                 });
 
                 const data = await response.json();
-                if (data.success && data.students.length > 0) {
-                    displayRegisteredStudents(data.students);
-                    showNotification(`Found ${data.students.length} registered student(s) in ${masterData.department}, Semester ${masterData.semester}`, 'success');
-                } else {
-                    showNotification('No registered students found for this department and semester', 'info');
+                let availableStudents = data.success ? data.students : [];
+                
+                console.log('[assign-students] Server returned', availableStudents.length, 'students');
+                
+                // In late mode, also filter out students already assigned to THIS specific logbook
+                if (isLateMode && availableStudents.length > 0) {
+                    const assignedResponse = await fetch(`${window.REACT_APP_LOGBOOK_API}/master/${masterId}/students`, {
+                        headers: getAuthHeaders()
+                    });
+                    const assignedData = await assignedResponse.json();
+                    
+                    if (assignedData.success && assignedData.students) {
+                        const assignedRgnos = new Set(assignedData.students.map(s => s.rgno));
+                        availableStudents = availableStudents.filter(s => !assignedRgnos.has(s.rgno));
+                    }
                 }
+                
+                if (availableStudents.length === 0) {
+                    const msg = courseCode 
+                        ? `All students in ${masterData.department}, Semester ${masterData.semester} are already assigned to a "${masterData.subject}" (${masterData.code}) logbook`
+                        : 'No registered students found for this department and semester';
+                    showNotification(msg, 'info');
+                    return;
+                }
+                
+                displayRegisteredStudents(availableStudents);
+                const modeText = isLateMode ? 'unassigned' : 'available';
+                showNotification(`Found ${availableStudents.length} ${modeText} student(s) for ${masterData.subject} (${masterData.code})`, 'success');
             } catch (error) {
                 console.error('Error loading students:', error);
                 showNotification('Failed to load registered students', 'error');
@@ -508,6 +555,7 @@
         function displayRegisteredStudents(students) {
             parsedStudents = students.map(s => ({
                 name: s.name,
+                email: s.email || '',
                 rollno: s.rollno,
                 rgno: s.rgno,
                 valid: true
@@ -520,6 +568,7 @@
                         <input type="checkbox" class="student-checkbox" 
                                data-index="${index}" 
                                data-name="${student.name}" 
+                               data-email="${student.email || ''}" 
                                data-rollno="${student.rollno}" 
                                data-rgno="${student.rgno}" 
                                checked>
@@ -563,6 +612,7 @@
             // Extract student data from checked checkboxes
             const selectedStudents = Array.from(checkedBoxes).map(checkbox => ({
                 name: checkbox.dataset.name,
+                email: checkbox.dataset.email || '',
                 rollno: checkbox.dataset.rollno,
                 rgno: checkbox.dataset.rgno
             }));
@@ -598,7 +648,7 @@
                     
                     if (data.count > 0) {
                         setTimeout(() => {
-                            window.location.href = 'logbook-viewer.html';
+                            window.location.href = 'master-templates.html';
                         }, data.skippedCount > 0 ? 4000 : 2000);
                     }
                 } else {

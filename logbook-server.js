@@ -279,6 +279,7 @@ masterLogbookSchema.index({ college: 1, department: 1, semester: 1 });
 const studentLogbookSchema = new mongoose.Schema({
     masterLogbookId: { type: mongoose.Schema.Types.ObjectId, ref: 'MasterLogbook', required: true },
     name: { type: String, required: true },
+    email: { type: String }, // Student email
     rollno: { type: Number, required: true },
     rgno: { type: Number, required: true },
     subject: { type: String, required: true },
@@ -385,18 +386,34 @@ app.post('/api/logbook/master/create', authenticateToken, async (req, res) => {
 
         const teacherCollege = teacherData.user.college;
 
-        // Check if this faculty already has a master template with same subject AND code in their college
-        const existingTemplate = await MasterLogbook.findOne({
+        // Check if this faculty already has a master template with same course code in their college
+        // Each subject has a unique course code, so prevent duplicate codes
+        if (code) {
+            const existingByCode = await MasterLogbook.findOne({
+                teacherRgno: req.user.rgno,
+                code: code,
+                college: teacherCollege
+            });
+
+            if (existingByCode) {
+                return res.status(400).json({
+                    success: false,
+                    error: `You already have a master logbook with course code "${code}" (${existingByCode.subject}). Each course code can only be used once.`
+                });
+            }
+        }
+
+        // Also check for same subject name (even without code)
+        const existingBySubject = await MasterLogbook.findOne({
             teacherRgno: req.user.rgno,
             subject: subject,
-            code: code,
             college: teacherCollege
         });
 
-        if (existingTemplate) {
+        if (existingBySubject) {
             return res.status(400).json({
                 success: false,
-                error: `You already have a master template for "${subject}" (${code}). Please edit the existing template instead.`
+                error: `You already have a master logbook for subject "${subject}". Please edit the existing template instead.`
             });
         }
 
@@ -500,6 +517,98 @@ app.get('/api/logbook/master/:id/students', authenticateToken, async (req, res) 
         });
     } catch (error) {
         console.error('Error fetching assigned students:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Remove a student from a master logbook (unassign)
+app.delete('/api/logbook/master/:masterId/student/:studentRgno', authenticateToken, async (req, res) => {
+    try {
+        const { masterId, studentRgno } = req.params;
+
+        // Check if template exists
+        const masterLogbook = await MasterLogbook.findById(masterId);
+        if (!masterLogbook) {
+            return res.status(404).json({
+                success: false,
+                error: 'Master logbook not found'
+            });
+        }
+
+        // Authorization: Only the creator or admin can remove students
+        if (masterLogbook.teacherRgno !== req.user.rgno && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'You can only remove students from templates you created'
+            });
+        }
+
+        // Find and delete the student logbook
+        const result = await StudentLogbook.findOneAndDelete({
+            masterLogbookId: masterId,
+            rgno: parseInt(studentRgno)
+        });
+
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                error: 'Student logbook not found'
+            });
+        }
+
+        console.log(`[REMOVE STUDENT] Removed student ${studentRgno} from master ${masterId} (${masterLogbook.subject})`);
+
+        res.json({
+            success: true,
+            message: `Student removed from ${masterLogbook.subject} logbook`
+        });
+    } catch (error) {
+        console.error('Error removing student:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get a specific student's logbook for a master template
+app.get('/api/logbook/master/:masterId/student/:studentRgno', authenticateToken, async (req, res) => {
+    try {
+        const { masterId, studentRgno } = req.params;
+
+        // Check if template exists
+        const masterLogbook = await MasterLogbook.findById(masterId);
+        if (!masterLogbook) {
+            return res.status(404).json({
+                success: false,
+                error: 'Master logbook not found'
+            });
+        }
+
+        // Authorization: Only the creator or admin can view student logbooks
+        if (masterLogbook.teacherRgno !== req.user.rgno && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'You can only view students from templates you created'
+            });
+        }
+
+        // Find the student logbook
+        const studentLogbook = await StudentLogbook.findOne({
+            masterLogbookId: masterId,
+            rgno: parseInt(studentRgno)
+        });
+
+        if (!studentLogbook) {
+            return res.status(404).json({
+                success: false,
+                error: 'Student logbook not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            logbook: studentLogbook
+        });
+    } catch (error) {
+        console.error('Error fetching student logbook:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -629,9 +738,10 @@ app.put('/api/logbook/master/:id', authenticateToken, async (req, res) => {
 });
 
 // Fetch registered students by department and semester
+// Optionally filter out students already assigned to any logbook with the same course code
 app.get('/api/logbook/students/by-dept-sem', authenticateToken, async (req, res) => {
     try {
-        const { department, semester } = req.query;
+        const { department, semester, courseCode, excludeAssigned } = req.query;
 
         if (!department || !semester) {
             return res.status(400).json({
@@ -653,17 +763,39 @@ app.get('/api/logbook/students/by-dept-sem', authenticateToken, async (req, res)
 
         const data = await authResponse.json();
 
-        if (data.success) {
-            res.json({
-                success: true,
-                students: data.students || []
-            });
-        } else {
-            res.status(500).json({
+        if (!data.success) {
+            return res.status(500).json({
                 success: false,
                 error: 'Failed to fetch students'
             });
         }
+
+        let students = data.students || [];
+
+        // If courseCode is provided and excludeAssigned is true, filter out students
+        // who are already assigned to ANY logbook with the same course code
+        if (courseCode && excludeAssigned === 'true' && students.length > 0) {
+            // Find all student logbooks with this EXACT course code
+            const assignedLogbooks = await StudentLogbook.find({ code: courseCode });
+            const assignedRgnos = new Set(assignedLogbooks.map(lb => lb.rgno));
+            
+            console.log(`[by-dept-sem] Looking for course code: "${courseCode}"`);
+            console.log(`[by-dept-sem] Found ${assignedLogbooks.length} logbooks with this code`);
+            console.log(`[by-dept-sem] Assigned RGNOs:`, Array.from(assignedRgnos));
+            
+            // Filter out already assigned students
+            const originalCount = students.length;
+            students = students.filter(s => !assignedRgnos.has(s.rgno));
+            
+            console.log(`[by-dept-sem] Course ${courseCode}: Filtered ${originalCount} -> ${students.length} students (${assignedRgnos.size} already assigned)`);
+        } else if (!courseCode) {
+            console.log(`[by-dept-sem] No courseCode provided, returning all ${students.length} students`);
+        }
+
+        res.json({
+            success: true,
+            students: students
+        });
     } catch (error) {
         console.error('Error fetching students by dept/sem:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -750,6 +882,7 @@ app.post('/api/logbook/master/:id/assign-students', authenticateToken, async (re
             const studentLogbook = new StudentLogbook({
                 masterLogbookId: masterId,
                 name: student.name,
+                email: student.email || '',
                 rollno: student.rollno,
                 rgno: student.rgno,
                 subject: masterLogbook.subject,

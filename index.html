@@ -103,7 +103,7 @@
     <section class="hero">
         <div class="hero-content">
             <img src="c-logo.png"  id="hero-image" alt="College Background" srcset="">
-            <h1>Welcome to Digital Lab Portal</h1>
+            <h1 style="color: white;">Welcome to Digital Lab Portal</h1>
             <p>Streamline your laboratory work with our comprehensive digital management system</p>
             <a href="login-page.html" class="btn btn-primary">Access Lab Book</a>
         </div>
@@ -132,11 +132,13 @@
                 <p>Create and manage lab experiment templates</p>
                 <a href="master-templates.html" class="btn btn-primary">Manage Templates</a>
             </div>
+            <!-- View Logbooks card - Hidden (functionality moved to Master Templates)
             <div class="link-card" id="viewLogbooksCard" style="display: none;">
                 <h3>View Logbooks</h3>
                 <p>Review student lab logbooks and progress</p>
-                <a href="logbook-viewer.html" class="btn btn-primary">View All Logbooks</a>
+                <a href="master-templates.html" class="btn btn-primary">View All Logbooks</a>
             </div>
+            -->
             <div class="link-card" id="adminDashboardCard" style="display: none;">
                 <h3>Admin Dashboard</h3>
                 <p>Manage users, approvals, and system settings</p>
@@ -198,24 +200,24 @@
             // Super-admin sees ALL cards
             if (user.role === 'super-admin') {
                 document.getElementById('teacherTemplatesCard').style.display = 'block';
-                document.getElementById('viewLogbooksCard').style.display = 'block';
+                // document.getElementById('viewLogbooksCard').style.display = 'block'; // Hidden - use Master Templates
                 document.getElementById('adminDashboardCard').style.display = 'block';
             }
             // Faculty sees templates and logbook viewer (they teach students)
             else if (user.role === 'faculty') {
                 document.getElementById('teacherTemplatesCard').style.display = 'block';
-                document.getElementById('viewLogbooksCard').style.display = 'block';
+                // document.getElementById('viewLogbooksCard').style.display = 'block'; // Hidden - use Master Templates
                 document.getElementById('adminDashboardCard').style.display = 'block';
             }
             // HOD sees all faculty features + admin (they manage AND sometimes teach)
             else if (user.role === 'hod') {
                 document.getElementById('teacherTemplatesCard').style.display = 'block';
-                document.getElementById('viewLogbooksCard').style.display = 'block';
+                // document.getElementById('viewLogbooksCard').style.display = 'block'; // Hidden - use Master Templates
                 document.getElementById('adminDashboardCard').style.display = 'block';
             }
             // Principal sees admin dashboard and logbook viewer (to review), but NOT templates (they don't teach)
             else if (user.role === 'principal') {
-                document.getElementById('viewLogbooksCard').style.display = 'block';
+                // document.getElementById('viewLogbooksCard').style.display = 'block'; // Hidden - use Master Templates
                 document.getElementById('adminDashboardCard').style.display = 'block';
                 // Hide the Master Templates card - principals don't create templates
             }
