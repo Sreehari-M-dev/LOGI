@@ -11,13 +11,14 @@
             const hostname = window.location.hostname;
             const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
             if (isLocal) {
-                // Use the same hostname/IP for local servers so it works from remote IPs too
                 const host = hostname === 'localhost' ? 'localhost' : hostname;
                 window.REACT_APP_AUTH_API = `http://${host}:3002/api/auth`;
                 window.REACT_APP_LOGBOOK_API = `http://${host}:3005/api/logbook`;
+                window.REACT_APP_FILES_API = `http://${host}:3002/api/files`;
             } else {
                 window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
                 window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
+                window.REACT_APP_FILES_API = 'https://logi-auth-service-avbs.onrender.com/api/files';
             }
         })();
     </script>
@@ -26,8 +27,457 @@
         body.dark-mode h3 {
             color: rgb(153, 117, 117);
         }
-        body.dark-mode p{
+        body.dark-mode p {
             color: #7e8199;
+        }
+        
+        /* File Upload Styles */
+        .upload-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            color: white;
+        }
+        
+        .upload-section.hidden {
+            display: none;
+        }
+        
+        .upload-form {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .file-input-wrapper:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: white;
+        }
+        
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .file-input-wrapper .icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+        
+        .selected-file {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .selected-file.hidden {
+            display: none;
+        }
+        
+        .btn-upload-submit {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-upload-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-upload-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Files List */
+        .files-section {
+            margin: 30px 0;
+        }
+        
+        .files-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-bar select {
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+        
+        .files-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        
+        .file-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .file-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        body.dark-mode .file-card {
+            background: #2d2d2d;
+        }
+        
+        .file-card .file-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+        
+        .file-card .file-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            word-break: break-word;
+        }
+        
+        .file-card .file-meta {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        
+        .file-card .file-subject {
+            display: inline-block;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        
+        body.dark-mode .file-card .file-subject {
+            background: #1b5e20;
+            color: #a5d6a7;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .file-actions button,
+        .file-actions a {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-download {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-download:hover {
+            background: #388e3c;
+        }
+        
+        .btn-delete {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            background: #d32f2f;
+        }
+        
+        .no-files {
+            text-align: center;
+            padding: 40px;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+        
+        body.dark-mode .no-files {
+            background: #2d2d2d;
+        }
+        
+        .no-files .icon {
+            font-size: 50px;
+            margin-bottom: 10px;
+        }
+        
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading-spinner::after {
+            content: '';
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #ddd;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Progress bar for upload */
+        .upload-progress {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            height: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .upload-progress.active {
+            display: block;
+        }
+        
+        .upload-progress-bar {
+            height: 100%;
+            background: white;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .pagination button {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pagination button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        body.dark-mode .pagination button {
+            background: #2d2d2d;
+            border-color: #444;
+            color: #ddd;
+        }
+        
+        /* Storage info bar */
+        .storage-info {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        body.dark-mode .storage-info {
+            background: linear-gradient(135deg, #2d2d2d 0%, #1a1a2e 100%);
+        }
+        
+        .storage-bar {
+            flex: 1;
+            min-width: 200px;
+            background: #ddd;
+            border-radius: 10px;
+            height: 12px;
+            overflow: hidden;
+        }
+        
+        .storage-bar-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        .storage-text {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        body.dark-mode .storage-text {
+            color: #aaa;
+        }
+        
+        /* Search bar */
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .search-bar input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        body.dark-mode .search-bar input {
+            background: #2d2d2d;
+            border-color: #444;
+            color: #ddd;
+        }
+        
+        .search-bar button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        /* Pending deletion warning */
+        .pending-deletion-section {
+            background: #fff3e0;
+            border: 1px solid #ff9800;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        body.dark-mode .pending-deletion-section {
+            background: #3d2e1a;
+            border-color: #ff9800;
+        }
+        
+        .pending-deletion-section.hidden {
+            display: none;
+        }
+        
+        .pending-file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        body.dark-mode .pending-file-item {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .pending-file-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-keep {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-remove {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -57,23 +507,46 @@
     <div class="container">
         <div class="page-header">
             <h1>📚 Study Resources</h1>
-            <p>Access and share academic materials through Google Drive integration</p>
+            <p>Access and share academic materials securely</p>
         </div>
 
-        <!-- Google Drive Integration Info -->
-        <div class="section-card info-card">
-            <div class="info-header">
-                <div class="drive-logo">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M6.24 20.424L1.424 12H5.424L8.824 17.724L6.24 20.424Z" fill="#0F9D58" />
-                        <path d="M14.4 12H9.6L6.24 20.424L8.824 17.724L14.4 12Z" fill="#F4B400" />
-                        <path d="M14.4 12L8.824 17.724L12.424 17.724L18 12L14.4 12Z" fill="#4285F4" />
-                    </svg>
+        <!-- Upload Section (Faculty Only) -->
+        <div class="upload-section hidden" id="uploadSection">
+            <h2>📤 Upload Study Materials</h2>
+            <p>Share study materials, assignments, and resources with students.</p>
+            
+            <div class="upload-form">
+                <div class="form-group">
+                    <div class="file-input-wrapper" id="fileInputWrapper">
+                        <div class="icon">📁</div>
+                        <p>Click or drag file here to upload</p>
+                        <small>PDF, Word, Excel, PowerPoint, Images (Max 50MB)</small>
+                        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.txt,.zip,.rar">
+                    </div>
+                    <div class="selected-file hidden" id="selectedFile">
+                        <span id="selectedFileName"></span>
+                        <button type="button" onclick="clearSelectedFile()" style="background:none;border:none;color:white;cursor:pointer;">✕</button>
+                    </div>
                 </div>
-                <h2>Google Drive Integration</h2>
+                
+                <div class="form-group">
+                    <label for="subjectInput">Subject / Category</label>
+                    <input type="text" id="subjectInput" placeholder="e.g., Computer Networks, Data Structures">
+                </div>
+                
+                <div class="form-group">
+                    <label for="descriptionInput">Description (Optional)</label>
+                    <textarea id="descriptionInput" placeholder="Brief description of the file..."></textarea>
+                </div>
+                
+                <div class="upload-progress" id="uploadProgress">
+                    <div class="upload-progress-bar" id="uploadProgressBar"></div>
+                </div>
+                
+                <button type="button" class="btn-upload-submit" id="uploadBtn" onclick="uploadFile()" disabled>
+                    📤 Upload File
+                </button>
             </div>
-            <p>All study materials are securely stored and shared through our integrated Google Drive system for easy
-                access and collaboration.</p>
         </div>
 
         <!-- Features Grid -->
@@ -81,126 +554,532 @@
             <div class="feature-item">
                 <div class="feature-icon">🔐</div>
                 <h3>Secure Upload</h3>
-                <p>Only authorized emails can upload files</p>
+                <p>Only authorized faculty can upload files</p>
             </div>
             <div class="feature-item">
                 <div class="feature-icon">📂</div>
-                <h3>Public Download</h3>
+                <h3>Easy Download</h3>
                 <p>Anyone can browse and download materials</p>
             </div>
             <div class="feature-item">
                 <div class="feature-icon">☁️</div>
                 <h3>Cloud Storage</h3>
-                <p>Files safely stored in Google Drive</p>
+                <p>Files safely stored in secure cloud</p>
             </div>
             <div class="feature-item">
-                <div class="feature-icon">🔄</div>
-                <h3>Real-time Access</h3>
-                <p>Always get the latest versions</p>
+                <div class="feature-icon">🗑️</div>
+                <h3>Auto Cleanup</h3>
+                <p>Files not downloaded in 1 year are flagged for review</p>
             </div>
         </div>
 
-        <!-- Main Action Buttons -->
-        <div class="actions-container">
-            <div class="action-card upload-card">
-                <div class="action-header">
-                    <div class="action-icon upload-icon">📤</div>
-                    <h3>Upload Documents</h3>
-                </div>
-                <p>Share study materials, assignments, and resources with your classmates through Google Drive.</p>
-                <div class="action-note">
-                    <strong>Restricted Access:</strong> Only authorized faculty and designated students can upload
-                    files.
-                </div>
-                <button onclick="openUploadDrive()" class="btn btn-upload">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path
-                            d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z" />
-                        <path d="M4.5 6a.5.5 0 0 0-1 0v8a.5.5 0 0 0 1 0V6z" />
-                    </svg>
-                    Upload to Google Drive
+        <!-- Storage Info -->
+        <div class="storage-info" id="storageInfo">
+            <span class="storage-text">📊 Storage: <span id="storageUsed">Loading...</span> / 25 GB used</span>
+            <div class="storage-bar">
+                <div class="storage-bar-fill" id="storageBarFill" style="width: 0%"></div>
+            </div>
+            <span class="storage-text" id="storagePercent">0%</span>
+        </div>
+
+        <!-- Pending Deletion Warning (for uploaders) -->
+        <div class="pending-deletion-section hidden" id="pendingDeletionSection">
+            <h3>⚠️ Files Pending Review</h3>
+            <p>These files haven't been downloaded in over a year. Do you want to keep them?</p>
+            <div id="pendingFilesList"></div>
+        </div>
+
+        <!-- Files Section -->
+        <div class="files-section">
+            <div class="files-header">
+                <h2>📥 Available Resources</h2>
+            </div>
+            
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="🔍 Search files by name, description, or subject..." onkeypress="if(event.key==='Enter')loadFiles()">
+                <button onclick="loadFiles()">Search</button>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filter-bar">
+                <select id="subjectFilter" onchange="loadFiles()" title="Filter by subject">
+                    <option value="">All Subjects</option>
+                </select>
+                <select id="collegeFilter" onchange="loadFiles()" title="Filter by college">
+                    <option value="">All Colleges</option>
+                </select>
+                <select id="departmentFilter" onchange="loadFiles()" title="Filter by department">
+                    <option value="">All Departments</option>
+                </select>
+                <button class="btn" onclick="clearFilters()" style="padding: 8px 15px; border-radius: 6px; background: #888; color: white; border: none;">
+                    ✕ Clear
                 </button>
             </div>
-
-            <div class="action-card download-card">
-                <div class="action-header">
-                    <div class="action-icon download-icon">📥</div>
-                    <h3>Browse & Download</h3>
-                </div>
-                <p>Access lecture notes, lab manuals, assignments, and other study materials from the shared folder.</p>
-                <div class="action-note">
-                    <strong>Open Access:</strong> All files available for viewing and downloading by everyone.
-                </div>
-                <button onclick="openDownloadDrive()" class="btn btn-download">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path
-                            d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z" />
-                        <path
-                            d="M11.5 10a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5h7z" />
-                    </svg>
-                    Browse Google Drive
-                </button>
+            
+            <div id="filesContainer">
+                <div class="loading-spinner"></div>
             </div>
-        </div>
-
-        <!-- Instructions Section -->
-        <div class="section-card instructions-card">
-            <h2>📋 How to Use the System</h2>
-            <div class="instructions-grid">
-                <div class="instruction-step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h4>For Uploading Files</h4>
-                        <p>Click "Upload to Google Drive" button. You'll be redirected to the shared Google Drive folder
-                            where authorized users can add new files.</p>
-                    </div>
-                </div>
-                <div class="instruction-step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h4>For Downloading Files</h4>
-                        <p>Click "Browse Google Drive" to access all shared files. You can view, download, and even
-                            preview documents directly in your browser.</p>
-                    </div>
-                </div>
-                <div class="instruction-step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h4>File Organization</h4>
-                        <p>Files are organized by subjects and categories. Use Google Drive's search and filter options
-                            to quickly find what you need.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick Access Links -->
-        <div class="quick-links-section">
-            <h3>🔗 Quick Access</h3>
-            <div class="quick-links-grid">
-                <a href="#" onclick="openUploadDrive()" class="quick-link">
-                    <span class="link-icon">📤</span>
-                    <span>Upload Files</span>
-                </a>
-                <a href="#" onclick="openDownloadDrive()" class="quick-link">
-                    <span class="link-icon">📥</span>
-                    <span>Download Files</span>
-                </a>
-                <a href="#" onclick="openHelpGuide()" class="quick-link">
-                    <span class="link-icon">❓</span>
-                    <span>Help Guide</span>
-                </a>
-                <a href="#" onclick="contactSupport()" class="quick-link">
-                    <span class="link-icon">📞</span>
-                    <span>Support</span>
-                </a>
-            </div>
+            
+            <div class="pagination" id="pagination"></div>
         </div>
     </div>
 
     <script src="error-handler.js"></script>
     <script src="auth.js"></script>
     <script src="scripts.js"></script>
+    
+    <script>
+        // File upload and management functionality
+        let currentUser = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        let selectedFile = null;
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Get current user
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const response = await fetch(`${window.REACT_APP_AUTH_API}/profile`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        currentUser = data.user;
+                        
+                        // Show upload section for faculty/admin
+                        const canUpload = ['faculty', 'hod', 'principal', 'super-admin'].includes(currentUser.role);
+                        if (canUpload) {
+                            document.getElementById('uploadSection').classList.remove('hidden');
+                            // Load pending deletion files for uploaders
+                            loadPendingDeletionFiles();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error getting user profile:', error);
+                }
+            }
+            
+            // Load storage stats
+            loadStorageStats();
+            
+            // Load files
+            loadFiles();
+        });
+        
+        // Load storage statistics
+        async function loadStorageStats() {
+            try {
+                const response = await fetch(`${window.REACT_APP_FILES_API}/stats/storage`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('storageUsed').textContent = data.stats.totalSizeFormatted;
+                    document.getElementById('storagePercent').textContent = data.stats.usedPercentage + '%';
+                    document.getElementById('storageBarFill').style.width = Math.min(data.stats.usedPercentage, 100) + '%';
+                }
+            } catch (error) {
+                console.error('Error loading storage stats:', error);
+            }
+        }
+        
+        // Load pending deletion files (for uploaders)
+        async function loadPendingDeletionFiles() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            
+            try {
+                const response = await fetch(`${window.REACT_APP_FILES_API}/pending-deletion`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.files.length > 0) {
+                    const section = document.getElementById('pendingDeletionSection');
+                    const list = document.getElementById('pendingFilesList');
+                    
+                    list.innerHTML = data.files.map(file => `
+                        <div class="pending-file-item">
+                            <div>
+                                <strong>${file.filename}</strong><br>
+                                <small>Last downloaded: ${file.lastDownloadedAt ? new Date(file.lastDownloadedAt).toLocaleDateString() : 'Never'}</small>
+                            </div>
+                            <div class="pending-file-actions">
+                                <button class="btn-keep" onclick="keepFile('${file._id}')">✓ Keep</button>
+                                <button class="btn-remove" onclick="deleteFile('${file._id}', '${file.filename.replace(/'/g, "\\'")}')">✕ Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    section.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error loading pending deletion files:', error);
+            }
+        }
+        
+        // Keep file (mark as still relevant)
+        async function keepFile(fileId) {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            
+            try {
+                const response = await fetch(`${window.REACT_APP_FILES_API}/${fileId}/keep`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ File marked as relevant. It will be kept for another year.');
+                    loadPendingDeletionFiles();
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('❌ Failed to keep file');
+            }
+        }
+        
+        // File input handling
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            if (this.files.length > 0) {
+                selectedFile = this.files[0];
+                
+                // Check file size (20MB limit)
+                if (selectedFile.size > 20 * 1024 * 1024) {
+                    alert('❌ File is too large. Maximum size is 20MB.');
+                    this.value = '';
+                    return;
+                }
+                
+                document.getElementById('selectedFileName').textContent = `${selectedFile.name} (${formatFileSize(selectedFile.size)})`;
+                document.getElementById('selectedFile').classList.remove('hidden');
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        });
+        
+        function clearSelectedFile() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('selectedFile').classList.add('hidden');
+            document.getElementById('uploadBtn').disabled = true;
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('subjectFilter').value = '';
+            document.getElementById('collegeFilter').value = '';
+            document.getElementById('departmentFilter').value = '';
+            loadFiles();
+        }
+        
+        // Upload file
+        async function uploadFile() {
+            if (!selectedFile) {
+                alert('Please select a file');
+                return;
+            }
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login to upload files');
+                return;
+            }
+            
+            const subject = document.getElementById('subjectInput').value.trim() || 'General';
+            const description = document.getElementById('descriptionInput').value.trim();
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('subject', subject);
+            formData.append('description', description);
+            
+            const uploadBtn = document.getElementById('uploadBtn');
+            const progressContainer = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('uploadProgressBar');
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '📤 Uploading...';
+            progressContainer.classList.add('active');
+            
+            try {
+                const xhr = new XMLHttpRequest();
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = (e.loaded / e.total) * 100;
+                        progressBar.style.width = percent + '%';
+                    }
+                });
+                
+                xhr.onload = function() {
+                    const response = JSON.parse(xhr.responseText);
+                    if (xhr.status === 200 && response.success) {
+                        alert('✅ File uploaded successfully!');
+                        clearSelectedFile();
+                        document.getElementById('subjectInput').value = '';
+                        document.getElementById('descriptionInput').value = '';
+                        loadFiles();
+                        loadStorageStats();
+                    } else {
+                        alert('❌ Upload failed: ' + (response.error || 'Unknown error'));
+                    }
+                    
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '📤 Upload File';
+                    progressContainer.classList.remove('active');
+                    progressBar.style.width = '0%';
+                };
+                
+                xhr.onerror = function() {
+                    alert('❌ Upload failed. Please try again.');
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = '📤 Upload File';
+                    progressContainer.classList.remove('active');
+                    progressBar.style.width = '0%';
+                };
+                
+                xhr.open('POST', `${window.REACT_APP_FILES_API}/upload`);
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                xhr.send(formData);
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('❌ Upload failed: ' + error.message);
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = '📤 Upload File';
+                progressContainer.classList.remove('active');
+                progressBar.style.width = '0%';
+            }
+        }
+        
+        // Load files with filters and search
+        async function loadFiles(page = 1) {
+            currentPage = page;
+            const container = document.getElementById('filesContainer');
+            container.innerHTML = '<div class="loading-spinner"></div>';
+            
+            const search = document.getElementById('searchInput').value.trim();
+            const subject = document.getElementById('subjectFilter').value;
+            const college = document.getElementById('collegeFilter').value;
+            const department = document.getElementById('departmentFilter').value;
+            
+            try {
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: 12
+                });
+                if (search) params.append('search', search);
+                if (subject) params.append('subject', subject);
+                if (college) params.append('college', college);
+                if (department) params.append('department', department);
+                
+                const response = await fetch(`${window.REACT_APP_FILES_API}?${params}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update filter dropdowns
+                    updateFilterDropdown('subjectFilter', data.filters.subjects, subject);
+                    updateFilterDropdown('collegeFilter', data.filters.colleges, college);
+                    updateFilterDropdown('departmentFilter', data.filters.departments, department);
+                    
+                    if (data.files.length === 0) {
+                        container.innerHTML = `
+                            <div class="no-files">
+                                <div class="icon">📭</div>
+                                <h3>No files found</h3>
+                                <p>${search ? 'Try different search terms or clear filters.' : 'Files uploaded by faculty will appear here.'}</p>
+                            </div>
+                        `;
+                    } else {
+                        container.innerHTML = '<div class="files-grid"></div>';
+                        const grid = container.querySelector('.files-grid');
+                        
+                        data.files.forEach(file => {
+                            grid.appendChild(createFileCard(file));
+                        });
+                    }
+                    
+                    totalPages = data.pagination.pages;
+                    updatePagination();
+                }
+            } catch (error) {
+                console.error('Error loading files:', error);
+                container.innerHTML = `
+                    <div class="no-files">
+                        <div class="icon">⚠️</div>
+                        <h3>Error loading files</h3>
+                        <p>Please try again later.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Update filter dropdown options
+        function updateFilterDropdown(elementId, options, currentValue) {
+            const select = document.getElementById(elementId);
+            const label = elementId.replace('Filter', '');
+            const defaultLabel = label.charAt(0).toUpperCase() + label.slice(1) + 's';
+            
+            select.innerHTML = `<option value="">All ${defaultLabel}</option>`;
+            options.forEach(opt => {
+                if (opt) {
+                    const option = document.createElement('option');
+                    option.value = opt;
+                    option.textContent = opt;
+                    if (opt === currentValue) option.selected = true;
+                    select.appendChild(option);
+                }
+            });
+        }
+        
+        // Create file card element
+        function createFileCard(file) {
+            const card = document.createElement('div');
+            card.className = 'file-card';
+            
+            const icon = getFileIcon(file.format || file.filename);
+            const date = new Date(file.createdAt).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+            
+            // Only uploader and super-admin can delete
+            const canDelete = currentUser && (
+                file.uploadedByRgno === currentUser.rgno ||
+                currentUser.role === 'super-admin'
+            );
+            
+            card.innerHTML = `
+                <div class="file-icon">${icon}</div>
+                <div class="file-name">${file.filename}</div>
+                <div class="file-meta">
+                    ${formatFileSize(file.size)} • ${date} • ${file.downloadCount || 0} downloads<br>
+                    Uploaded by: ${file.uploadedByName}
+                </div>
+                <div class="file-subject">${file.subject || 'General'}</div>
+                ${file.department ? `<small style="color: #888;">${file.college} - ${file.department}</small>` : ''}
+                ${file.description ? `<p style="font-size: 13px; color: #666; margin: 10px 0;">${file.description}</p>` : ''}
+                <div class="file-actions">
+                    <a href="${file.url}" target="_blank" class="btn-download" onclick="trackDownload('${file._id}')" download>
+                        📥 Download
+                    </a>
+                    ${canDelete ? `
+                        <button class="btn-delete" onclick="deleteFile('${file._id}', '${file.filename.replace(/'/g, "\\'")}')">
+                            🗑️ Delete
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            
+            return card;
+        }
+        
+        // Track file download
+        async function trackDownload(fileId) {
+            try {
+                await fetch(`${window.REACT_APP_FILES_API}/${fileId}/download`, { method: 'POST' });
+            } catch (error) {
+                // Silent fail - download still works
+            }
+        }
+        
+        // Get file icon based on extension
+        function getFileIcon(filename) {
+            const ext = (filename || '').split('.').pop().toLowerCase();
+            const icons = {
+                'pdf': '📄',
+                'doc': '📝',
+                'docx': '📝',
+                'xls': '📊',
+                'xlsx': '📊',
+                'ppt': '📽️',
+                'pptx': '📽️',
+                'jpg': '🖼️',
+                'jpeg': '🖼️',
+                'png': '🖼️',
+                'gif': '🖼️',
+                'txt': '📃',
+                'zip': '📦',
+                'rar': '📦'
+            };
+            return icons[ext] || '📁';
+        }
+        
+        // Delete file
+        async function deleteFile(fileId, filename) {
+            if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+                return;
+            }
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login to delete files');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${window.REACT_APP_FILES_API}/${fileId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ File deleted successfully');
+                    loadFiles(currentPage);
+                    loadStorageStats();
+                    loadPendingDeletionFiles();
+                } else {
+                    alert('❌ Failed to delete: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                alert('❌ Failed to delete file');
+            }
+        }
+        
+        // Update pagination
+        function updatePagination() {
+            const container = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            html += `<button onclick="loadFiles(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>← Prev</button>`;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `<button onclick="loadFiles(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += `<span style="padding: 8px;">...</span>`;
+                }
+            }
+            
+            html += `<button onclick="loadFiles(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next →</button>`;
+            
+            container.innerHTML = html;
+        }
+    </script>
 </body>
 
 </html>

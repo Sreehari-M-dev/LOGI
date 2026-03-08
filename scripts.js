@@ -148,7 +148,7 @@ function contactSupport() {
 
 // About Page Functions
 function contactUs() {
-    alert('📞 Contact Information:\n\n📧 Email: info@digitallabportal.edu\n📱 Phone: (555) 123-4567\n🏢 Office: Digital Innovation Center\n🕒 Hours: Monday - Friday, 9:00 AM - 5:00 PM\n\n💬 We\'d love to hear from you! Whether you have questions about our platform, need technical support, or want to discuss implementation at your institution, our team is here to help.\n\nResponse Time: Within 24 hours for general inquiries, within 4 hours for urgent technical support.');
+    alert('📞 Contact Information:\n\n📧 Email:projectlogii@gmail.com\n💬 We\'d love to hear from you! Whether you have questions about our platform, need technical support, or want to discuss implementation at your institution, our team is here to help.\n\nResponse Time: Within 24 hours for general inquiries, within 4 hours for urgent technical support.');
 }
 
 // Inject a shared footer when one isn't present
@@ -171,9 +171,7 @@ function renderFooter() {
             <div class="footer-section">
                 <h3>Contact Us</h3>
                 <ul>
-                    <li>Email: info@college.edu</li>
-                    <li>Phone: (555) 123-4567</li>
-                    <li>Address: College Campus, City, State ZIP</li>
+                    <li>Email: projectlogii@gmail.com</li>
                 </ul>
             </div>
             <div class="footer-section">
@@ -307,13 +305,15 @@ function injectAdminPanelLink() {
         
         // Style based on role
         if (user.role === 'super-admin') {
-            adminLink.style.color = '#ef4444';
+            adminLink.style.color = '#ff0000ff';
+                        adminLink.style.background = '#ffff';
+
         } else if (user.role === 'principal') {
-            adminLink.style.color = '#3b82f6';
+            adminLink.style.color = '#000000ff';
         } else if (user.role === 'hod') {
-            adminLink.style.color = '#8b5cf6';
+            adminLink.style.color = '#000000ff';
         } else if (user.role === 'faculty') {
-            adminLink.style.color = '#10b981';
+            adminLink.style.color = '#000000ff';
         }
         
         adminLi.appendChild(adminLink);

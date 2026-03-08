@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
 
 // WebAuthn/Passkey support for super-admin biometric authentication
 const {
@@ -17,6 +19,49 @@ const {
 
 // Bcrypt configuration
 const BCRYPT_SALT_ROUNDS = 12;
+
+// ==================== CLOUDINARY CONFIGURATION ====================
+// Configure Cloudinary with credentials from environment variables
+// Set these in Render dashboard or local .env file
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Configure Multer for handling file uploads (memory storage)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 20 * 1024 * 1024 // 20MB max file size
+    },
+    fileFilter: (req, file, cb) => {
+        // Allowed file types
+        const allowedTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'text/plain',
+            'application/zip',
+            'application/x-rar-compressed'
+        ];
+        
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`File type ${file.mimetype} is not allowed`), false);
+        }
+    }
+});
+
+console.log('☁️ Cloudinary configured:', process.env.CLOUDINARY_CLOUD_NAME || 'dp6wgjzm3');
 
 const app = express();
 const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3002;
@@ -335,6 +380,38 @@ const sessionSchema = new mongoose.Schema({
 
 // Register Session model on AUTH connection
 const Session = authConnection.model('Session', sessionSchema);
+
+// ==================== FILE SCHEMA (for Cloudinary uploads) ====================
+const fileSchema = new mongoose.Schema({
+    filename: { type: String, required: true }, // Original filename
+    publicId: { type: String, required: true, unique: true }, // Cloudinary public ID
+    url: { type: String, required: true }, // Cloudinary secure URL
+    resourceType: { type: String, default: 'raw' }, // 'image' or 'raw' (for documents)
+    format: { type: String }, // File extension/format
+    size: { type: Number }, // File size in bytes
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    uploadedByRgno: { type: Number, required: true },
+    uploadedByName: { type: String, required: true },
+    uploadedByRole: { type: String, required: true },
+    college: { type: String }, // College of uploader
+    department: { type: String }, // Department of uploader
+    subject: { type: String }, // Optional subject/category
+    description: { type: String }, // Optional description
+    createdAt: { type: Date, default: Date.now },
+    // Download tracking for auto-cleanup
+    downloadCount: { type: Number, default: 0 },
+    lastDownloadedAt: { type: Date },
+    // Deletion warning sent
+    deletionWarningSent: { type: Boolean, default: false },
+    deletionWarningDate: { type: Date }
+});
+
+fileSchema.index({ college: 1, department: 1 });
+fileSchema.index({ uploadedBy: 1 });
+fileSchema.index({ subject: 1 });
+fileSchema.index({ lastDownloadedAt: 1 }); // For cleanup queries
+
+const File = authConnection.model('File', fileSchema);
 
 // Constants for session management
 const STAY_LOGGED_IN_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
@@ -5090,6 +5167,340 @@ app.post('/api/auth/super-admin-recovery/reset', async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+// ==================== CLOUDINARY FILE UPLOAD ENDPOINTS ====================
+
+// Upload file to Cloudinary (Faculty/Admin only)
+app.post('/api/files/upload', authenticateAndTouchSession, upload.single('file'), async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        // Only faculty, hod, principal, and super-admin can upload
+        const allowedRoles = ['faculty', 'hod', 'principal', 'super-admin'];
+        if (!allowedRoles.includes(user.role)) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Only faculty and administrators can upload files' 
+            });
+        }
+        
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'No file provided' });
+        }
+        
+        const { subject, description } = req.body;
+        
+        // Upload to Cloudinary
+        const uploadResult = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'logi-resources',
+                    resource_type: 'auto', // auto-detect: image or raw (documents)
+                    public_id: `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`,
+                    use_filename: true,
+                    unique_filename: true
+                },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            uploadStream.end(req.file.buffer);
+        });
+        
+        // Save file metadata to database
+        const newFile = new File({
+            filename: req.file.originalname,
+            publicId: uploadResult.public_id,
+            url: uploadResult.secure_url,
+            resourceType: uploadResult.resource_type,
+            format: uploadResult.format,
+            size: uploadResult.bytes,
+            uploadedBy: user._id,
+            uploadedByRgno: user.rgno,
+            uploadedByName: user.name,
+            uploadedByRole: user.role,
+            college: user.college,
+            department: user.department,
+            subject: subject || 'General',
+            description: description || ''
+        });
+        
+        await newFile.save();
+        
+        console.log(`[FILE UPLOAD] ${user.name} uploaded: ${req.file.originalname}`);
+        
+        res.json({
+            success: true,
+            message: 'File uploaded successfully',
+            file: {
+                id: newFile._id,
+                filename: newFile.filename,
+                url: newFile.url,
+                size: newFile.size,
+                subject: newFile.subject,
+                uploadedBy: newFile.uploadedByName,
+                uploadedAt: newFile.createdAt
+            }
+        });
+        
+    } catch (error) {
+        console.error('[FILE UPLOAD] Error:', error);
+        res.status(500).json({ success: false, error: 'Failed to upload file: ' + error.message });
+    }
+});
+
+// Get all files (anyone can view/download) with filters for students
+app.get('/api/files', async (req, res) => {
+    try {
+        const { subject, college, department, search, page = 1, limit = 20 } = req.query;
+        
+        const filter = {};
+        if (subject) filter.subject = subject;
+        if (college) filter.college = college;
+        if (department) filter.department = department;
+        
+        // Search by filename or description
+        if (search) {
+            filter.$or = [
+                { filename: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
+                { subject: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        const files = await File.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .select('-uploadedBy'); // Don't expose MongoDB ObjectId
+        
+        const total = await File.countDocuments(filter);
+        
+        // Get unique values for filter dropdowns
+        const subjects = await File.distinct('subject');
+        const colleges = await File.distinct('college');
+        const departments = await File.distinct('department');
+        
+        res.json({
+            success: true,
+            files,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / parseInt(limit))
+            },
+            filters: {
+                subjects,
+                colleges,
+                departments
+            }
+        });
+        
+    } catch (error) {
+        console.error('[FILE LIST] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get single file details
+app.get('/api/files/:fileId', async (req, res) => {
+    try {
+        const file = await File.findById(req.params.fileId).select('-uploadedBy');
+        
+        if (!file) {
+            return res.status(404).json({ success: false, error: 'File not found' });
+        }
+        
+        res.json({ success: true, file });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Track file download (call this when user downloads)
+app.post('/api/files/:fileId/download', async (req, res) => {
+    try {
+        const file = await File.findByIdAndUpdate(
+            req.params.fileId,
+            {
+                $inc: { downloadCount: 1 },
+                $set: { lastDownloadedAt: new Date() }
+            },
+            { new: true }
+        ).select('-uploadedBy');
+        
+        if (!file) {
+            return res.status(404).json({ success: false, error: 'File not found' });
+        }
+        
+        res.json({ success: true, file });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get storage statistics
+app.get('/api/files/stats/storage', async (req, res) => {
+    try {
+        const totalFiles = await File.countDocuments();
+        const totalSizeResult = await File.aggregate([
+            { $group: { _id: null, totalSize: { $sum: '$size' } } }
+        ]);
+        const totalSize = totalSizeResult.length > 0 ? totalSizeResult[0].totalSize : 0;
+        
+        // Cloudinary free tier limits
+        const CLOUDINARY_FREE_STORAGE = 25 * 1024 * 1024 * 1024; // 25 GB
+        const usedPercentage = (totalSize / CLOUDINARY_FREE_STORAGE) * 100;
+        
+        res.json({
+            success: true,
+            stats: {
+                totalFiles,
+                totalSize,
+                totalSizeFormatted: formatBytes(totalSize),
+                maxStorage: CLOUDINARY_FREE_STORAGE,
+                maxStorageFormatted: '25 GB',
+                usedPercentage: usedPercentage.toFixed(2),
+                remainingStorage: CLOUDINARY_FREE_STORAGE - totalSize,
+                remainingStorageFormatted: formatBytes(CLOUDINARY_FREE_STORAGE - totalSize)
+            }
+        });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Helper function to format bytes
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Get files pending deletion (not downloaded in 1 year) - for uploader notification
+app.get('/api/files/pending-deletion', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        
+        // Find files uploaded by this user that haven't been downloaded in a year
+        const files = await File.find({
+            uploadedBy: req.auth.decoded.userId,
+            $or: [
+                { lastDownloadedAt: { $lt: oneYearAgo } },
+                { lastDownloadedAt: { $exists: false }, createdAt: { $lt: oneYearAgo } }
+            ]
+        }).select('-uploadedBy');
+        
+        res.json({ success: true, files, count: files.length });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Keep file (mark as still relevant) - resets the deletion warning
+app.post('/api/files/:fileId/keep', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const file = await File.findById(req.params.fileId);
+        
+        if (!file) {
+            return res.status(404).json({ success: false, error: 'File not found' });
+        }
+        
+        // Only uploader can mark as keep
+        if (file.uploadedBy.toString() !== req.auth.decoded.userId) {
+            return res.status(403).json({ success: false, error: 'Only the uploader can keep this file' });
+        }
+        
+        // Reset the last downloaded date to now (gives another year)
+        file.lastDownloadedAt = new Date();
+        file.deletionWarningSent = false;
+        file.deletionWarningDate = null;
+        await file.save();
+        
+        res.json({ success: true, message: 'File marked as relevant. It will be kept for another year.' });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Delete file (only uploader or super-admin can delete)
+app.delete('/api/files/:fileId', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const user = await User.findById(req.auth.decoded.userId);
+        const file = await File.findById(req.params.fileId);
+        
+        if (!file) {
+            return res.status(404).json({ success: false, error: 'File not found' });
+        }
+        
+        // Check authorization: must be uploader OR super-admin only
+        const isUploader = file.uploadedBy.toString() === user._id.toString();
+        const isSuperAdmin = user.role === 'super-admin';
+        
+        if (!isUploader && !isSuperAdmin) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Only the file uploader or super-admin can delete files' 
+            });
+        }
+        
+        // Delete from Cloudinary
+        try {
+            await cloudinary.uploader.destroy(file.publicId, { 
+                resource_type: file.resourceType || 'raw' 
+            });
+        } catch (cloudinaryError) {
+            console.error('[FILE DELETE] Cloudinary error:', cloudinaryError.message);
+            // Continue with database deletion even if Cloudinary fails
+        }
+        
+        // Delete from database
+        await File.findByIdAndDelete(req.params.fileId);
+        
+        console.log(`[FILE DELETE] ${user.name} deleted: ${file.filename}`);
+        
+        res.json({ 
+            success: true, 
+            message: 'File deleted successfully' 
+        });
+        
+    } catch (error) {
+        console.error('[FILE DELETE] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get my uploaded files (for file management)
+app.get('/api/files/my/uploads', authenticateAndTouchSession, async (req, res) => {
+    try {
+        const files = await File.find({ uploadedBy: req.auth.decoded.userId })
+            .sort({ createdAt: -1 })
+            .select('-uploadedBy');
+        
+        res.json({ success: true, files });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== END CLOUDINARY FILE ENDPOINTS ====================
 
 app.listen(PORT, () => {
     console.log(`Auth Server running on port ${PORT}`);
