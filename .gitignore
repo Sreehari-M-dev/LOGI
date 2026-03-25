@@ -1,0 +1,17 @@
+node_modules/
+*.md
+*.idea
+*.bat
+*.sh
+*.log
+c-logo.png
+check-students-filter.js
+check-users.js
+hamburger-test.html
+test-email.js
+fix-db-index.js
+test-forgot-password.js
+.vscode
+.env
+.env.example
+.env.example

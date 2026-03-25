@@ -1,7 +1,16 @@
-﻿// Log Book Client-Side Database Manager
+// Log Book Client-Side Database Manager
 const API_URL = window.REACT_APP_LOGBOOK_API || 'http://localhost:3005/api/logbook';
 let currentUser = null;
 let currentStudentLogbookId = null;
+
+// XSS prevention: escape HTML entities in user-controlled strings
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const s = String(str);
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
 
 // Helper to get URL parameters
 function getUrlParam(param) {
@@ -344,8 +353,8 @@ async function loadMyLogBooks() {
                         const card = document.createElement('div');
                         card.style.cssText = 'padding: 15px; background: white; border-radius: 8px; border-left: 4px solid #667eea; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
                         card.innerHTML = `
-                            <h4 style="margin: 0 0 10px 0; color: #667eea;">${logbook.subject}</h4>
-                            ${logbook.code ? `<p style="margin: 5px 0; font-size: 13px;"><strong>Code:</strong> ${logbook.code}</p>` : ''}
+                            <h4 style="margin: 0 0 10px 0; color: #667eea;">${escapeHtml(logbook.subject)}</h4>
+                            ${logbook.code ? `<p style="margin: 5px 0; font-size: 13px;"><strong>Code:</strong> ${escapeHtml(logbook.code)}</p>` : ''}
                             <p style="margin: 5px 0; font-size: 13px;"><strong>Created:</strong> ${new Date(logbook.createdAt).toLocaleDateString()}</p>
                             <button style="width: 100%; padding: 8px; margin-top: 10px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Load</button>
                         `;
@@ -393,7 +402,7 @@ async function loadLogBookById(logbookId, showStudentHeader = false) {
             if (showStudentHeader) {
                 const viewingInfo = document.getElementById('viewingStudentInfo');
                 if (viewingInfo) {
-                    viewingInfo.innerHTML = `<i class="fas fa-user-graduate"></i> Viewing: <strong>${result.data.name}</strong> | ${result.data.subject} (${result.data.code || 'N/A'}) | Roll: ${result.data.rollno}`;
+                    viewingInfo.innerHTML = `<i class="fas fa-user-graduate"></i> Viewing: <strong>${escapeHtml(result.data.name)}</strong> | ${escapeHtml(result.data.subject)} (${escapeHtml(result.data.code || 'N/A')}) | Roll: ${escapeHtml(result.data.rollno)}`;
                 }
             }
             
@@ -420,7 +429,7 @@ async function loadLogBookById(logbookId, showStudentHeader = false) {
             if (showStudentHeader) {
                 const viewingInfo = document.getElementById('viewingStudentInfo');
                 if (viewingInfo) {
-                    viewingInfo.innerHTML = `<i class="fas fa-user-graduate"></i> Viewing: <strong>${result.data.name}</strong> | ${result.data.subject} (${result.data.code || 'N/A'}) | Roll: ${result.data.rollno}`;
+                    viewingInfo.innerHTML = `<i class="fas fa-user-graduate"></i> Viewing: <strong>${escapeHtml(result.data.name)}</strong> | ${escapeHtml(result.data.subject)} (${escapeHtml(result.data.code || 'N/A')}) | Roll: ${escapeHtml(result.data.rollno)}`;
                 }
             }
             

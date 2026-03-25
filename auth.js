@@ -2,6 +2,15 @@
 const AUTH_API = window.REACT_APP_AUTH_API || 'http://localhost:3002/api/auth';
 const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds (server-driven)
 
+// XSS prevention: escape HTML entities in user-controlled strings
+function escapeHtmlAuth(str) {
+    if (str === null || str === undefined) return '';
+    const s = String(str);
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
+
 class AuthManager {
     static inactivityTimer = null;
     static syncInterval = null;
@@ -319,7 +328,7 @@ function setupAuthButtons() {
         authItem.innerHTML = `
             <div style="display: flex; align-items: center; gap: 15px; color: white; padding: 8px 16px; border-radius: 25px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);">
                 <span style="font-weight: 500; font-size: 14px;">
-                    <i class="fas fa-user-circle"></i> ${user?.name || 'User'}
+                    <i class="fas fa-user-circle"></i> ${escapeHtmlAuth(user?.name || 'User')}
                 </span>
                 ${!isSuperAdmin ? `<span style="font-size: 12px; background: rgba(40, 32, 32, 0.66); padding: 4px 8px; border-radius: 4px; font-weight: 600;" title="Session timeout">
                     <i class="fas fa-clock"></i> <span id="inactivityTimer">10:00</span>

@@ -1,9 +1,13 @@
-﻿// Load environment variables from .env for local development
+// Load environment variables from .env for local development
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const crypto = require('crypto');
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const rateLimit = require('express-rate-limit');
+const corsMiddleware = require('./config/cors');
 const app = express();
 
 const JWT_SECRET = process.env.JWT_SECRET; // Same as auth-server
@@ -19,47 +23,14 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
-// Security Enhancement: Simple rate limiting middleware
-const requestCounts = new Map();
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS = 100; // Max requests per window
-
-function simpleRateLimit(req, res, next) {
-    const ip = req.ip || req.connection.remoteAddress;
-    const now = Date.now();
-    
-    if (!requestCounts.has(ip)) {
-        requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    } else {
-        const data = requestCounts.get(ip);
-        if (now > data.resetTime) {
-            data.count = 1;
-            data.resetTime = now + RATE_LIMIT_WINDOW;
-        } else {
-            data.count++;
-            if (data.count > MAX_REQUESTS) {
-                return res.status(429).json({ 
-                    success: false, 
-                    error: 'Too many requests. Please try again later.' 
-                });
-            }
-        }
-    }
-    next();
-}
-
-// Security Enhancement: Input sanitization middleware
-function sanitizeInput(obj) {
-    if (typeof obj === 'string') {
-        return obj.replace(/[<>]/g, '').trim();
-    }
-    if (typeof obj === 'object' && obj !== null) {
-        for (let key in obj) {
-            obj[key] = sanitizeInput(obj[key]);
-        }
-    }
-    return obj;
-}
+// Rate limiting using express-rate-limit (replaces custom implementation)
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 100, // 100 requests per IP per minute
+    message: { success: false, error: 'Too many requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
 
 // Authentication middleware: delegate verification to Auth Service to enforce session idle timeout
 async function authenticateToken(req, res, next) {
@@ -92,74 +63,41 @@ async function authenticateToken(req, res, next) {
     }
 }
 
-// Middleware - Environment-aware CORS origins
-const isProduction = process.env.NODE_ENV === 'production';
-const allowedOrigins = isProduction
-    ? ['https://sreehari-m-dev.github.io'] // Production: only GitHub Pages
-    : [
-        'http://localhost',
-        'http://localhost:3000',
-        'http://localhost:8080',
-        'http://127.0.0.1',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3003',
-        'http://10.154.126.1:5000'
-        
-    ];
-
-// Log all incoming requests and headers
+// Log requests - skip health checks and reduce noise in production
 app.use((req, res, next) => {
+    if (req.path === '/health' || req.method === 'OPTIONS') {
+        return next();
+    }
     console.log(`[REQUEST] ${req.method} ${req.path}`);
-    console.log(`[HEADERS] Origin: ${req.headers.origin}, Referer: ${req.headers.referer}`);
-    console.log(`[HEADERS] Host: ${req.headers.host}`);
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`[HEADERS] Origin: ${req.headers.origin}, Host: ${req.headers.host}`);
+    }
     next();
 });
 
-app.use(cors({
-    origin: function(origin, callback) {
-        console.log(`[CORS] Origin received: ${origin}`);
-        if (!origin) {
-            console.log('[CORS] No origin (non-browser request) - allowing');
-            return callback(null, true);
-        }
-        if (allowedOrigins.includes(origin)) {
-            console.log(`[CORS] Origin ${origin} is allowed`);
-            return callback(null, true);
-        }
-        console.log(`[CORS] Origin ${origin} is NOT allowed`);
-        return callback(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false,
-    maxAge: 86400
-}));
+// Shared CORS configuration (see config/cors.js)
+app.use(corsMiddleware);
 
 // Security headers
+app.use(helmet());
+
+// Prevent NoSQL injection attacks (custom middleware for Express 5 compatibility)
 app.use((req, res, next) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
+    if (req.body) req.body = mongoSanitize.sanitize(req.body);
     next();
 });
 
-app.use(simpleRateLimit);
+app.use(apiLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ==================== MULTI-CLUSTER MONGODB CONNECTIONS ====================
 
 // Create separate connections for LOGBOOK and AUTH clusters
-const logbookConnection = mongoose.createConnection(MONGODB_URI_LOGBOOK, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
+const logbookConnection = mongoose.createConnection(MONGODB_URI_LOGBOOK);
 
 // AUTH connection is read-only (for user lookups if needed)
-const authConnection = mongoose.createConnection(MONGODB_URI_AUTH, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
+const authConnection = mongoose.createConnection(MONGODB_URI_AUTH);
 
 logbookConnection.on('connected', () => {
     console.log('✅ Connected to MongoDB LOGBOOK cluster');

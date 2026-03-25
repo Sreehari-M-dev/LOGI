@@ -8,6 +8,12 @@ const cors = require('cors');
 const nodemailer = require('nodemailer');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const corsMiddleware = require('./config/cors');
+const emailTemplates = require('./templates/emails');
 
 // WebAuthn/Passkey support for super-admin biometric authentication
 const {
@@ -91,21 +97,7 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
-// Middleware - Environment-aware CORS origins
-const isProduction = process.env.NODE_ENV === 'production';
-const allowedOrigins = isProduction
-    ? ['https://sreehari-m-dev.github.io'] // Production: only GitHub Pages
-    : [
-        'http://localhost',
-        'http://localhost:3000',
-        'http://localhost:8080',
-        'http://127.0.0.1',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3003',
-        'http://10.196.162.19',
-        'http://10.154.126.1:5000'
-
-    ];
+// Shared CORS configuration (see config/cors.js)
 
 // Log requests - skip health checks and preflight to reduce noise in production
 app.use((req, res, next) => {
@@ -121,25 +113,44 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(cors({
-    origin: function(origin, callback) {
-        // Skip logging for allowed origins in production (too noisy)
-        if (!origin) {
-            return callback(null, true);
-        }
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-        // Only log rejected origins
-        console.log(`[CORS] Origin ${origin} is NOT allowed`);
-        return callback(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false,
-    maxAge: 86400
-}));
-app.use(express.json());
+app.use(corsMiddleware);
+
+// Security headers
+app.use(helmet());
+
+// Prevent NoSQL injection attacks (custom middleware for Express 5 compatibility)
+app.use((req, res, next) => {
+    if (req.body) req.body = mongoSanitize.sanitize(req.body);
+    next();
+});
+
+// Limit JSON body size to prevent DoS
+app.use(express.json({ limit: '1mb' }));
+
+// ==================== RATE LIMITING ====================
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 15, // 15 attempts per IP per window
+    message: { success: false, error: 'Too many login attempts. Please try again after 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // 5 registrations per IP per hour
+    message: { success: false, error: 'Too many registration attempts. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+const forgotPasswordLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 3, // 3 attempts per IP per hour
+    message: { success: false, error: 'Too many password reset attempts. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
 
 // ==================== MULTI-CLUSTER MONGODB CONNECTIONS ====================
 
@@ -292,77 +303,8 @@ async function createAuditLog(action, performedBy, targetUser, details, req) {
     }
 }
 
-// List of valid colleges (for validation) - organized by district
-const VALID_COLLEGES = [
-    // SYSTEM (for super-admin)
-    "SYSTEM",
-    // THIRUVANANTHAPURAM DISTRICT
-    "Central Polytechnic College, Thiruvananthapuram",
-    "Government Women's Polytechnic College, Thiruvananthapuram",
-    "Government Polytechnic College, Neyyattinkara",
-    "Government Polytechnic College, Nedumangad",
-    "Government Polytechnic College, Attingal",
-    // KOLLAM DISTRICT
-    "Government Polytechnic College, Punalur",
-    "Government Polytechnic College, Ezhukone",
-    "Sree Narayana Polytechnic College, Kottiyam",
-    // PATHANAMTHITTA DISTRICT
-    "MVGM Government Polytechnic College, Vennikulam",
-    "Government Polytechnic College, Vechoochira",
-    "Government Polytechnic College, Manakala (Adoor)",
-    "N S S Polytechnic College, Pandalam",
-    // ALAPPUZHA DISTRICT
-    "Government Polytechnic College, Cherthala",
-    "Government Women's Polytechnic College, Kayamkulam",
-    "Carmel Polytechnic College, Alappuzha",
-    // KOTTAYAM DISTRICT
-    "Government Polytechnic College, Kottayam",
-    "Government Polytechnic College, Pala",
-    "Government Polytechnic College, Kaduthuruthy",
-    "Thiagarajar Polytechnic College, Alagappanagar",
-    // IDUKKI DISTRICT
-    "Government Polytechnic College, Muttom Idukki",
-    "Government Polytechnic College, Vandiperiyar",
-    "Government Polytechnic College, Nedumkandam",
-    "Government Polytechnic College, Purappuzha",
-    // ERNAKULAM DISTRICT
-    "Government Polytechnic College, Kalamassery",
-    "Women's Polytechnic College, Ernakulam",
-    "Government Polytechnic College, Kothamangalam",
-    "Government Polytechnic College, Perumbavoor",
-    // THRISSUR DISTRICT
-    "Maharaja's Technological Institute, Thrissur",
-    "Government Women's Polytechnic College, Thrissur",
-    "Government Polytechnic College, Chelakkara",
-    "Government Polytechnic College, Kunnamkulam",
-    "Government Polytechnic College, Koratty",
-    "Sree Rama Government Polytechnic College, Thriprayar",
-    // PALAKKAD DISTRICT
-    "Government Polytechnic College, Palakkad",
-    "Institute of Printing Technology and Government Polytechnic College, Shoranur",
-    // MALAPPURAM DISTRICT
-    "Government Polytechnic College, Perinthalmanna",
-    "AKNM Government Polytechnic College, Thirurangadi",
-    "Government Women's Polytechnic College, Kottakkal",
-    "Government Polytechnic College, Manjeri",
-    "Seethi Sahib Memorial Polytechnic College, Tirur",
-    // KOZHIKODE DISTRICT
-    "Kerala Government Polytechnic College, Kozhikode",
-    "Government Women's Polytechnic College, Kozhikode",
-    // WAYANAD DISTRICT
-    "Government Polytechnic College, Meenangadi",
-    "Government Polytechnic College, Meppadi",
-    "Government Polytechnic College, Mananthavady",
-    // KANNUR DISTRICT
-    "Government Polytechnic College, Kannur (Thottada)",
-    "Government Polytechnic College, Mattannur",
-    "Government Residential Women's Polytechnic College, Payyannur",
-    "Government Technical High School, Naduvil",
-    // KASARAGOD DISTRICT
-    "Government Polytechnic College, Kasaragod",
-    "EKNM Government Polytechnic College, Trikaripur",
-    "Swami Nithyananda Polytechnic, Kanhangad"
-];
+// Valid colleges loaded from config (see config/colleges.json)
+const VALID_COLLEGES = require('./config/colleges.json');
 
 // Session Schema for idle timeout and server-side session tracking
 const sessionSchema = new mongoose.Schema({
@@ -377,6 +319,9 @@ const sessionSchema = new mongoose.Schema({
     stayLoggedIn: { type: Boolean, default: false }, // If true, skip idle timeout but still expire after 7 days
     stayLoggedInExpiry: { type: Date } // Expiry date for stay logged in sessions (7 days from creation)
 });
+
+// Auto-delete expired sessions after 1 day
+sessionSchema.index({ expiredAt: 1 }, { expireAfterSeconds: 86400 });
 
 // Register Session model on AUTH connection
 const Session = authConnection.model('Session', sessionSchema);
@@ -432,25 +377,18 @@ async function verifyPassword(password, hash) {
     return await bcrypt.compare(password, hash);
 }
 
-// Simple JWT token generation (without external library)
+// JWT token generation using jsonwebtoken library (secure, Base64URL, timing-safe)
 function generateToken(userId, rgno, role, sid) {
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
-    const now = Math.floor(Date.now() / 1000);
-    const payload = {
-        userId: userId.toString(),
-        rgno: rgno,
-        role: role,
-        sid: sid,
-        iat: now,
-        exp: now + (7 * 24 * 60 * 60) // 7 days
-    };
-    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64');
-    const signature = crypto
-        .createHmac('sha256', JWT_SECRET)
-        .update(`${header}.${encodedPayload}`)
-        .digest('base64');
-    
-    return `${header}.${encodedPayload}.${signature}`;
+    return jwt.sign(
+        {
+            userId: userId.toString(),
+            rgno: rgno,
+            role: role,
+            sid: sid
+        },
+        JWT_SECRET,
+        { expiresIn: '7d', algorithm: 'HS256' }
+    );
 }
 // Shared session lookup helper
 async function findActiveSession(token) {
@@ -543,38 +481,22 @@ async function authenticateSessionNoTouch(req, res, next) {
 }
 
 
-// Verify JWT token
+// Verify JWT token using jsonwebtoken library (timing-safe, validates algorithm)
 function verifyToken(token) {
     try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return null;
-        
-        const [header, payload, signature] = parts;
-        const expectedSignature = crypto
-            .createHmac('sha256', JWT_SECRET)
-            .update(`${header}.${payload}`)
-            .digest('base64');
-        
-        if (signature !== expectedSignature) return null;
-        
-        const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-        const now = Math.floor(Date.now() / 1000);
-        
-        if (decodedPayload.exp < now) return null; // Token expired
-        
-        return decodedPayload;
+        return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     } catch (error) {
         return null;
     }
 }
 
 // Register Route - using Register Number with college scoping and approval workflow
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', registerLimiter, async (req, res) => {
     try {
-        // Normalize and trim incoming fields
+        // Normalize and trim incoming fields (DO NOT trim password — preserves entropy)
         const name = req.body.name?.trim();
         const email = req.body.email?.trim().toLowerCase();
-        const password = req.body.password?.trim();
+        const password = req.body.password;
         const rgnoRaw = req.body.rgno;
         const rollnoRaw = req.body.rollno;
         const role = req.body.role?.trim();
@@ -827,67 +749,8 @@ app.post('/api/auth/register', async (req, res) => {
 
         await newUser.save();
         
-        /* ============================================================
-         * EMAIL VERIFICATION (Commented - Enable when SMTP is available)
-         * ============================================================
-        // Send verification email
-        try {
-            const verificationUrl = `${process.env.FRONTEND_URL || 'https://sreehari-m-dev.github.io/LOGI'}/verify-email.html?token=${emailVerificationToken}`;
-            
-            await sendEmail({
-                from: `"LOGI System" <${EMAIL_FROM}>`,
-                to: email,
-                subject: '📧 Verify Your Email - LOGI Registration',
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0;">📧 Verify Your Email</h1>
-                            <p style="margin: 10px 0 0; opacity: 0.9;">Welcome to LOGI - Digital Lab Logbook System</p>
-                        </div>
-                        
-                        <div style="padding: 30px; border: 1px solid #ddd; border-top: none;">
-                            <p>Hello <strong>${name}</strong>,</p>
-                            <p>Thank you for registering with LOGI. Please verify your email address to complete your registration.</p>
-                            
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="${verificationUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                                    ✓ Verify Email Address
-                                </a>
-                            </div>
-                            
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                                <p style="margin: 0; font-size: 14px; color: #666;">
-                                    <strong>Registration Details:</strong><br>
-                                    Name: ${name}<br>
-                                    RGNO: ${rgno}<br>
-                                    Role: ${role || 'student'}<br>
-                                    College: ${college}
-                                </p>
-                            </div>
-                            
-                            <p style="color: #d32f2f; font-size: 14px;">⏰ This link expires in 24 hours.</p>
-                            
-                            <p style="font-size: 13px; color: #666;">If you didn't create this account, please ignore this email.</p>
-                            
-                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                            <p style="font-size: 12px; color: #999;">If the button doesn't work, copy and paste this link into your browser:<br>
-                            <span style="color: #667eea; word-break: break-all;">${verificationUrl}</span></p>
-                        </div>
-                        
-                        <div style="background: #f5f5f5; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; border: 1px solid #ddd; border-top: none;">
-                            <p style="margin: 0; color: #666; font-size: 12px;">LOGI - Digital Lab Logbook Management System</p>
-                        </div>
-                    </div>
-                `
-            });
-            console.log('[REGISTRATION] ✅ Verification email sent to:', email);
-        } catch (emailError) {
-            console.error('[REGISTRATION] ❌ Failed to send verification email:', emailError.message);
-            // Don't fail registration if email fails - admin can verify manually
-        }
-        * END EMAIL VERIFICATION COMMENT */
-        
-        // NOTE: Email verification is disabled. Admin must manually verify users.
+        // NOTE: Email verification is disabled (no SMTP). Admin must manually verify users.
+        // See git history for the email verification template if SMTP is configured later.
         console.log('[REGISTRATION] ℹ️ Email verification disabled - Admin must verify user:', email);
 
         // Create server-side session and generate token with session id (sid)
@@ -943,7 +806,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Login Route - using Register Number with approval check
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
         const { rgno, password, twoFactorCode, stayLoggedIn } = req.body;
 
@@ -1569,8 +1432,8 @@ app.delete('/api/auth/delete-account', authenticateAndTouchSession, async (req, 
     }
 });
 
-// Filter students by department and semester
-app.post('/api/auth/students/filter', async (req, res) => {
+// Filter students by department and semester (requires authentication)
+app.post('/api/auth/students/filter', authenticateAndTouchSession, async (req, res) => {
     try {
         const { department, semester } = req.body;
 
@@ -1810,17 +1673,7 @@ app.get('/api/auth/verify-email', async (req, res) => {
     }
 });
 
-/* ============================================================
- * RESEND VERIFICATION EMAIL (Commented - Enable when SMTP is available)
- * ============================================================
-
-// Resend Verification Email
-app.post('/api/auth/resend-verification', async (req, res) => {
-    // ... email sending code ...
-});
-
-* END RESEND VERIFICATION EMAIL COMMENT */
-
+// NOTE: Resend verification email code was here. See git history if SMTP is configured later.
 // Resend verification email - currently unavailable
 app.post('/api/auth/resend-verification', async (req, res) => {
     res.status(503).json({ 
@@ -1863,22 +1716,7 @@ app.post('/api/auth/admin/mark-email-verified/:userId', authenticateAndTouchSess
     }
 });
 
-/* ============================================================
- * ADMIN SEND VERIFICATION EMAIL (Commented - Enable when SMTP is available)
- * Use "Manually Verify Email" button in admin dashboard instead
- * ============================================================
-
-// Send verification email to a specific user (admin can trigger)
-app.post('/api/auth/admin/send-verification-email/:userId', authenticateAndTouchSession, async (req, res) => {
-    // ... email sending code ...
-});
-
-// Bulk send verification emails to all unverified users (super-admin only)
-app.post('/api/auth/admin/send-bulk-verification-emails', authenticateAndTouchSession, async (req, res) => {
-    // ... bulk email sending code ...
-});
-
-* END ADMIN SEND VERIFICATION EMAIL COMMENT */
+// NOTE: Admin send/bulk verification email code was here. See git history if SMTP is configured later.
 
 // Admin send verification email - currently unavailable
 app.post('/api/auth/admin/send-verification-email/:userId', authenticateAndTouchSession, async (req, res) => {
@@ -1941,120 +1779,11 @@ app.get('/api/auth/admin/email-verification-stats', authenticateAndTouchSession,
 
 // ==================== END EMAIL VERIFICATION ====================
 
-/* ============================================================
- * FORGOT PASSWORD VIA EMAIL (Commented - Enable when SMTP is available)
- * Users should contact admin for password reset instead
- * ============================================================
-
-// Forgot Password Endpoint
-app.post('/api/auth/forgot-password', async (req, res) => {
-    try {
-        const { rgno, email } = req.body;
-        
-        console.log('[FORGOT PASSWORD] Request received - rgno:', rgno, 'email:', email);
-        
-        // Validate email configuration first
-        if (!EMAIL_USER || !EMAIL_PASS) {
-            console.error('[FORGOT PASSWORD] Email not configured - EMAIL_USER or EMAIL_PASS missing in .env');
-            return res.status(503).json({ 
-                success: false, 
-                error: 'Email service not configured. Please contact administrator.' 
-            });
-        }
-        
-        if (!rgno || !email) {
-            return res.status(400).json({ success: false, error: 'Register number and email are required' });
-        }
-        
-        // Find user by register number (trim email in DB and input for robustness)
-        const user = await User.findOne({ rgno: parseInt(rgno) });
-        if (!user) {
-            console.log('[FORGOT PASSWORD] User not found - rgno:', rgno);
-            return res.status(404).json({ success: false, error: 'No user found with that register number' });
-        }
-        
-        console.log('[FORGOT PASSWORD] User found:', user.rgno, 'DB Email:', user.email);
-        
-        // Normalize and compare emails
-        const dbEmail = user.email ? user.email.trim().toLowerCase() : '';
-        const inputEmail = email ? email.trim().toLowerCase() : '';
-        
-        if (!dbEmail || dbEmail !== inputEmail) {
-            console.log('[FORGOT PASSWORD] Email mismatch - DB:', dbEmail, 'Input:', inputEmail);
-            return res.status(400).json({ success: false, error: 'Email does not match the register number' });
-        }
-        
-        // Generate token
-        const token = crypto.randomBytes(32).toString('hex');
-        user.resetPasswordToken = token;
-        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
-        await user.save();
-        console.log('[FORGOT PASSWORD] Reset token generated and saved:', token.substring(0, 8) + '...');
-        
-        // Send email
-        const resetUrl = `${FRONTEND_URL}/reset-password.html?token=${token}`;
-        const mailOptions = {
-            from: `LOGI <${EMAIL_FROM}>`,
-            to: user.email,
-            subject: 'LOGI Password Reset Request',
-            html: `<p>Hello ${user.name},</p>
-                   <p>You requested a password reset for your LOGI account.</p>
-                   <p><b>Register Number:</b> ${user.rgno}</p>
-                   <p>Click the link below to reset your password. This link is valid for 1 hour.</p>
-                   <p><a href='${resetUrl}'>Reset Password</a></p>
-                   <p>If you did not request this, please ignore this email.</p>`
-        };
-        
-        console.log('[FORGOT PASSWORD] Sending email to:', user.email);
-        await sendEmail(mailOptions);
-        console.log('[FORGOT PASSWORD] Email sent successfully');
-        
-        res.json({ success: true, message: 'Password reset email sent' });
-    } catch (error) {
-        console.error('[FORGOT PASSWORD] Error:', error.message);
-        res.status(500).json({ success: false, error: 'Failed to send reset email: ' + error.message });
-    }
-});
-
-// --- Password Reset: Reset Password Endpoint (Email Token Based) ---
-app.post('/api/auth/reset-password/:token', async (req, res) => {
-    try {
-        const { token } = req.params;
-        const { password } = req.body;
-        if (!token || !password) {
-            return res.status(400).json({ success: false, error: 'Token and new password are required' });
-        }
-
-        console.log('[RESET PASSWORD] Token received:', token);
-
-        const user = await User.findOne({
-            resetPasswordToken: token,
-            resetPasswordExpires: { $gt: Date.now() }
-        });
-
-        if (!user) {
-            console.log('[RESET PASSWORD] Invalid or expired token');
-            return res.status(400).json({ success: false, error: 'Invalid or expired token' });
-        }
-
-        const hashedPassword = await hashPassword(password);
-        user.password = hashedPassword;
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpires = undefined;
-        await user.save();
-        console.log('[RESET PASSWORD] Password updated successfully for user:', user.rgno);
-
-        res.json({ success: true, message: 'Password has been reset successfully' });
-    } catch (error) {
-        console.error('[RESET PASSWORD] Error:', error);
-        res.status(500).json({ success: false, error: 'Failed to reset password' });
-    }
-});
-
-* END FORGOT PASSWORD VIA EMAIL COMMENT */
+// NOTE: Forgot password and reset-password-by-token endpoints were here.
+// See git history if email-based password reset is needed later.
 
 // Forgot password - redirect to contact admin
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) => {
     res.status(503).json({ 
         success: false, 
         error: 'Email-based password reset is currently unavailable. Please contact your administrator (Faculty/Principal) to reset your password.' 
@@ -2083,10 +1812,12 @@ app.post('/api/auth/force-change-password', authenticateSessionNoTouch, async (r
             });
         }
         
-        if (newPassword.length < 8) {
+        // Strong password validation (same rules as registration)
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+        if (!passwordRegex.test(newPassword)) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Password must be at least 8 characters long' 
+                error: 'Password must be at least 8 characters and include: uppercase letter, lowercase letter, number, and special symbol (!@#$%^&*...)' 
             });
         }
         
@@ -5030,53 +4761,13 @@ app.post('/api/auth/super-admin-recovery/initiate', async (req, res) => {
         superAdmin.resetPasswordExpires = otpExpiry;
         await superAdmin.save();
 
-        /* ============================================================
-         * EMAIL OTP SENDING - DISABLED (No SMTP configured)
-         * Use Passkey/Biometric recovery instead!
-         * ============================================================
-        // Send OTP to super-admin email
-        try {
-            await sendEmail({
-                from: `"LOGI System Security" <${process.env.EMAIL_USER}>`,
-                to: superAdmin.email,
-                subject: '🔐 Super-Admin Account Recovery OTP',
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #d32f2f;">🔐 Account Recovery Request</h2>
-                        <p>A recovery request was initiated for your super-admin account.</p>
-                        <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                            <p style="margin: 0; color: #666;">Your OTP code is:</p>
-                            <h1 style="font-size: 36px; letter-spacing: 8px; color: #667eea; margin: 10px 0;">${otp}</h1>
-                            <p style="margin: 0; color: #999; font-size: 12px;">Valid for 15 minutes</p>
-                        </div>
-                        <p style="color: #d32f2f;"><strong>⚠️ If you did not request this, your recovery key may be compromised!</strong></p>
-                        <p>IP Address: ${req.ip || req.headers['x-forwarded-for'] || 'unknown'}</p>
-                    </div>
-                `
-            });
-        } catch (emailError) {
-            console.error('[RECOVERY] Failed to send OTP email:', emailError);
-            return res.status(500).json({ 
-                success: false, 
-                error: 'Failed to send OTP. Please try again.' 
-            });
-        }
-        */
+        // NOTE: Email OTP code was here. See git history if SMTP is configured later.
 
         // EMAIL DISABLED: Return error directing user to use Passkey recovery
         return res.status(503).json({ 
             success: false, 
             error: 'Email service is not available. Please use Passkey/Biometric recovery instead.',
             usePasskey: true
-        });
-
-        // Mask email for response
-        const maskedEmail = superAdmin.email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
-
-        res.json({ 
-            success: true, 
-            message: `OTP sent to ${maskedEmail}`,
-            expiresIn: '15 minutes'
         });
     } catch (error) {
         console.error('Super-admin recovery initiate error:', error);
@@ -5130,33 +4821,7 @@ app.post('/api/auth/super-admin-recovery/reset', async (req, res) => {
             ipAddress: req.ip || req.headers['x-forwarded-for']
         }, req);
 
-        /* ============================================================
-         * CONFIRMATION EMAIL - DISABLED (No SMTP configured)
-         * ============================================================
-        // Send confirmation email
-        try {
-            await sendEmail({
-                from: `"LOGI System Security" <${process.env.EMAIL_USER}>`,
-                to: superAdmin.email,
-                subject: '✅ Password Reset Successful',
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #4caf50;">✅ Password Reset Successful</h2>
-                        <p>Your super-admin password has been reset successfully.</p>
-                        <p>All existing sessions have been invalidated for security.</p>
-                        <p><strong>Please login with your new password.</strong></p>
-                        <p style="color: #d32f2f; margin-top: 20px;">
-                            <strong>⚠️ Important:</strong> Consider changing your SUPER_ADMIN_RECOVERY_KEY 
-                            in the environment variables if you suspect it may have been compromised.
-                        </p>
-                    </div>
-                `
-            });
-        } catch (emailError) {
-            console.error('[RECOVERY] Failed to send confirmation email:', emailError);
-        }
-        */
-        // EMAIL DISABLED: Skip confirmation email
+        // NOTE: Confirmation email code was here. See git history if SMTP is configured later.
 
         res.json({ 
             success: true, 
