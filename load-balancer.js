@@ -23,8 +23,8 @@
     // Add or remove URLs as you deploy more replicas.
     const SERVERS = [
         'https://logi-server-avbs.onrender.com',
-        // 'https://logi-server-2.onrender.com',   // ← Uncomment when deployed
-        // 'https://logi-server-3.onrender.com',   // ← Uncomment when deployed
+        'https://logi-server-2.onrender.com',
+        'https://logi-server-3.onrender.com',
     ];
 
     // ==================== LOCAL DEV DETECTION ====================
