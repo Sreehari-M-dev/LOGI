@@ -99,33 +99,36 @@ if (!JWT_SECRET) {
 
 // Shared CORS configuration (see config/cors.js)
 
-// Log requests - skip health checks and preflight to reduce noise in production
-app.use((req, res, next) => {
-    // Skip logging for health checks and OPTIONS preflight (too noisy)
-    if (req.path === '/health' || req.method === 'OPTIONS') {
-        return next();
-    }
-    console.log(`[REQUEST] ${req.method} ${req.path}`);
-    // Only log headers in development for debugging
-    if (process.env.NODE_ENV !== 'production') {
-        console.log(`[HEADERS] Origin: ${req.headers.origin}, Host: ${req.headers.host}`);
-    }
-    next();
-});
+// In combined mode (server.js), middleware is applied by the parent app
+if (!process.env.COMBINED_MODE) {
+    // Log requests - skip health checks and preflight to reduce noise in production
+    app.use((req, res, next) => {
+        // Skip logging for health checks and OPTIONS preflight (too noisy)
+        if (req.path === '/health' || req.method === 'OPTIONS') {
+            return next();
+        }
+        console.log(`[REQUEST] ${req.method} ${req.path}`);
+        // Only log headers in development for debugging
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`[HEADERS] Origin: ${req.headers.origin}, Host: ${req.headers.host}`);
+        }
+        next();
+    });
 
-app.use(corsMiddleware);
+    app.use(corsMiddleware);
 
-// Security headers
-app.use(helmet());
+    // Security headers
+    app.use(helmet());
 
-// Prevent NoSQL injection attacks (custom middleware for Express 5 compatibility)
-app.use((req, res, next) => {
-    if (req.body) req.body = mongoSanitize.sanitize(req.body);
-    next();
-});
+    // Prevent NoSQL injection attacks (custom middleware for Express 5 compatibility)
+    app.use((req, res, next) => {
+        if (req.body) req.body = mongoSanitize.sanitize(req.body);
+        next();
+    });
 
-// Limit JSON body size to prevent DoS
-app.use(express.json({ limit: '1mb' }));
+    // Limit JSON body size to prevent DoS
+    app.use(express.json({ limit: '1mb' }));
+}
 
 // ==================== RATE LIMITING ====================
 const loginLimiter = rateLimit({
@@ -5167,7 +5170,12 @@ app.get('/api/files/my/uploads', authenticateAndTouchSession, async (req, res) =
 
 // ==================== END CLOUDINARY FILE ENDPOINTS ====================
 
-app.listen(PORT, () => {
-    console.log(`Auth Server running on port ${PORT}`);
-});
+// In combined mode, export the app for mounting; otherwise listen standalone
+if (process.env.COMBINED_MODE) {
+    module.exports = app;
+} else {
+    app.listen(PORT, () => {
+        console.log(`Auth Server running on port ${PORT}`);
+    });
+}
 

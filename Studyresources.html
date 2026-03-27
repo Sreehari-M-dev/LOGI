@@ -5,23 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resources</title>
-    <script>
-        // Auto-detect environment: use local servers for localhost/local IPs, Render for production
-        (function () {
-            const hostname = window.location.hostname;
-            const isLocal = ['localhost', '127.0.0.1', '10.154.126.1'].includes(hostname) || hostname.startsWith('192.168.');
-            if (isLocal) {
-                const host = hostname === 'localhost' ? 'localhost' : hostname;
-                window.REACT_APP_AUTH_API = `http://${host}:3002/api/auth`;
-                window.REACT_APP_LOGBOOK_API = `http://${host}:3005/api/logbook`;
-                window.REACT_APP_FILES_API = `http://${host}:3002/api/files`;
-            } else {
-                window.REACT_APP_AUTH_API = 'https://logi-auth-service-avbs.onrender.com/api/auth';
-                window.REACT_APP_LOGBOOK_API = 'https://logi-logbook-service-avbs.onrender.com/api/logbook';
-                window.REACT_APP_FILES_API = 'https://logi-auth-service-avbs.onrender.com/api/files';
-            }
-        })();
-    </script>
+    <script src="load-balancer.js"></script>
     <link rel="stylesheet" href="styles.css">
     <style>
         body.dark-mode h3 {

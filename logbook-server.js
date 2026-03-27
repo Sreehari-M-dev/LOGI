@@ -63,33 +63,36 @@ async function authenticateToken(req, res, next) {
     }
 }
 
-// Log requests - skip health checks and reduce noise in production
-app.use((req, res, next) => {
-    if (req.path === '/health' || req.method === 'OPTIONS') {
-        return next();
-    }
-    console.log(`[REQUEST] ${req.method} ${req.path}`);
-    if (process.env.NODE_ENV !== 'production') {
-        console.log(`[HEADERS] Origin: ${req.headers.origin}, Host: ${req.headers.host}`);
-    }
-    next();
-});
+// In combined mode (server.js), middleware is applied by the parent app
+if (!process.env.COMBINED_MODE) {
+    // Log requests - skip health checks and reduce noise in production
+    app.use((req, res, next) => {
+        if (req.path === '/health' || req.method === 'OPTIONS') {
+            return next();
+        }
+        console.log(`[REQUEST] ${req.method} ${req.path}`);
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`[HEADERS] Origin: ${req.headers.origin}, Host: ${req.headers.host}`);
+        }
+        next();
+    });
 
-// Shared CORS configuration (see config/cors.js)
-app.use(corsMiddleware);
+    // Shared CORS configuration (see config/cors.js)
+    app.use(corsMiddleware);
 
-// Security headers
-app.use(helmet());
+    // Security headers
+    app.use(helmet());
 
-// Prevent NoSQL injection attacks (custom middleware for Express 5 compatibility)
-app.use((req, res, next) => {
-    if (req.body) req.body = mongoSanitize.sanitize(req.body);
-    next();
-});
+    // Prevent NoSQL injection attacks (custom middleware for Express 5 compatibility)
+    app.use((req, res, next) => {
+        if (req.body) req.body = mongoSanitize.sanitize(req.body);
+        next();
+    });
 
-app.use(apiLimiter);
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    app.use(apiLimiter);
+    app.use(express.json({ limit: '10mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+}
 
 // ==================== MULTI-CLUSTER MONGODB CONNECTIONS ====================
 
@@ -1589,4 +1592,9 @@ app.get('/health', (req, res) => {
     res.json({ status: 'Logbook Server OK', port: PORT });
 });
 
-app.listen(PORT, () => console.log(`Log Book Server running on port ${PORT}\nDatabase: LOGI`));
+// In combined mode, export the app for mounting; otherwise listen standalone
+if (process.env.COMBINED_MODE) {
+    module.exports = app;
+} else {
+    app.listen(PORT, () => console.log(`Log Book Server running on port ${PORT}\nDatabase: LOGI`));
+}

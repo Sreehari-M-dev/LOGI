@@ -22,11 +22,10 @@ const allowedOrigins = isProduction
 
 const corsMiddleware = cors({
     origin: function(origin, callback) {
-        // In production, reject requests with no origin (prevents null-origin bypass)
+        // Allow requests with no Origin header (health checks, server-to-server, curl, etc.)
+        // These are not browser cross-origin requests, so CORS doesn't apply.
+        // Browsers ALWAYS send an Origin header on cross-origin requests.
         if (!origin) {
-            if (isProduction) {
-                return callback(new Error('Origin required'));
-            }
             return callback(null, true);
         }
         if (allowedOrigins.includes(origin)) {

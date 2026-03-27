@@ -1,40 +1,44 @@
 services:
+  # Combined server: auth + logbook in one service
   - type: web
-    name: logi-auth-service
+    name: logi-server
     runtime: node
     region: oregon
     plan: free
     buildCommand: npm install
-    startCommand: node auth-server.js
+    startCommand: node server.js
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
-        sync: false   # set manually in dashboard, same for both services
+        sync: false   # set manually in dashboard, MUST be identical across all replicas
       - key: MONGODB_URI
+        sync: false   # MUST point to the same MongoDB cluster across all replicas
+      - key: MONGODB_URI_AUTH
+        sync: false
+      - key: MONGODB_URI_LOGBOOK
         sync: false
       - key: ALLOWED_ORIGINS
         value: https://sreehari-m-dev.github.io
-      - key: AUTH_SERVICE_URL
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
         sync: false
 
-  - type: web
-    name: logi-logbook-service
-    runtime: node
-    region: oregon
-    plan: free
-    buildCommand: npm install
-    startCommand: node logbook-server.js
-    healthCheckPath: /health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: JWT_SECRET
-        sync: false   # must match auth-service
-      - key: MONGODB_URI
-        sync: false
-      - key: ALLOWED_ORIGINS
-        value: https://sreehari-m-dev.github.io
-      - key: AUTH_SERVICE_URL
-        sync: false
+  # ─── REPLICA EXAMPLES (deploy on separate Render accounts) ───
+  #
+  # On Account 2, create a new web service with:
+  #   Name: logi-server-2
+  #   Start command: node server.js
+  #   Same env vars as above (same JWT_SECRET, same MongoDB URIs)
+  #
+  # On Account 3, create another web service with:
+  #   Name: logi-server-3
+  #   Same configuration
+  #
+  # Then add the URLs to load-balancer.js SERVERS array:
+  #   'https://logi-server-2.onrender.com',
+  #   'https://logi-server-3.onrender.com',
