@@ -5,30 +5,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LOGI - Digital Lab Logbook Management System | College Lab Portal</title>
-    
+
     <!-- SEO Meta Tags -->
-    <meta name="description" content="LOGI is a digital lab logbook management system for colleges. Manage lab experiments, track student progress, and streamline laboratory documentation online.">
-    <meta name="keywords" content="lab logbook, digital logbook, college lab management, experiment tracking, laboratory portal, student lab records, LOGI, lab management system">
+    <meta name="description"
+        content="LOGI is a digital lab logbook management system for colleges. Manage lab experiments, track student progress, and streamline laboratory documentation online.">
+    <meta name="keywords"
+        content="lab logbook, digital logbook, college lab management, experiment tracking, laboratory portal, student lab records, LOGI, lab management system">
     <meta name="author" content="LOGI Team">
     <meta name="google-site-verification" content="5UBD2anwJ3DeiqfGjuO_dfKIXxGLd9fe-kVnKpyw0IY" />
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://sreehari-m-dev.github.io/LOGI/">
-    
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://sreehari-m-dev.github.io/LOGI/">
     <meta property="og:title" content="LOGI - Digital Lab Logbook Management System">
-    <meta property="og:description" content="Manage lab experiments, track student progress, and streamline laboratory documentation with LOGI digital logbook system.">
+    <meta property="og:description"
+        content="Manage lab experiments, track student progress, and streamline laboratory documentation with LOGI digital logbook system.">
     <meta property="og:image" content="https://sreehari-m-dev.github.io/LOGI/c-logo.png">
     <meta property="og:site_name" content="LOGI">
-    
+
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://sreehari-m-dev.github.io/LOGI/">
     <meta name="twitter:title" content="LOGI - Digital Lab Logbook Management System">
-    <meta name="twitter:description" content="Manage lab experiments, track student progress, and streamline laboratory documentation with LOGI.">
+    <meta name="twitter:description"
+        content="Manage lab experiments, track student progress, and streamline laboratory documentation with LOGI.">
     <meta name="twitter:image" content="https://sreehari-m-dev.github.io/LOGI/c-logo.png">
-    
+
     <!-- Structured Data for SEO -->
     <script type="application/ld+json">
     {
@@ -46,9 +50,10 @@
         }
     }
     </script>
-    
+
     <script src="load-balancer.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
@@ -60,7 +65,8 @@
         <div class="loader-content">
             <div class="loader-spinner"></div>
             <div class="loader-text">LOGI</div>
-            <div class="loader-subtext">Loading<span class="loader-dots"><span></span><span></span><span></span></span></div>
+            <div class="loader-subtext">Loading<span class="loader-dots"><span></span><span></span><span></span></span>
+            </div>
         </div>
     </div>
 
@@ -83,14 +89,14 @@
             </ul>
         </div>
     </nav>
-    
+
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <img src="c-logo.png"  id="hero-image" alt="College Background" srcset="">
+            <!-- <img src="c-logo.png"  id="hero-image" alt="College Background" srcset=""> -->
             <h1 style="color: white;">Welcome to Digital Lab Portal</h1>
             <p>Streamline your laboratory work with our comprehensive digital management system</p>
-            <a href="login-page.html" class="btn btn-primary">Access Lab Book</a>
+            <!-- <a href="login-page.html" class="btn btn-primary">Access Lab Book</a> -->
         </div>
     </section>
 
@@ -147,9 +153,7 @@
             <div class="footer-section">
                 <h3>Contact Us</h3>
                 <ul>
-                    <li>Email: info@college.edu</li>
-                    <li>Phone: (555) 123-4567</li>
-                    <li>Address: College Campus, City, State ZIP</li>
+                    <li>Email: projectlogii@gmail.com</li>
                 </ul>
             </div>
             <div class="footer-section">
@@ -170,18 +174,18 @@
     <script src="scripts.js"></script>
     <script>
         // Hide loading screen when page is ready
-        window.addEventListener('load', function() {
-            setTimeout(function() {
+        window.addEventListener('load', function () {
+            setTimeout(function () {
                 const loader = document.getElementById('pageLoader');
                 if (loader) loader.classList.add('hidden');
             }, 300); // Small delay for smoother transition
         });
-        
+
         // Show role-specific options based on user role
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const user = AuthManager.getUser();
             if (!user) return;
-            
+
             // Super-admin sees ALL cards
             if (user.role === 'super-admin') {
                 document.getElementById('teacherTemplatesCard').style.display = 'block';

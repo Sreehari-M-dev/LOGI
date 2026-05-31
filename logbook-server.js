@@ -294,7 +294,7 @@ const StudentLogbook = logbookConnection.model('StudentLogbook', studentLogbookS
 // Create Master Logbook (Teachers only)
 app.post('/api/logbook/master/create', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'faculty' && req.user.role !== 'admin') {
+        if (req.user.role !== 'faculty' && req.user.role !== 'hod' && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 error: 'Only teachers can create master logbooks'
@@ -557,7 +557,7 @@ app.get('/api/logbook/master/:masterId/student/:studentRgno', authenticateToken,
 // Update Master Logbook (syncs to all student instances)
 app.put('/api/logbook/master/:id', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'faculty' && req.user.role !== 'admin') {
+        if (req.user.role !== 'faculty' && req.user.role !== 'hod' && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 error: 'Only teachers can update master logbooks'
@@ -748,7 +748,7 @@ app.get('/api/logbook/teacher/templates', authenticateToken, async (req, res) =>
     try {
         console.log('GET /teacher/templates - User:', req.user);
         
-        if (req.user.role !== 'faculty' && req.user.role !== 'admin') {
+        if (req.user.role !== 'faculty' && req.user.role !== 'hod' && req.user.role !== 'admin') {
             console.log('403 - Role check failed. User role:', req.user.role);
             return res.status(403).json({
                 success: false,
@@ -773,7 +773,7 @@ app.get('/api/logbook/teacher/templates', authenticateToken, async (req, res) =>
 // Assign Students to Master Logbook
 app.post('/api/logbook/master/:id/assign-students', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'faculty' && req.user.role !== 'admin') {
+        if (req.user.role !== 'faculty' && req.user.role !== 'hod' && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 error: 'Only teachers can assign students'
@@ -910,7 +910,7 @@ app.get('/api/logbook/student/roll/:rollno', authenticateToken, async (req, res)
         const rollno = parseInt(req.params.rollno);
         
         let studentLogbooks;
-        if (req.user.role === 'faculty') {
+        if (req.user.role === 'faculty' || req.user.role === 'hod') {
             // Faculty can only see logbooks from their master templates
             const masterLogbooks = await MasterLogbook.find({ teacherRgno: req.user.rgno }).select('_id');
             const masterIds = masterLogbooks.map(m => m._id);
@@ -943,7 +943,7 @@ app.get('/api/logbook/student/register/:rgno', authenticateToken, async (req, re
         const rgno = parseInt(req.params.rgno);
         
         let studentLogbooks;
-        if (req.user.role === 'faculty') {
+        if (req.user.role === 'faculty' || req.user.role === 'hod') {
             // Faculty can only see logbooks from their master templates
             const masterLogbooks = await MasterLogbook.find({ teacherRgno: req.user.rgno }).select('_id');
             const masterIds = masterLogbooks.map(m => m._id);
@@ -1062,7 +1062,7 @@ app.get('/api/logbook/student/:id', authenticateToken, async (req, res) => {
 // Update Student Logbook Marks (Teachers only)
 app.put('/api/logbook/student/:id/marks', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'faculty' && req.user.role !== 'admin') {
+        if (req.user.role !== 'faculty' && req.user.role !== 'hod' && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 error: 'Only teachers can update marks'
@@ -1360,7 +1360,7 @@ app.get('/api/logbook/all', authenticateToken, async (req, res) => {
         let studentLogbooks = [];
         let oldLogBooks = [];
 
-        if (req.user.role === 'faculty') {
+        if (req.user.role === 'faculty' || req.user.role === 'hod') {
             // Faculty can only see logbooks from master templates they created
             const masterLogbooks = await MasterLogbook.find({ teacherRgno: req.user.rgno }).select('_id');
             const masterIds = masterLogbooks.map(m => m._id);
@@ -1433,7 +1433,7 @@ app.get('/api/logbook/roll/:rollno', authenticateToken, async (req, res) => {
         const rollno = parseInt(req.params.rollno);
         
         let logBooks;
-        if (req.user.role === 'faculty') {
+        if (req.user.role === 'faculty' || req.user.role === 'hod') {
             logBooks = await LogBook.find({ rollno: rollno, teacherRgno: req.user.rgno }).sort({ createdAt: -1 });
         } else {
             logBooks = await LogBook.find({ rollno: rollno }).sort({ createdAt: -1 });
@@ -1461,7 +1461,7 @@ app.get('/api/logbook/register/:rgno', authenticateToken, async (req, res) => {
 
         // Get all logbooks for this student (multiple subjects)
         let logBooks;
-        if (req.user.role === 'faculty') {
+        if (req.user.role === 'faculty' || req.user.role === 'hod') {
             logBooks = await LogBook.find({ rgno: rgno, teacherRgno: req.user.rgno }).sort({ createdAt: -1 });
         } else {
             logBooks = await LogBook.find({ rgno: rgno }).sort({ createdAt: -1 });
@@ -1477,7 +1477,7 @@ app.get('/api/logbook/register/:rgno', authenticateToken, async (req, res) => {
 // Delete by ID
 app.delete('/api/logbook/master/:id', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role !== 'faculty' && req.user.role !== 'admin') {
+        if (req.user.role !== 'faculty' && req.user.role !== 'hod' && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 error: 'Only teachers can delete master templates'

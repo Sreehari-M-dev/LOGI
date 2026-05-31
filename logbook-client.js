@@ -114,7 +114,7 @@ function setFormPermissions(role) {
             permissionIndicator.style.color = '#1565c0';
             permissionIndicator.innerHTML = '🔒 <strong>Student Mode:</strong> You can only verify entries and update dates. All other fields are read-only.';
         }
-    } else if (role === 'faculty' || role === 'admin') {
+    } else if (role === 'faculty' || role === 'hod' || role === 'admin') {
         // Enable all fields but make synced fields readOnly
         const allInputs = form.querySelectorAll('input, textarea, select');
         allInputs.forEach(input => {
@@ -266,19 +266,19 @@ async function fetchUserProfile() {
                 
                 // Show back to templates button for faculty
                 const backToTemplates = document.getElementById('backToTemplates');
-                if (backToTemplates && (user.role === 'faculty' || user.role === 'admin')) {
+                if (backToTemplates && (user.role === 'faculty' || user.role === 'hod' || user.role === 'admin')) {
                     backToTemplates.style.display = 'block';
                 }
                 
                 // Show submit button for faculty/admin to grade
                 const submitBtn = document.getElementById('submitBtn');
-                if (submitBtn && (user.role === 'faculty' || user.role === 'admin')) {
+                if (submitBtn && (user.role === 'faculty' || user.role === 'hod' || user.role === 'admin')) {
                     submitBtn.style.display = 'inline-block';
                 }
                 
                 // Load the specific logbook
                 loadLogBookById(logbookIdFromUrl, true); // Pass true to show student info
-            } else if (user.role === 'faculty' || user.role === 'admin') {
+            } else if (user.role === 'faculty' || user.role === 'hod' || user.role === 'admin') {
                 // Faculty/admin without specific logbook - hide everything, show message
                 if (teacherActions) teacherActions.style.display = 'none';
                 if (studentActions) studentActions.style.display = 'none';
@@ -455,7 +455,7 @@ async function loadLogBookById(logbookId, showStudentHeader = false) {
 // Create new logbook for student
 function createNewLogBook() {
     // Check if user is faculty or admin
-    if (!currentUser || (currentUser.role !== 'faculty' && currentUser.role !== 'admin')) {
+    if (!currentUser || (currentUser.role !== 'faculty' && currentUser.role !== 'hod' && currentUser.role !== 'admin')) {
         showNotification('❌ Only faculty can create logbooks. Contact your faculty to request a logbook.', 'error');
         return;
     }
