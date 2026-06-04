@@ -662,18 +662,22 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Department *</label>
-                        <input type="text" id="department" placeholder="e.g., Computer Science" required>
+                        <label>Department</label>
+                        <input type="text" id="department" readonly style="background: #e9ecef; cursor: not-allowed; color: #666;">
                     </div>
                     <div class="form-group">
-                        <label>Semester *</label>
-                        <input type="number" id="semester" placeholder="e.g., 4" min="1" max="8" required>
+                        <label>Semester</label>
+                        <input type="number" id="semester" readonly style="background: #e9ecef; cursor: not-allowed; color: #666;">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Batch *</label>
-                    <input type="text" id="batch" placeholder="e.g., 2023-2024" required>
+                    <label>Batch</label>
+                    <input type="text" id="batch" readonly style="background: #e9ecef; cursor: not-allowed; color: #666;">
+                    <p style="margin-top: 8px; font-size: 12px; color: #e67e22; display: flex; align-items: center; gap: 5px;">
+                        <i class="fas fa-info-circle"></i>
+                        Department, Semester, and Batch cannot be changed. To use different values, create a new master template.
+                    </p>
                 </div>
 
                 <!-- Experiments Section -->
@@ -1057,9 +1061,6 @@
             const payload = {
                 subject: document.getElementById('subject').value,
                 code: document.getElementById('code').value,
-                department: document.getElementById('department').value,
-                semester: parseInt(document.getElementById('semester').value),
-                batch: document.getElementById('batch').value,
                 experiments: experiments,
                 labExams: labExams
             };

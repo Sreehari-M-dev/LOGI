@@ -32,6 +32,12 @@ const apiLimiter = rateLimit({
     legacyHeaders: false
 });
 
+// Input sanitization helper (delegates to express-mongo-sanitize)
+function sanitizeInput(obj) {
+    if (obj === null || obj === undefined) return obj;
+    return mongoSanitize.sanitize(obj);
+}
+
 // Authentication middleware: delegate verification to Auth Service to enforce session idle timeout
 async function authenticateToken(req, res, next) {
     try {

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,7 +21,7 @@
             min-height: 100vh;
             padding-top: 80px;
         }
-        
+
         .page-content {
             padding: 20px;
         }
@@ -112,14 +113,27 @@
 
         .experiment-row {
             display: grid;
-            grid-template-columns: 80px 1fr 1fr 1fr auto;
+            grid-template-columns: 40px 1fr 120px auto;
             gap: 10px;
             margin-bottom: 10px;
             padding: 12px;
             background: white;
             border-radius: 6px;
             border: 1px solid #e0e0e0;
-            align-items: end;
+            align-items: center;
+        }
+
+        .exp-slno {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 13px;
         }
 
         .experiment-row input {
@@ -130,14 +144,19 @@
         }
 
         .btn-remove-exp {
-            padding: 6px 10px;
+            padding: 4px 8px;
             background: #ff4757;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
             transition: background 0.3s;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .btn-remove-exp:hover {
@@ -233,6 +252,7 @@
                 transform: translateY(-20px);
                 opacity: 0;
             }
+
             to {
                 transform: translateY(0);
                 opacity: 1;
@@ -243,17 +263,20 @@
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
+            border: 3px solid rgba(255, 255, 255, .3);
             border-radius: 50%;
             border-top-color: #fff;
             animation: spin 1s ease-in-out infinite;
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar">
         <div class="nav-container">
@@ -275,199 +298,232 @@
     </nav>
 
     <div class="page-content">
-    <div class="container">
-        <div class="header">
-            <h1>📚 Create Master Logbook</h1>
-            <p>Define the template for your lab course logbook</p>
+        <div class="container">
+            <div class="header">
+                <h1>📚 Create Master Logbook</h1>
+                <p>Define the template for your lab course logbook</p>
+            </div>
+
+            <div class="content">
+                <div id="notification" class="notification"></div>
+
+                <form id="masterLogbookForm">
+                    <!-- Basic Information Section -->
+                    <div class="form-section">
+                        <div class="section-title">📋 Course Information</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="subject">Subject Name *</label>
+                                <input type="text" id="subject" name="subject" required
+                                    placeholder="e.g., Data Structures Lab">
+                            </div>
+                            <div class="form-group">
+                                <label for="code">Course Code *</label>
+                                <input type="text" id="code" name="code" required placeholder="e.g., CS205">
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="department">Department *</label>
+                                <input type="text" id="department" name="department" required readonly
+                                    style="background: #e9ecef; cursor: not-allowed;"
+                                    placeholder="Loading your department...">
+                            </div>
+                            <div class="form-group">
+                                <label for="semester">Semester *</label>
+                                <select id="semester" name="semester" required>
+                                    <option value="">Select Semester</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label for="batch">Batch *</label>
+                                <input type="text" id="batch" name="batch" required
+                                    placeholder="e.g., CSE-A (60 students)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Experiments Section -->
+                    <div class="form-section">
+                        <div class="section-title">🧪 Experiments</div>
+                        <div id="experimentsContainer" class="experiments-container">
+                        </div>
+                        <button type="button" class="btn-add-exp" onclick="addExperiment()">+ Add Experiment</button>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="button-group">
+                        <button type="reset" class="btn btn-secondary">Clear Form</button>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">Create Master Logbook</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <div class="content">
-            <div id="notification" class="notification"></div>
+        <script>
+            // Use the global API URL configured at page load (without /api/logbook suffix)
+            const API_URL = (window.REACT_APP_LOGBOOK_API || 'http://localhost:3005/api/logbook').replace('/api/logbook', '');
 
-            <form id="masterLogbookForm">
-                <!-- Basic Information Section -->
-                <div class="form-section">
-                    <div class="section-title">📋 Course Information</div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="subject">Subject Name *</label>
-                            <input type="text" id="subject" name="subject" required placeholder="e.g., Data Structures Lab">
-                        </div>
-                        <div class="form-group">
-                            <label for="code">Course Code *</label>
-                            <input type="text" id="code" name="code" required placeholder="e.g., CS205">
-                        </div>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="department">Department *</label>
-                            <input type="text" id="department" name="department" required placeholder="e.g., Computer Science">
-                        </div>
-                        <div class="form-group">
-                            <label for="semester">Semester *</label>
-                            <select id="semester" name="semester" required>
-                                <option value="">Select Semester</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-grid full">
-                        <div class="form-group">
-                            <label for="batch">Batch *</label>
-                            <input type="text" id="batch" name="batch" required placeholder="e.g., CSE-A (60 students)">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Experiments Section -->
-                <div class="form-section">
-                    <div class="section-title">🧪 Experiments</div>
-                    <div id="experimentsContainer" class="experiments-container">
-                    </div>
-                    <button type="button" class="btn-add-exp" onclick="addExperiment()">+ Add Experiment</button>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="button-group">
-                    <button type="reset" class="btn btn-secondary">Clear Form</button>
-                    <button type="submit" class="btn btn-primary" id="submitBtn">Create Master Logbook</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // Use the global API URL configured at page load (without /api/logbook suffix)
-        const API_URL = (window.REACT_APP_LOGBOOK_API || 'http://localhost:3005/api/logbook').replace('/api/logbook', '');
-        let experimentCount = 0;
-
-        function getAuthHeaders() {
-            const token = localStorage.getItem('token');
-            return {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            };
-        }
-
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type} show`;
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 4000);
-        }
-
-        function addExperiment() {
-            const container = document.getElementById('experimentsContainer');
-            const expIndex = experimentCount++;
-            
-            const row = document.createElement('div');
-            row.className = 'experiment-row';
-            row.innerHTML = `
-                <input type="number" name="exp_slno_${expIndex}" placeholder="Sl.No" min="1" style="width: 60px;">
-                <input type="text" name="exp_name_${expIndex}" placeholder="Experiment Name" required>
-                <input type="text" name="exp_co_${expIndex}" placeholder="CO (e.g., CO1)" required>
-                <input type="number" name="exp_marks_${expIndex}" placeholder="Max Marks" min="0" max="100">
-                <button type="button" class="btn-remove-exp" onclick="removeExperiment(this)">Remove</button>
-            `;
-            
-            container.appendChild(row);
-        }
-
-        function removeExperiment(btn) {
-            btn.parentElement.remove();
-        }
-
-        async function handleSubmit(e) {
-            e.preventDefault();
-
-            const form = document.getElementById('masterLogbookForm');
-            const submitBtn = document.getElementById('submitBtn');
-
-            const basicInfo = {
-                subject: document.getElementById('subject').value,
-                code: document.getElementById('code').value,
-                department: document.getElementById('department').value,
-                semester: parseInt(document.getElementById('semester').value),
-                batch: document.getElementById('batch').value
-            };
-
-            const experiments = [];
-            const expRows = document.querySelectorAll('[name^="exp_slno_"]');
-            expRows.forEach((slnoInput, idx) => {
-                const name = document.querySelector(`[name="exp_name_${idx}"]`)?.value;
-                const co = document.querySelector(`[name="exp_co_${idx}"]`)?.value;
-                const marks = parseInt(document.querySelector(`[name="exp_marks_${idx}"]`)?.value) || 0;
-                
-                if (name && co) {
-                    experiments.push({
-                        slNo: parseInt(slnoInput.value) || idx + 1,
-                        experimentName: name,
-                        co: co,
-                        maxMarks: marks
-                    });
-                }
-            });
-
-            if (experiments.length === 0) {
-                showNotification('Please add at least one experiment', 'error');
-                return;
+            function getAuthHeaders() {
+                const token = localStorage.getItem('token');
+                return {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                };
             }
 
-            const payload = {
-                ...basicInfo,
-                experiments: experiments,
-                openEndedProject: {},
-                labExams: []
-            };
+            function showNotification(message, type = 'success') {
+                const notification = document.getElementById('notification');
+                notification.textContent = message;
+                notification.className = `notification ${type} show`;
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 4000);
+            }
 
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading"></span> Creating...';
+            function addExperiment() {
+                const container = document.getElementById('experimentsContainer');
+                const slNo = container.children.length + 1;
 
-            try {
-                const response = await fetch(`${API_URL}/api/logbook/master/create`, {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(payload)
+                const row = document.createElement('div');
+                row.className = 'experiment-row';
+                row.innerHTML = `
+                <span class="exp-slno">${slNo}</span>
+                <input type="text" name="exp_name" placeholder="Experiment Name" required>
+                <input type="text" name="exp_co" placeholder="CO (e.g., CO1)" required>
+                <button type="button" class="btn-remove-exp" onclick="removeExperiment(this)" title="Remove">✕</button>
+            `;
+
+                container.appendChild(row);
+            }
+
+            function removeExperiment(btn) {
+                btn.parentElement.remove();
+                renumberExperiments();
+            }
+
+            function renumberExperiments() {
+                const rows = document.querySelectorAll('#experimentsContainer .experiment-row');
+                rows.forEach((row, idx) => {
+                    row.querySelector('.exp-slno').textContent = idx + 1;
+                });
+            }
+
+            async function handleSubmit(e) {
+                e.preventDefault();
+
+                const form = document.getElementById('masterLogbookForm');
+                const submitBtn = document.getElementById('submitBtn');
+
+                const basicInfo = {
+                    subject: document.getElementById('subject').value,
+                    code: document.getElementById('code').value,
+                    department: document.getElementById('department').value,
+                    semester: parseInt(document.getElementById('semester').value),
+                    batch: document.getElementById('batch').value
+                };
+
+                const experiments = [];
+                const expRows = document.querySelectorAll('#experimentsContainer .experiment-row');
+                expRows.forEach((row, idx) => {
+                    const name = row.querySelector('[name="exp_name"]')?.value;
+                    const co = row.querySelector('[name="exp_co"]')?.value;
+
+                    if (name && co) {
+                        experiments.push({
+                            slNo: idx + 1,
+                            experimentName: name,
+                            co: co
+                        });
+                    }
                 });
 
-                const data = await response.json();
-
-                if (data.success) {
-                    showNotification('✓ Master logbook created successfully!', 'success');
-                    setTimeout(() => {
-                        window.location.href = `assign-students.html?masterId=${data.masterId}`;
-                    }, 1500);
-                } else {
-                    showNotification(`Error: ${data.error || 'Failed to create'}`, 'error');
+                if (experiments.length === 0) {
+                    showNotification('Please add at least one experiment', 'error');
+                    return;
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                showNotification(`Error: ${error.message}`, 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Create Master Logbook';
+
+                const payload = {
+                    ...basicInfo,
+                    experiments: experiments,
+                    openEndedProject: {},
+                    labExams: []
+                };
+
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="loading"></span> Creating...';
+
+                try {
+                    const response = await fetch(`${API_URL}/api/logbook/master/create`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        showNotification('✓ Master logbook created successfully!', 'success');
+                        setTimeout(() => {
+                            window.location.href = `assign-students.html?masterId=${data.masterId}`;
+                        }, 1500);
+                    } else {
+                        showNotification(`Error: ${data.error || 'Failed to create'}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification(`Error: ${error.message}`, 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Create Master Logbook';
+                }
             }
-        }
 
-        document.getElementById('masterLogbookForm').addEventListener('submit', handleSubmit);
+            document.getElementById('masterLogbookForm').addEventListener('submit', handleSubmit);
 
-        window.addEventListener('load', () => {
-            addExperiment();
-        });
-    </script>
+            window.addEventListener('load', async () => {
+                addExperiment();
+
+                // Auto-fill department from user profile
+                try {
+                    const user = JSON.parse(localStorage.getItem('user'));
+                    if (user && user.department) {
+                        document.getElementById('department').value = user.department;
+                    } else {
+                        // Fallback: fetch from profile API
+                        const response = await fetch(`${API_URL}/api/auth/profile`, {
+                            headers: getAuthHeaders()
+                        });
+                        const data = await response.json();
+                        if (data.success && data.user && data.user.department) {
+                            document.getElementById('department').value = data.user.department;
+                        } else {
+                            document.getElementById('department').placeholder = 'Department not set in your profile';
+                            showNotification('Your profile does not have a department set. Please update your profile first.', 'error');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to load department:', err);
+                    document.getElementById('department').placeholder = 'Failed to load department';
+                    showNotification('Could not load your department. Please refresh the page.', 'error');
+                }
+            });
+        </script>
     </div> <!-- Close page-content -->
-     <script src="auth.js"></script>
+    <script src="auth.js"></script>
     <script src="scripts.js"></script>
 </body>
+
 </html>
